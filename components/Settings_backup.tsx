@@ -186,52 +186,41 @@ export default function Settings() {
 
   return (
     <div className="space-y-6">
-      {/* Header créatif */}
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 text-white shadow-xl">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(99,102,241,0.15),transparent_50%),radial-gradient(circle_at_70%_80%,rgba(168,85,247,0.1),transparent_50%)]" />
-        <div className="relative flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/25">
-              <Settings2 className="w-7 h-7" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Paramètres</h1>
-              <p className="text-slate-400 mt-1">Configurez votre agent LinkedIn et vos préférences</p>
-            </div>
-          </div>
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Button 
-              onClick={handleSave}
-              className={`px-6 py-2.5 rounded-xl font-semibold shadow-lg transition-all ${saved ? "bg-gradient-to-r from-emerald-500 to-green-500" : "bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"}`}
-            >
-              {saved ? (
-                <><Check className="w-4 h-4 mr-2" /> Enregistré</>
-              ) : (
-                <><Save className="w-4 h-4 mr-2" /> Enregistrer</>
-              )}
-            </Button>
-          </motion.div>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Paramètres</h1>
+          <p className="text-gray-600 mt-1">Configurez votre agent LinkedIn et vos préférences</p>
         </div>
-      </motion.div>
+        <Button 
+          onClick={handleSave}
+          className={`transition-all ${saved ? "bg-green-600" : "bg-blue-600"}`}
+        >
+          {saved ? (
+            <><Check className="w-4 h-4 mr-2" /> Enregistré</>
+          ) : (
+            <><Save className="w-4 h-4 mr-2" /> Enregistrer</>
+          )}
+        </Button>
+      </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-6 lg:grid-cols-9 gap-2 bg-gray-100/50 p-2 rounded-2xl border border-gray-200/50">
-          <TabsTrigger value="account" className="text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"><User className="w-4 h-4 mr-2" />Compte</TabsTrigger>
-          <TabsTrigger value="prospection" className="text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"><Target className="w-4 h-4 mr-2" />Prospection</TabsTrigger>
-          <TabsTrigger value="automation" className="text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-amber-500 data-[state=active]:to-amber-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"><Zap className="w-4 h-4 mr-2" />Automatisation</TabsTrigger>
-          <TabsTrigger value="ai" className="text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-pink-500 data-[state=active]:to-rose-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"><Bot className="w-4 h-4 mr-2" />IA</TabsTrigger>
-          <TabsTrigger value="notifications" className="text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-cyan-500 data-[state=active]:to-cyan-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"><Bell className="w-4 h-4 mr-2" />Notifications</TabsTrigger>
-          <TabsTrigger value="integrations" className="text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-indigo-500 data-[state=active]:to-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"><Webhook className="w-4 h-4 mr-2" />Intégrations</TabsTrigger>
-          <TabsTrigger value="security" className="text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-emerald-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"><Shield className="w-4 h-4 mr-2" />Sécurité</TabsTrigger>
-          <TabsTrigger value="appearance" className="text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-violet-500 data-[state=active]:to-violet-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"><Palette className="w-4 h-4 mr-2" />Affichage</TabsTrigger>
-          <TabsTrigger value="billing" className="text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-orange-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all"><CreditCard className="w-4 h-4 mr-2" />Facturation</TabsTrigger>
+        <TabsList className="grid grid-cols-6 lg:grid-cols-9 gap-2 bg-gray-100 p-2 rounded-xl">
+          <TabsTrigger value="account" className="text-sm"><User className="w-4 h-4 mr-2" />Compte</TabsTrigger>
+          <TabsTrigger value="prospection" className="text-sm"><Target className="w-4 h-4 mr-2" />Prospection</TabsTrigger>
+          <TabsTrigger value="automation" className="text-sm"><Zap className="w-4 h-4 mr-2" />Automatisation</TabsTrigger>
+          <TabsTrigger value="ai" className="text-sm"><Bot className="w-4 h-4 mr-2" />IA</TabsTrigger>
+          <TabsTrigger value="notifications" className="text-sm"><Bell className="w-4 h-4 mr-2" />Notifications</TabsTrigger>
+          <TabsTrigger value="integrations" className="text-sm"><Webhook className="w-4 h-4 mr-2" />Intégrations</TabsTrigger>
+          <TabsTrigger value="security" className="text-sm"><Shield className="w-4 h-4 mr-2" />Sécurité</TabsTrigger>
+          <TabsTrigger value="appearance" className="text-sm"><Palette className="w-4 h-4 mr-2" />Affichage</TabsTrigger>
+          <TabsTrigger value="billing" className="text-sm"><CreditCard className="w-4 h-4 mr-2" />Facturation</TabsTrigger>
         </TabsList>
 
         {/* ACCOUNT TAB */}
         <TabsContent value="account" className="space-y-6">
           {/* LinkedIn Connection */}
-          <Card className="overflow-hidden border-0 shadow-lg">
-            <div className="h-1 bg-gradient-to-r from-blue-500 to-blue-600" />
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Linkedin className="w-5 h-5 text-blue-600" />
@@ -241,38 +230,38 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-4">
               {account.linkedInConnected ? (
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
+                <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl border border-green-200">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-green-500/30">
-                      <CheckCircle className="w-6 h-6 text-white" />
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                      <CheckCircle className="w-5 h-5 text-green-600" />
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900">Compte connecté</p>
+                      <p className="font-medium text-gray-900">Compte connecté</p>
                       <p className="text-sm text-gray-500">{account.linkedInEmail}</p>
                       <p className="text-xs text-gray-400">Dernière sync: {account.lastSync}</p>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="rounded-lg">
+                    <Button variant="outline" size="sm">
                       <RefreshCw className="w-4 h-4 mr-2" /> Re-sync
                     </Button>
-                    <Button variant="destructive" size="sm" className="rounded-lg">
+                    <Button variant="destructive" size="sm">
                       <LogOut className="w-4 h-4 mr-2" /> Déconnecter
                     </Button>
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl border border-yellow-200">
+                <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-xl border border-yellow-200">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/30">
-                      <AlertCircle className="w-6 h-6 text-white" />
+                    <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                      <AlertCircle className="w-5 h-5 text-yellow-600" />
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900">Aucun compte connecté</p>
-                      <p className="text-sm text-gray-500">Connectez votre LinkedIn pour activer l&apos;agent</p>
+                      <p className="font-medium text-gray-900">Aucun compte connecté</p>
+                      <p className="text-sm text-gray-500">Connectez votre LinkedIn pour activer l'agent</p>
                     </div>
                   </div>
-                  <Button className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-xl shadow-lg shadow-blue-500/30">
+                  <Button className="bg-blue-600 hover:bg-blue-700">
                     <Linkedin className="w-4 h-4 mr-2" /> Connecter LinkedIn
                   </Button>
                 </div>
