@@ -1,60 +1,140 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { Badge } from "./ui/badge";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, Cell } from "recharts";
+import { TrendingUp, Users, MousePointer, CheckCircle, ArrowUpRight } from "lucide-react";
+
+const growthData = [
+  { day: "Day 1", qualified: 5, sent: 10, target: 15 },
+  { day: "Day 5", qualified: 35, sent: 50, target: 55 },
+  { day: "Day 10", qualified: 75, sent: 100, target: 110 },
+  { day: "Day 15", qualified: 110, sent: 140, target: 150 },
+  { day: "Day 20", qualified: 145, sent: 180, target: 190 },
+  { day: "Day 25", qualified: 165, sent: 195, target: 210 },
+  { day: "Day 30", qualified: 178, sent: 200, target: 230 },
+];
+
+const funnelData = [
+  { stage: "Identified", count: 250, color: "#94a3b8" },
+  { stage: "Contacted", count: 180, color: "#60a5fa" },
+  { stage: "Replied", count: 95, color: "#818cf8" },
+  { stage: "Clicked", count: 42, color: "#34d399" },
+  { stage: "Converted", count: 12, color: "#10b981" },
+];
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-3">
+        <p className="font-semibold text-gray-900 mb-2">{label}</p>
+        {payload.map((entry: any, idx: number) => (
+          <div key={idx} className="flex items-center gap-2 text-sm">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+            <span className="text-gray-600">{entry.name}:</span>
+            <span className="font-semibold text-gray-900">{entry.value}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
 
 export default function PerformanceCharts() {
-  const growthData = [
-    { day: "Day 1", qualified: 5, sent: 10 },
-    { day: "Day 5", qualified: 35, sent: 50 },
-    { day: "Day 10", qualified: 75, sent: 100 },
-    { day: "Day 15", qualified: 110, sent: 140 },
-    { day: "Day 20", qualified: 145, sent: 180 },
-    { day: "Day 25", qualified: 165, sent: 195 },
-    { day: "Day 30", qualified: 178, sent: 200 },
-  ];
-
-  const funnelData = [
-    { stage: "Identified", count: 250 },
-    { stage: "Connected", count: 180 },
-    { stage: "Replied", count: 95 },
-    { stage: "Clicked", count: 42 },
-    { stage: "Converted", count: 12 },
-  ];
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Croissance sur 30 jours</CardTitle>
+      {/* Growth Chart */}
+      <Card className="border-0 shadow-lg overflow-hidden">
+        <CardHeader className="pb-2 bg-gradient-to-r from-gray-50 to-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Croissance sur 30 jours</CardTitle>
+                <p className="text-xs text-gray-500">Leads qualifiés vs invitations envoyées</p>
+              </div>
+            </div>
+            <Badge className="bg-green-100 text-green-700 border-0">
+              <ArrowUpRight className="w-3 h-3 mr-1" />
+              +24%
+            </Badge>
+          </div>
         </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={growthData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="day" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="qualified" stroke="#10b981" strokeWidth={2} name="Leads Qualifiés" />
-              <Line type="monotone" dataKey="sent" stroke="#6366f1" strokeWidth={2} name="Invitations Envoyées" />
-            </LineChart>
+        <CardContent className="p-6">
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={growthData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorQualified" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="colorSent" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+              <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend wrapperStyle={{ paddingTop: '20px' }} />
+              <Area type="monotone" dataKey="qualified" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorQualified)" name="Leads Qualifiés" />
+              <Area type="monotone" dataKey="sent" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorSent)" name="Invitations Envoyées" />
+            </AreaChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Funnel de Conversion</CardTitle>
+      {/* Funnel Chart */}
+      <Card className="border-0 shadow-lg overflow-hidden">
+        <CardHeader className="pb-2 bg-gradient-to-r from-gray-50 to-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                <Users className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Funnel de Conversion</CardTitle>
+                <p className="text-xs text-gray-500">Parcours prospect → client</p>
+              </div>
+            </div>
+            <Badge className="bg-blue-100 text-blue-700 border-0">
+              <CheckCircle className="w-3 h-3 mr-1" />
+              4.8% global
+            </Badge>
+          </div>
         </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={funnelData} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" />
-              <YAxis dataKey="stage" type="category" width={100} />
-              <Tooltip />
-              <Bar dataKey="count" fill="#3b82f6" name="Prospects" />
+        <CardContent className="p-6">
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={funnelData} layout="vertical" margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={true} vertical={false} />
+              <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+              <YAxis dataKey="stage" type="category" width={80} axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 12, fontWeight: 500 }} />
+              <Tooltip 
+                cursor={{ fill: '#f1f5f9' }}
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload[0].payload;
+                    const percentage = data.stage === "Identified" ? 100 : Math.round((data.count / 250) * 100);
+                    return (
+                      <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-3">
+                        <p className="font-semibold text-gray-900">{data.stage}</p>
+                        <p className="text-2xl font-bold text-gray-900">{data.count}</p>
+                        <p className="text-xs text-gray-500">{percentage}% du total</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Bar dataKey="count" radius={[0, 8, 8, 0]} barSize={32}>
+                {funnelData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </CardContent>

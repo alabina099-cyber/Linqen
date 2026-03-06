@@ -1,7 +1,8 @@
 "use client";
 
-import { Bell, Search, User } from "lucide-react";
+import { Search, User } from "lucide-react";
 import { Button } from "./ui/button";
+import NotificationPanel from "./NotificationPanel";
 
 export default function Header() {
   return (
@@ -19,18 +20,15 @@ export default function Header() {
         </div>
         
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-          </Button>
+          <NotificationPanel />
           
           <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
             <div className="text-right">
-              <p className="text-sm font-medium text-gray-900">John Doe</p>
-              <p className="text-xs text-gray-500">admin@stackreach.com</p>
+              <p className="text-sm font-medium text-gray-900">Dorra Boucharbia</p>
+              <p className="text-xs text-gray-500">dorraboucharbia@gmail.com</p>
             </div>
-            <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-              <User className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+              DB
             </div>
           </div>
         </div>
