@@ -371,7 +371,7 @@ export default function Campaigns() {
                                 </div>
                               </div>
                             </div>
-                            <div className="grid grid-cols-4 gap-2 mb-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
                               {[
                                 { label: "Contactés", value: campaign.contacted, color: "text-blue-600", bg: "bg-blue-50" },
                                 { label: "Réponses", value: `${campaign.replied} (${rate(campaign.replied, campaign.contacted)})`, color: "text-purple-600", bg: "bg-purple-50" },

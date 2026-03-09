@@ -259,9 +259,9 @@ export default function Messages() {
       </div>
 
       {tab === "inbox" && (
-        <div className="flex gap-4 h-[600px]">
+        <div className="flex flex-col lg:flex-row gap-4 h-auto lg:h-[600px]">
           {/* Conversation list - Redesigned */}
-          <Card className="w-96 flex flex-col border-0 shadow-lg overflow-hidden">
+          <Card className="w-full lg:w-96 flex flex-col border-0 shadow-lg overflow-hidden">
             <CardHeader className="pb-4 border-b bg-gradient-to-r from-gray-50 to-white">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -273,14 +273,14 @@ export default function Messages() {
                 />
               </div>
             </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto p-0 bg-gray-50/50">
+            <CardContent className="flex-1 overflow-y-auto p-0 bg-gray-50/50 max-h-[300px] lg:max-h-none">
               {filtered.map((conv, idx) => (
                 <div
                   key={conv.id}
                   onClick={() => setActiveConv(conv.id)}
                   className={`group flex items-start gap-3 p-4 cursor-pointer transition-all duration-300 border-b border-gray-100 ${
-                    activeConv === conv.id 
-                      ? "bg-white border-l-4 border-l-blue-600 shadow-sm" 
+                    activeConv === conv.id
+                      ? "bg-white border-l-4 border-l-blue-600 shadow-sm"
                       : "hover:bg-white hover:shadow-sm"
                   }`}
                 >
