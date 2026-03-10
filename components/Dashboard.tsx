@@ -14,6 +14,7 @@ import Campaigns from "./Campaigns";
 import Settings from "./Settings";
 import AgentChat from "./AgentChat";
 import ApprovalQueue from "./ApprovalQueue";
+import LinkedInAccount from "./LinkedInAccount";
 
 function DashboardHeader() {
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -80,6 +81,23 @@ function DashboardHeader() {
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
 
+  useEffect(() => {
+    const hash = window.location.hash.replace("#", "");
+    const validTabs = ["dashboard", "prospects", "campaigns", "messages", "approval", "linkedin-account", "agent", "settings"];
+    if (hash && validTabs.includes(hash)) {
+      setActiveTab(hash);
+    }
+
+    const onHashChange = () => {
+      const newHash = window.location.hash.replace("#", "");
+      if (newHash && validTabs.includes(newHash)) {
+        setActiveTab(newHash);
+      }
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -129,6 +147,12 @@ export default function Dashboard() {
           {activeTab === "approval" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <ApprovalQueue />
+            </motion.div>
+          )}
+
+          {activeTab === "linkedin-account" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <LinkedInAccount />
             </motion.div>
           )}
 
