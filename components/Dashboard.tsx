@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, TrendingUp, Zap, Calendar } from "lucide-react";
+import { Sparkles, TrendingUp, Zap, Calendar, LayoutDashboard } from "lucide-react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import StatsCards from "./StatsCards";
@@ -12,10 +12,29 @@ import RecentActivity from "./RecentActivity";
 import Messages from "./Messages";
 import Campaigns from "./Campaigns";
 import Settings from "./Settings";
+import AgentChat from "./AgentChat";
+import ApprovalQueue from "./ApprovalQueue";
 
 function DashboardHeader() {
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const greeting = new Date().getHours() < 12 ? "Bonjour" : new Date().getHours() < 18 ? "Bon après-midi" : "Bonsoir";
+  const [growthPercent, setGrowthPercent] = useState(0);
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+        if (data.success && data.stats.growthPercent) {
+          setGrowthPercent(data.stats.growthPercent);
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+      }
+    }
+
+    fetchStats();
+  }, []);
 
   return (
     <motion.div
@@ -26,31 +45,31 @@ function DashboardHeader() {
     >
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs lg:text-sm text-gray-500 flex items-center gap-1">
-              <Calendar className="w-3 h-3 lg:w-4 lg:h-4" />
-              <span className="hidden sm:inline">{today}</span>
-              <span className="sm:hidden">{new Date().toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
-            </span>
-          </div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">
-            {greeting}, Dorra!
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 flex items-center gap-2">
+            <LayoutDashboard className="w-8 h-8 text-blue-600" />
+            Dashboard
           </h1>
-          <p className="text-sm lg:text-base text-gray-600 mt-2 flex items-center gap-2">
-            <Zap className="w-4 h-4 text-yellow-500" />
+          <p className="text-sm lg:text-base text-gray-600 mt-2">
             <span className="hidden sm:inline">Voici votre performance de prospection LinkedIn aujourd'hui</span>
             <span className="sm:hidden">Performance LinkedIn aujourd'hui</span>
           </p>
         </div>
 
-        <div className="flex items-center gap-2 lg:gap-3 flex-wrap">
-          <div className="flex items-center gap-2 px-3 py-1.5 lg:px-4 lg:py-2 bg-green-50 rounded-xl border border-green-200">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-xs lg:text-sm font-medium text-green-700">Système actif</span>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 lg:px-4 lg:py-2 bg-blue-50 rounded-xl border border-blue-200">
-            <TrendingUp className="w-3 h-3 lg:w-4 lg:h-4 text-blue-600" />
-            <span className="text-xs lg:text-sm font-medium text-blue-700">+18% ce mois</span>
+        <div className="flex flex-col items-end gap-3">
+          {/* Date aligned with Système actif */}
+          <div className="flex items-center gap-2 lg:gap-3 flex-wrap">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-200">
+              <Calendar className="w-4 h-4 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700">{today}</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 lg:px-4 lg:py-2 bg-green-50 rounded-xl border border-green-200">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <span className="text-xs lg:text-sm font-medium text-green-700">Système actif</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 lg:px-4 lg:py-2 bg-blue-50 rounded-xl border border-blue-200">
+              <TrendingUp className="w-3 h-3 lg:w-4 lg:h-4 text-blue-600" />
+              <span className="text-xs lg:text-sm font-medium text-blue-700">+{growthPercent}% ce mois</span>
+            </div>
           </div>
         </div>
       </div>
@@ -104,6 +123,18 @@ export default function Dashboard() {
           {activeTab === "settings" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <Settings />
+            </motion.div>
+          )}
+
+          {activeTab === "approval" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <ApprovalQueue />
+            </motion.div>
+          )}
+
+          {activeTab === "agent" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto">
+              <AgentChat />
             </motion.div>
           )}
         </main>

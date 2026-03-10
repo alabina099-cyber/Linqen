@@ -7,129 +7,43 @@ import { Button } from "./ui/button";
 import {
   Search, Send, Plus, Copy, Edit2, Trash2, CheckCircle, Clock, 
   MessageSquare, Sparkles, Zap, TrendingUp, MoreVertical, Phone, 
-  Video, Info, CheckCheck, ArrowLeft
+  Video, Info, CheckCheck, ArrowLeft, Bell, FileText, Layout
 } from "lucide-react";
 
-const conversations = [
-  {
-    id: 1,
-    name: "Emma L.",
-    role: "Founder @ StartupX",
-    lastMessage: "Oui ça m'intéresse, on peut en discuter ?",
-    time: "5 min",
-    status: "replied",
-    unread: true,
-    avatar: "EL",
-    online: true,
-    responseRate: 95,
-  },
-  {
-    id: 2,
-    name: "David K.",
-    role: "CEO @ CloudScale",
-    lastMessage: "J'ai regardé votre site, très intéressant !",
-    time: "23 min",
-    status: "clicked",
-    unread: true,
-    avatar: "DK",
-    online: false,
-    responseRate: 88,
-  },
-  {
-    id: 3,
-    name: "Sarah M.",
-    role: "CEO @ DataCorp",
-    lastMessage: "Merci pour votre message, je reviendrai vers vous.",
-    time: "1h",
-    status: "replied",
-    unread: false,
-    avatar: "SM",
-    online: true,
-    responseRate: 72,
-  },
-  {
-    id: 4,
-    name: "Ben F.",
-    role: "Marketing Dir. @ GrowthLab",
-    lastMessage: "Message envoyé : Bonjour Ben, j'ai vu votre profil...",
-    time: "3h",
-    status: "sent",
-    unread: false,
-    avatar: "BF",
-    online: false,
-    responseRate: 45,
-  },
-  {
-    id: 5,
-    name: "Clara S.",
-    role: "Sales VP @ Innovate AI",
-    lastMessage: "Message envoyé : Bonjour Clara, suite à nos échanges...",
-    time: "5h",
-    status: "sent",
-    unread: false,
-    avatar: "CS",
-    online: true,
-    responseRate: 91,
-  },
-];
+interface Message {
+  id: number;
+  prospect_id?: number;
+  campaign_id?: number;
+  recipient_name: string;
+  recipient_role: string;
+  recipient_company: string;
+  message_text: string;
+  message_type: string;
+  status: string;
+  created_at: string;
+}
 
-const messageThreads: Record<number, { from: "me" | "them"; text: string; time: string; read?: boolean }[]> = {
-  1: [
-    { from: "me", text: "Bonjour Emma, j'ai vu votre profil et votre travail chez StartupX m'a vraiment impressionné. Je développe un outil qui pourrait vous aider à scaler votre prospection LinkedIn. Seriez-vous disponible pour un échange rapide ?", time: "Hier 14:30" },
-    { from: "them", text: "Bonjour ! Merci pour votre message. De quoi s'agit-il exactement ?", time: "Hier 16:45" },
-    { from: "me", text: "En résumé, c'est un agent IA qui automatise votre prospection LinkedIn : identification de prospects, messages personnalisés, et suivi automatique. Je vous envoie un lien pour en savoir plus.", time: "Hier 17:00" },
-    { from: "them", text: "Oui ça m'intéresse, on peut en discuter ?", time: "Il y a 5 min" },
-  ],
-  2: [
-    { from: "me", text: "Bonjour David, votre parcours chez CloudScale est impressionnant. Je travaille sur un outil IA pour LinkedIn qui pourrait vous aider. Curieux d'en savoir plus ?", time: "Hier 10:00" },
-    { from: "them", text: "J'ai regardé votre site, très intéressant !", time: "Il y a 23 min" },
-  ],
-  3: [
-    { from: "me", text: "Bonjour Sarah, j'ai remarqué que DataCorp est en forte croissance. Notre agent LinkedIn pourrait accélérer votre acquisition. Intéressée ?", time: "Il y a 2j" },
-    { from: "them", text: "Merci pour votre message, je reviendrai vers vous.", time: "Il y a 1h" },
-  ],
-  4: [
-    { from: "me", text: "Bonjour Ben, j'ai vu votre profil et je pense que notre solution pourrait compléter votre stack marketing. Je vous propose un call de 15 min ?", time: "Il y a 3h" },
-  ],
-  5: [
-    { from: "me", text: "Bonjour Clara, suite à nos échanges précédents, je voulais vous partager les résultats de nos clients en B2B SaaS. Toujours intéressée ?", time: "Il y a 5h" },
-  ],
-};
+interface Conversation {
+  id: number;
+  name: string;
+  role: string;
+  company: string;
+  lastMessage: string;
+  time: string;
+  status: string;
+  unread: boolean;
+  avatar: string;
+  online: boolean;
+}
 
-const templates = [
-  {
-    id: 1,
-    name: "Premier contact",
-    tag: "Invitation",
-    text: "Bonjour {{prénom}}, j'ai remarqué votre profil et votre travail chez {{entreprise}} m'a vraiment impressionné. Je développe {{pitch_court}}. Seriez-vous disponible pour un échange rapide ?",
-    usageCount: 142,
-    conversionRate: 24,
-  },
-  {
-    id: 2,
-    name: "Message de suivi",
-    tag: "Follow-up",
-    text: "Bonjour {{prénom}}, je voulais faire suite à mon invitation. Je travaille sur {{solution}} et je pense que ça pourrait vraiment vous aider à {{bénéfice}}. 15 minutes cette semaine ?",
-    usageCount: 89,
-    conversionRate: 18,
-  },
-  {
-    id: 3,
-    name: "Partage de lien",
-    tag: "Nurturing",
-    text: "Bonjour {{prénom}}, suite à notre échange, je vous partage ce lien qui explique comment {{entreprise}} similaires ont obtenu {{résultat}}. Curieux d'avoir votre avis !",
-    usageCount: 56,
-    conversionRate: 31,
-  },
-  {
-    id: 4,
-    name: "Relance finale",
-    tag: "Relance",
-    text: "Bonjour {{prénom}}, je ne voudrais pas vous déranger davantage. Juste pour vous laisser ce lien au cas où : {{lien}}. N'hésitez pas si le timing change !",
-    usageCount: 34,
-    conversionRate: 12,
-  },
-];
+interface Template {
+  id: number;
+  name: string;
+  tag: string;
+  text: string;
+  usage_count: number;
+  conversion_rate: number;
+}
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode; bg: string }> = {
   replied: { 
@@ -150,6 +64,30 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
     icon: <Clock className="w-3 h-3" />,
     bg: "bg-gray-100 border-gray-200"
   },
+  pending: { 
+    label: "En attente", 
+    color: "text-amber-700", 
+    icon: <Clock className="w-3 h-3" />,
+    bg: "bg-amber-100 border-amber-200"
+  },
+  delivered: { 
+    label: "Livré", 
+    color: "text-blue-700", 
+    icon: <CheckCircle className="w-3 h-3" />,
+    bg: "bg-blue-100 border-blue-200"
+  },
+  read: { 
+    label: "Lu", 
+    color: "text-purple-700", 
+    icon: <CheckCheck className="w-3 h-3" />,
+    bg: "bg-purple-100 border-purple-200"
+  },
+  converted: { 
+    label: "Converti", 
+    color: "text-emerald-700", 
+    icon: <CheckCircle className="w-3 h-3" />,
+    bg: "bg-emerald-100 border-emerald-200"
+  },
 };
 
 const avatarColors = [
@@ -160,29 +98,134 @@ const avatarColors = [
   "from-green-500 to-green-600",
 ];
 
+function formatTimeAgo(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+  
+  if (diffInHours < 1) return "À l'instant";
+  if (diffInHours < 24) return `Il y a ${diffInHours}h`;
+  return `Il y a ${Math.floor(diffInHours / 24)}j`;
+}
+
 export default function Messages() {
-  const [activeConv, setActiveConv] = useState<number>(1);
+  const [activeConv, setActiveConv] = useState<number | null>(null);
   const [tab, setTab] = useState<"inbox" | "templates">("inbox");
   const [newMessage, setNewMessage] = useState("");
   const [search, setSearch] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [templateStats, setTemplateStats] = useState({ total: 0, total_usage: 0, avg_conversion: 0 });
+  const [notificationStats, setNotificationStats] = useState({ online: 0, newReplies: 0 });
+  const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Fetch messages from API
+  useEffect(() => {
+    async function fetchMessages() {
+      try {
+        const response = await fetch('/api/messages?limit=50');
+        const data = await response.json();
+        if (data.success) {
+          setMessages(data.messages);
+        }
+      } catch (error) {
+        console.error('Error fetching messages:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchMessages();
+  }, []);
+
+  // Fetch templates from API
+  useEffect(() => {
+    async function fetchTemplates() {
+      try {
+        const response = await fetch('/api/templates');
+        const data = await response.json();
+        if (data.success) {
+          setTemplates(data.templates);
+          setTemplateStats(data.stats);
+        }
+      } catch (error) {
+        console.error('Error fetching templates:', error);
+      }
+    }
+
+    fetchTemplates();
+  }, []);
+
+  // Fetch notification stats
+  useEffect(() => {
+    async function fetchNotifications() {
+      try {
+        const response = await fetch('/api/notifications');
+        const data = await response.json();
+        if (data.success) {
+          setNotificationStats({ online: data.online, newReplies: data.newReplies });
+        }
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+      }
+    }
+
+    fetchNotifications();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Group messages by recipient to create conversations
+  const conversations: Conversation[] = Object.values(
+    messages.reduce((acc, msg) => {
+      const key = msg.recipient_name;
+      if (!acc[key]) {
+        acc[key] = {
+          id: msg.id,
+          name: msg.recipient_name,
+          role: msg.recipient_role,
+          company: msg.recipient_company,
+          lastMessage: msg.message_text,
+          time: formatTimeAgo(msg.created_at),
+          status: msg.status,
+          unread: ['replied', 'clicked', 'converted'].includes(msg.status),
+          avatar: msg.recipient_name.split(' ').map(n => n[0]).join('').toUpperCase(),
+          online: false,
+        };
+      }
+      return acc;
+    }, {} as Record<string, Conversation>)
+  );
 
   const filtered = conversations.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.role.toLowerCase().includes(search.toLowerCase())
+      c.role.toLowerCase().includes(search.toLowerCase()) ||
+      c.company.toLowerCase().includes(search.toLowerCase())
   );
 
-  const currentConv = conversations.find((c) => c.id === activeConv);
-  const thread = messageThreads[activeConv] || [];
+  const currentConv = activeConv ? conversations.find((c) => c.id === activeConv) : null;
+  
+  // Get thread messages for current conversation
+  const thread = currentConv 
+    ? messages
+        .filter(m => m.recipient_name === currentConv.name)
+        .map(m => ({
+          from: m.message_type === 'response' ? "them" : "me" as "me" | "them",
+          text: m.message_text,
+          time: formatTimeAgo(m.created_at),
+          read: m.status !== 'pending'
+        }))
+    : [];
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [thread, isTyping]);
 
   useEffect(() => {
-    // Simulate typing indicator when new message arrives
     const lastMessage = thread[thread.length - 1];
     if (lastMessage?.from === "them" && !lastMessage.read) {
       setIsTyping(true);
@@ -191,10 +234,42 @@ export default function Messages() {
     }
   }, [thread]);
 
-  const handleSend = () => {
-    if (!newMessage.trim()) return;
+  const handleSend = async () => {
+    if (!newMessage.trim() || !currentConv) return;
+    
+    // TODO: Implement API call to send message
     setNewMessage("");
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+              <MessageSquare className="w-8 h-8 text-blue-600" />
+              Messages
+            </h1>
+            <p className="text-gray-600 mt-1">Chargement...</p>
+          </div>
+        </div>
+        <div className="flex flex-col lg:flex-row gap-4 h-auto lg:h-[600px]">
+          <Card className="w-full lg:w-96 flex flex-col border-0 shadow-lg overflow-hidden">
+            <CardContent className="flex-1 p-4 space-y-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />
+              ))}
+            </CardContent>
+          </Card>
+          <Card className="flex-1 flex flex-col border-0 shadow-xl overflow-hidden">
+            <CardContent className="flex-1 flex items-center justify-center">
+              <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -211,13 +286,13 @@ export default function Messages() {
           <Card className="px-4 py-2 border-blue-100 bg-blue-50/50">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              <span className="text-sm font-medium text-gray-700">{conversations.filter(c => c.online).length} en ligne</span>
+              <span className="text-sm font-medium text-gray-700">{notificationStats.online} en ligne</span>
             </div>
           </Card>
           <Card className="px-4 py-2 border-orange-100 bg-orange-50/50">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-orange-500" />
-              <span className="text-sm font-medium text-gray-700">{conversations.filter(c => c.unread).length} nouveaux</span>
+              <Bell className="w-4 h-4 text-orange-500" />
+              <span className="text-sm font-medium text-gray-700">{notificationStats.newReplies} nouveaux</span>
             </div>
           </Card>
         </div>
@@ -252,7 +327,7 @@ export default function Messages() {
           }`}
         >
           <span className="flex items-center gap-2">
-            <Zap className="w-4 h-4" />
+            <Layout className="w-4 h-4" />
             Templates IA
           </span>
         </button>
@@ -262,7 +337,7 @@ export default function Messages() {
         <div className="flex flex-col lg:flex-row gap-4 h-auto lg:h-[600px]">
           {/* Conversation list - Redesigned */}
           <Card className="w-full lg:w-96 flex flex-col border-0 shadow-lg overflow-hidden">
-            <CardHeader className="pb-4 border-b bg-gradient-to-r from-gray-50 to-white">
+            <CardHeader className="pb-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
@@ -459,20 +534,20 @@ export default function Messages() {
       {tab === "templates" && (
         <div className="space-y-6">
           {/* Stats */}
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-4 gap-3">
             {[
-              { label: "Templates", value: templates.length, icon: Zap, color: "blue" },
-              { label: "Utilisations", value: templates.reduce((a, b) => a + b.usageCount, 0), icon: CheckCircle, color: "green" },
-              { label: "Taux moyen", value: "21%", icon: TrendingUp, color: "orange" },
+              { label: "Templates", value: templates.length, icon: FileText, color: "blue" },
+              { label: "Utilisations", value: templateStats.total_usage, icon: CheckCircle, color: "green" },
+              { label: "Taux moyen", value: `${Math.round(templateStats.avg_conversion || 0)}%`, icon: TrendingUp, color: "orange" },
               { label: "IA générée", value: "100%", icon: Sparkles, color: "purple" },
             ].map((stat) => (
-              <Card key={stat.label} className={`border-${stat.color}-100 bg-${stat.color}-50/30`}>
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className={`w-10 h-10 bg-${stat.color}-100 rounded-xl flex items-center justify-center`}>
-                    <stat.icon className={`w-5 h-5 text-${stat.color}-600`} />
+              <Card key={stat.label} className={`border-0 bg-${stat.color}-50/30`}>
+                <CardContent className="p-3 flex items-center gap-2">
+                  <div className={`w-8 h-8 bg-${stat.color}-100 rounded-lg flex items-center justify-center`}>
+                    <stat.icon className={`w-4 h-4 text-${stat.color}-600`} />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                    <p className="text-xl font-bold text-gray-900">{stat.value}</p>
                     <p className="text-xs text-gray-500">{stat.label}</p>
                   </div>
                 </CardContent>
@@ -481,12 +556,24 @@ export default function Messages() {
           </div>
 
           {/* Templates */}
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-gray-600">{templates.length} templates disponibles</p>
+          <div className="flex justify-end mb-4">
             <Button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-600/20">
               <Plus className="w-4 h-4 mr-2" />
               Nouveau template IA
             </Button>
+          </div>
+
+          <div className="flex justify-between items-center">
+            {templates.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center flex-1">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                  <Search className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-gray-500 text-lg">Aucun template trouvé</p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600">{templates.length} templates disponibles</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -504,7 +591,7 @@ export default function Messages() {
                           <Badge className="bg-blue-100 text-blue-700 text-xs">{tpl.tag}</Badge>
                           <span className="text-xs text-green-600 flex items-center gap-1">
                             <TrendingUp className="w-3 h-3" />
-                            {tpl.conversionRate}% conv.
+                            {tpl.conversion_rate}% conv.
                           </span>
                         </div>
                       </div>
@@ -529,7 +616,7 @@ export default function Messages() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1 text-xs text-gray-500">
                       <CheckCircle className="w-3.5 h-3.5" />
-                      Utilisé {tpl.usageCount} fois
+                      Utilisé {tpl.usage_count} fois
                     </div>
                     <Button variant="outline" size="sm" className="text-xs">
                       <Sparkles className="w-3.5 h-3.5 mr-1.5" />

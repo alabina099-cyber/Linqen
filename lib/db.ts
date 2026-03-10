@@ -1,7 +1,7 @@
 import { Pool, PoolClient } from 'pg';
 
 // Configuration de la connexion Neon DB
-const pool = new Pool({
+export const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_uzan40Povxwp@ep-tiny-term-ai0m9euo-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require',
   ssl: {
     rejectUnauthorized: false,
@@ -125,6 +125,72 @@ export async function createMessage(data: {
     [data.campaign_id, data.recipient_name, data.recipient_role, data.message_text, data.status || 'sent']
   );
   return result.rows[0];
+}
+
+// Fonctions pour les notifications
+export async function getNotifications(userId?: number) {
+  const sql = userId 
+    ? 'SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50'
+    : 'SELECT * FROM notifications ORDER BY created_at DESC LIMIT 50';
+  const params = userId ? [userId] : [];
+  const result = await query(sql, params);
+  return result.rows;
+}
+
+export async function getUnreadNotificationsCount(userId?: number) {
+  const sql = userId
+    ? 'SELECT COUNT(*) as count FROM notifications WHERE user_id = $1 AND read = false'
+    : 'SELECT COUNT(*) as count FROM notifications WHERE read = false';
+  const params = userId ? [userId] : [];
+  const result = await query(sql, params);
+  return parseInt(result.rows[0]?.count || '0');
+}
+
+export async function createNotification(data: {
+  user_id?: number;
+  type: string;
+  title: string;
+  message: string;
+  data?: any;
+}) {
+  const result = await query(
+    `INSERT INTO notifications (user_id, type, title, message, data, created_at)
+     VALUES ($1, $2, $3, $4, $5, NOW())
+     RETURNING *`,
+    [data.user_id || null, data.type, data.title, data.message, JSON.stringify(data.data || {})]
+  );
+  return result.rows[0];
+}
+
+export async function markNotificationAsRead(id: number) {
+  await query('UPDATE notifications SET read = true WHERE id = $1', [id]);
+  return { success: true };
+}
+
+export async function markAllNotificationsAsRead(userId?: number) {
+  const sql = userId
+    ? 'UPDATE notifications SET read = true WHERE user_id = $1'
+    : 'UPDATE notifications SET read = true';
+  const params = userId ? [userId] : [];
+  await query(sql, params);
+  return { success: true };
+}
+
+// Fonctions pour les prospects (online status)
+export async function updateProspectLastSeen(prospectId: number) {
+  await query(
+    'UPDATE prospects SET last_seen = NOW() WHERE id = $1',
+    [prospectId]
+  );
+  return { success: true };
+}
+
+export async function getOnlineProspectsCount(minutes: number = 5) {
+  const result = await query(
+    `SELECT COUNT(*) as count FROM prospects 
+     WHERE last_seen > NOW() - INTERVAL '${minutes} minutes'`
+  );
+  return parseInt(result.rows[0]?.count || '0');
 }
 
 export default pool;

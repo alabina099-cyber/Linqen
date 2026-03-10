@@ -1,0 +1,705 @@
+import { z } from "zod";
+import { DynamicStructuredTool } from "@langchain/core/tools";
+import { pool } from "./db";
+import { checkRateLimit, getRateLimitStatus, formatRateLimitStatus } from "./rate-limiter";
+
+// =============================================
+// CATÉGORIE 1: ACTIONS LINKEDIN (via Chrome Extension)
+// =============================================
+
+// TOOL: Rechercher des profils sur LinkedIn
+export const linkedinSearchTool = new DynamicStructuredTool({
+  name: "linkedin_search",
+  description: "Rechercher des profils sur LinkedIn selon des critères. L'action est mise en queue pour l'extension Chrome.",
+  schema: z.object({
+    keywords: z.string().describe("Mots-clés de recherche (ex: 'CEO SaaS Paris')"),
+    role: z.string().optional().describe("Poste ciblé (ex: CEO, CTO, Directeur Commercial)"),
+    location: z.string().optional().describe("Localisation (ex: Paris, France)"),
+    industry: z.string().optional().describe("Secteur (ex: Technology, Finance)"),
+    company_size: z.string().optional().describe("Taille entreprise (ex: 11-50, 51-200)"),
+    limit: z.number().default(10).describe("Nombre max de profils à récupérer"),
+  }),
+  func: async ({ keywords, role, location, industry, company_size, limit }) => {
+    try {
+      const searchUrl = buildLinkedInSearchUrl({ keywords, role, location, industry, company_size });
+
+      // Vérifier les limites LinkedIn
+      const rateLimit = await checkRateLimit("search");
+      if (!rateLimit.allowed) {
+        return JSON.stringify({
+          success: false,
+          rate_limited: true,
+          error: rateLimit.reason,
+          daily_used: rateLimit.dailyUsed,
+          daily_max: rateLimit.dailyMax,
+          hourly_used: rateLimit.hourlyUsed,
+          hourly_max: rateLimit.hourlyMax,
+        });
+      }
+      
+      const result = await pool.query(
+        `INSERT INTO linkedin_actions_queue (action_type, target_url, payload, status, created_at)
+         VALUES ('search', $1, $2, 'pending_approval', NOW()) RETURNING id`,
+        [searchUrl, JSON.stringify({ keywords, role, location, industry, company_size, limit })]
+      );
+
+      return JSON.stringify({
+        success: true,
+        action_id: result.rows[0].id,
+        search_url: searchUrl,
+        status: "pending_approval",
+        requires_approval: true,
+        message: `✅ Recherche LinkedIn créée et en attente de votre approbation. Action #${result.rows[0].id} : Rechercher "${keywords}". Allez dans l'onglet "Approbations" pour approuver.`,
+        daily_remaining: rateLimit.remainingToday,
+        daily_used: rateLimit.dailyUsed + 1,
+        daily_max: rateLimit.dailyMax,
+      });
+    } catch (error) {
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+    }
+  },
+});
+
+// TOOL: Visiter un profil LinkedIn et récupérer les infos
+export const linkedinVisitProfileTool = new DynamicStructuredTool({
+  name: "linkedin_visit_profile",
+  description: "Visiter un profil LinkedIn pour récupérer les informations détaillées du prospect. L'action est mise en queue pour l'extension Chrome.",
+  schema: z.object({
+    linkedin_url: z.string().describe("URL du profil LinkedIn (ex: https://linkedin.com/in/username)"),
+    prospect_name: z.string().optional().describe("Nom du prospect si connu"),
+  }),
+  func: async ({ linkedin_url, prospect_name }) => {
+    try {
+      // Vérifier les limites LinkedIn
+      const rateLimit = await checkRateLimit("visit_profile");
+      if (!rateLimit.allowed) {
+        return JSON.stringify({
+          success: false,
+          rate_limited: true,
+          error: rateLimit.reason,
+          daily_used: rateLimit.dailyUsed,
+          daily_max: rateLimit.dailyMax,
+          hourly_used: rateLimit.hourlyUsed,
+          hourly_max: rateLimit.hourlyMax,
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO linkedin_actions_queue (action_type, target_url, target_name, payload, status, created_at)
+         VALUES ('visit_profile', $1, $2, '{}', 'pending_approval', NOW()) RETURNING id`,
+        [linkedin_url, prospect_name || null]
+      );
+
+      return JSON.stringify({
+        success: true,
+        action_id: result.rows[0].id,
+        status: "pending_approval",
+        requires_approval: true,
+        message: `✅ Visite du profil ${prospect_name || linkedin_url} créée et en attente de votre approbation. Action #${result.rows[0].id}. Allez dans l'onglet "Approbations" pour approuver.`,
+        daily_remaining: rateLimit.remainingToday,
+        daily_used: rateLimit.dailyUsed + 1,
+        daily_max: rateLimit.dailyMax,
+      });
+    } catch (error) {
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+    }
+  },
+});
+
+// TOOL: Envoyer une demande de connexion LinkedIn
+export const linkedinSendConnectionTool = new DynamicStructuredTool({
+  name: "linkedin_send_connection",
+  description: "Envoyer une demande de connexion LinkedIn avec une note personnalisée. L'action est mise en queue pour l'extension Chrome. Limite: 80 connexions/jour.",
+  schema: z.object({
+    linkedin_url: z.string().describe("URL du profil LinkedIn"),
+    prospect_name: z.string().describe("Nom du prospect"),
+    note: z.string().max(300).describe("Note de connexion personnalisée (max 300 caractères)"),
+    campaign_id: z.number().optional().describe("ID de la campagne associée"),
+  }),
+  func: async ({ linkedin_url, prospect_name, note, campaign_id }) => {
+    try {
+      // Vérifier les limites LinkedIn (quotidienne + horaire + délai)
+      const rateLimit = await checkRateLimit("send_connection");
+      if (!rateLimit.allowed) {
+        return JSON.stringify({
+          success: false,
+          rate_limited: true,
+          error: rateLimit.reason,
+          daily_used: rateLimit.dailyUsed,
+          daily_max: rateLimit.dailyMax,
+          hourly_used: rateLimit.hourlyUsed,
+          hourly_max: rateLimit.hourlyMax,
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO linkedin_actions_queue (action_type, target_url, target_name, payload, status, campaign_id, created_at)
+         VALUES ('send_connection', $1, $2, $3, 'pending_approval', $4, NOW()) RETURNING id`,
+        [linkedin_url, prospect_name, JSON.stringify({ note }), campaign_id || null]
+      );
+
+      return JSON.stringify({
+        success: true,
+        action_id: result.rows[0].id,
+        status: "pending_approval",
+        requires_approval: true,
+        message: `✅ Demande de connexion à ${prospect_name} créée et en attente de votre approbation. Action #${result.rows[0].id}. Note: "${note.substring(0, 50)}${note.length > 50 ? '...' : ''}". Allez dans l'onglet "Approbations" pour approuver.`,
+        daily_remaining: rateLimit.remainingToday,
+        daily_used: rateLimit.dailyUsed + 1,
+        daily_max: rateLimit.dailyMax,
+        hourly_used: rateLimit.hourlyUsed + 1,
+        hourly_max: rateLimit.hourlyMax,
+      });
+    } catch (error) {
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+    }
+  },
+});
+
+// TOOL: Envoyer un message LinkedIn direct
+export const linkedinSendMessageTool = new DynamicStructuredTool({
+  name: "linkedin_send_message",
+  description: "Envoyer un message direct à une connexion LinkedIn existante. L'action est mise en queue pour l'extension Chrome. Limite: 100 messages/jour.",
+  schema: z.object({
+    linkedin_url: z.string().describe("URL du profil LinkedIn"),
+    prospect_name: z.string().describe("Nom du prospect"),
+    message: z.string().describe("Contenu du message"),
+    campaign_id: z.number().optional().describe("ID de la campagne associée"),
+    message_type: z.enum(["followup", "response", "custom"]).default("custom").describe("Type de message"),
+  }),
+  func: async ({ linkedin_url, prospect_name, message, campaign_id, message_type }) => {
+    try {
+      // Vérifier les limites LinkedIn (quotidienne + horaire + délai)
+      const rateLimit = await checkRateLimit("send_message");
+      if (!rateLimit.allowed) {
+        return JSON.stringify({
+          success: false,
+          rate_limited: true,
+          error: rateLimit.reason,
+          daily_used: rateLimit.dailyUsed,
+          daily_max: rateLimit.dailyMax,
+          hourly_used: rateLimit.hourlyUsed,
+          hourly_max: rateLimit.hourlyMax,
+        });
+      }
+
+      // Enregistrer dans la queue avec statut pending_approval
+      const actionResult = await pool.query(
+        `INSERT INTO linkedin_actions_queue (action_type, target_url, target_name, payload, status, campaign_id, created_at)
+         VALUES ('send_message', $1, $2, $3, 'pending_approval', $4, NOW()) RETURNING id`,
+        [linkedin_url, prospect_name, JSON.stringify({ message, message_type }), campaign_id || null]
+      );
+
+      // Aussi sauvegarder dans la table messages
+      await pool.query(
+        `INSERT INTO messages (prospect_id, recipient_name, message_text, message_type, status, campaign_id, created_at)
+         VALUES ((SELECT id FROM prospects WHERE linkedin_url = $1 LIMIT 1), $2, $3, $4, 'pending_approval', $5, NOW())`,
+        [linkedin_url, prospect_name, message, message_type, campaign_id || null]
+      );
+
+      return JSON.stringify({
+        success: true,
+        action_id: actionResult.rows[0].id,
+        status: "pending_approval",
+        requires_approval: true,
+        message: `✅ Message pour ${prospect_name} créé et en attente de votre approbation. Action #${actionResult.rows[0].id}. Message: "${message.substring(0, 50)}${message.length > 50 ? '...' : ''}". Allez dans l'onglet "Approbations" pour approuver.`,
+        daily_remaining: rateLimit.remainingToday,
+        daily_used: rateLimit.dailyUsed + 1,
+        daily_max: rateLimit.dailyMax,
+        hourly_used: rateLimit.hourlyUsed + 1,
+        hourly_max: rateLimit.hourlyMax,
+      });
+    } catch (error) {
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+    }
+  },
+});
+
+// =============================================
+// CATÉGORIE 2: INTELLIGENCE & IA
+// =============================================
+
+// TOOL: Analyser un prospect
+export const analyzeProspectTool = new DynamicStructuredTool({
+  name: "analyze_prospect",
+  description: "Analyser et scorer un prospect pour déterminer son potentiel. Évalue le rôle, l'entreprise, le secteur et donne une recommandation.",
+  schema: z.object({
+    name: z.string().describe("Nom du prospect"),
+    role: z.string().describe("Poste actuel"),
+    company: z.string().describe("Entreprise actuelle"),
+    industry: z.string().optional().describe("Secteur d'activité"),
+    company_size: z.string().optional().describe("Taille de l'entreprise"),
+    linkedin_url: z.string().optional().describe("URL LinkedIn"),
+  }),
+  func: async ({ name, role, company, industry, company_size, linkedin_url }) => {
+    try {
+      let score = 50;
+      const reasons: string[] = [];
+
+      // Scoring par rôle décisionnaire
+      const highRoles = ["ceo", "cto", "coo", "cfo", "vp", "founder", "co-founder", "directeur", "director", "head"];
+      const midRoles = ["manager", "responsable", "lead", "chef"];
+      const roleLower = role.toLowerCase();
+      
+      if (highRoles.some(r => roleLower.includes(r))) {
+        score += 25;
+        reasons.push("Poste décisionnaire de haut niveau (+25)");
+      } else if (midRoles.some(r => roleLower.includes(r))) {
+        score += 15;
+        reasons.push("Poste de management intermédiaire (+15)");
+      }
+
+      // Scoring par taille d'entreprise
+      if (company_size) {
+        if (company_size.includes("11-50") || company_size.includes("51-200")) {
+          score += 15;
+          reasons.push("Taille d'entreprise idéale PME (+15)");
+        } else if (company_size.includes("201-500")) {
+          score += 10;
+          reasons.push("ETI intéressante (+10)");
+        }
+      }
+
+      // Scoring par secteur
+      const hotIndustries = ["technology", "saas", "software", "ai", "fintech", "tech", "startup"];
+      if (industry && hotIndustries.some(i => industry.toLowerCase().includes(i))) {
+        score += 15;
+        reasons.push("Secteur tech/innovation (+15)");
+      }
+
+      score = Math.min(100, Math.max(0, score));
+
+      const quality = score >= 80 ? "excellent" : score >= 65 ? "bon" : score >= 50 ? "moyen" : "faible";
+      const action = score >= 70
+        ? "Contacter en priorité - Envoyer une demande de connexion personnalisée"
+        : score >= 55
+          ? "Bon potentiel - Ajouter à une campagne de prospection"
+          : "Potentiel limité - Surveiller pour opportunité future";
+
+      return JSON.stringify({
+        success: true,
+        prospect: { name, role, company, industry, company_size },
+        score,
+        quality,
+        scoring_details: reasons,
+        recommended_action: action,
+      });
+    } catch (error) {
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+    }
+  },
+});
+
+// TOOL: Générer un message personnalisé
+export const generateMessageTool = new DynamicStructuredTool({
+  name: "generate_message",
+  description: "Générer un message de prospection personnalisé pour un prospect. Retourne la structure et le contexte pour que l'IA rédige le message final.",
+  schema: z.object({
+    prospect_name: z.string().describe("Prénom ou nom du prospect"),
+    prospect_role: z.string().describe("Poste du prospect"),
+    prospect_company: z.string().describe("Entreprise du prospect"),
+    message_type: z.enum(["connection", "followup", "response", "relance"]).describe("Type de message"),
+    product_description: z.string().optional().describe("Description courte du produit/service à vendre"),
+    context: z.string().optional().describe("Contexte additionnel (post récent, intérêt commun, etc.)"),
+    tone: z.enum(["professional", "friendly", "casual"]).default("professional"),
+  }),
+  func: async ({ prospect_name, prospect_role, prospect_company, message_type, product_description, context, tone }) => {
+    const guidelines: Record<string, { structure: string; maxLength: number; tips: string }> = {
+      connection: {
+        structure: "1. Salutation personnalisée\n2. Accroche liée à leur profil/activité\n3. Présentation ultra-courte de la valeur\n4. CTA douce (pas de vente directe)",
+        maxLength: 300,
+        tips: "Pas de pitch direct. Montrer de l'intérêt pour LEUR travail.",
+      },
+      followup: {
+        structure: "1. Rappel contextuel (comment vous êtes connectés)\n2. Valeur concrète (chiffre, case study)\n3. CTA spécifique (call de 15min)",
+        maxLength: 500,
+        tips: "Apporter de la valeur avant de demander. Inclure un chiffre concret.",
+      },
+      response: {
+        structure: "1. Remercier pour leur réponse\n2. Répondre directement\n3. Proposer la prochaine étape",
+        maxLength: 500,
+        tips: "Être direct et respectueux. Avancer vers un call.",
+      },
+      relance: {
+        structure: "1. Rappel bref\n2. Nouvelle accroche/valeur\n3. CTA claire",
+        maxLength: 300,
+        tips: "Court et percutant. Pas de culpabilisation.",
+      },
+    };
+
+    return JSON.stringify({
+      success: true,
+      prospect: { name: prospect_name, role: prospect_role, company: prospect_company },
+      guidelines: guidelines[message_type],
+      message_type,
+      tone,
+      product: product_description || "Non spécifié",
+      context: context || "Aucun contexte additionnel",
+      instruction: "Utilise ces guidelines pour rédiger un message personnalisé, naturel et engageant. Respecte la longueur max.",
+    });
+  },
+});
+
+// TOOL: Suggérer une stratégie d'approche
+export const suggestStrategyTool = new DynamicStructuredTool({
+  name: "suggest_strategy",
+  description: "Proposer une stratégie d'approche personnalisée pour un prospect ou un segment de prospects.",
+  schema: z.object({
+    target_role: z.string().describe("Poste cible (ex: CEO de startup)"),
+    target_industry: z.string().describe("Secteur cible"),
+    product_service: z.string().describe("Produit/service à vendre"),
+    budget_daily_connections: z.number().default(20).describe("Budget quotidien de connexions"),
+  }),
+  func: async ({ target_role, target_industry, product_service, budget_daily_connections }) => {
+    return JSON.stringify({
+      success: true,
+      strategy: {
+        target: { role: target_role, industry: target_industry },
+        product: product_service,
+        sequence: [
+          { day: 0, action: "send_connection", description: "Demande de connexion avec note personnalisée" },
+          { day: 1, action: "visit_profile", description: "Visiter le profil (déclenche une notification LinkedIn)" },
+          { day: 3, action: "send_message", description: "1er message: valeur + accroche" },
+          { day: 7, action: "send_message", description: "2e message: case study ou témoignage" },
+          { day: 14, action: "send_message", description: "3e message: dernière relance + CTA directe" },
+        ],
+        daily_budget: budget_daily_connections,
+        estimated_results: {
+          acceptance_rate: "25-35%",
+          response_rate: "10-20%",
+          meeting_rate: "3-5%",
+        },
+        tips: [
+          "Personnaliser chaque message avec des infos du profil",
+          "Interagir avec leurs posts avant de les contacter",
+          "Envoyer les connexions entre 8h-10h ou 17h-19h",
+          "Ne pas dépasser 80 connexions/jour pour éviter les restrictions",
+        ],
+      },
+    });
+  },
+});
+
+// =============================================
+// CATÉGORIE 3: BASE DE DONNÉES
+// =============================================
+
+// TOOL: Rechercher des prospects dans la BDD locale
+export const searchProspectsDbTool = new DynamicStructuredTool({
+  name: "search_prospects_db",
+  description: "Rechercher des prospects déjà enregistrés dans la base de données locale.",
+  schema: z.object({
+    industry: z.string().optional().describe("Secteur d'activité"),
+    company_size: z.string().optional().describe("Taille de l'entreprise"),
+    location: z.string().optional().describe("Localisation"),
+    role: z.string().optional().describe("Poste"),
+    status: z.string().optional().describe("Statut (new, contacted, replied, converted)"),
+    min_score: z.number().optional().describe("Score minimum"),
+    limit: z.number().default(10).describe("Nombre max de résultats"),
+  }),
+  func: async ({ industry, company_size, location, role, status, min_score, limit }) => {
+    try {
+      let sql = "SELECT * FROM prospects WHERE 1=1";
+      const params: any[] = [];
+      let idx = 1;
+
+      if (industry) { sql += ` AND industry ILIKE $${idx}`; params.push(`%${industry}%`); idx++; }
+      if (company_size) { sql += ` AND company_size = $${idx}`; params.push(company_size); idx++; }
+      if (location) { sql += ` AND location ILIKE $${idx}`; params.push(`%${location}%`); idx++; }
+      if (role) { sql += ` AND role ILIKE $${idx}`; params.push(`%${role}%`); idx++; }
+      if (status) { sql += ` AND status = $${idx}`; params.push(status); idx++; }
+      if (min_score) { sql += ` AND score >= $${idx}`; params.push(min_score); idx++; }
+
+      sql += ` ORDER BY score DESC LIMIT $${idx}`;
+      params.push(limit);
+
+      const result = await pool.query(sql, params);
+      return JSON.stringify({ success: true, count: result.rows.length, prospects: result.rows });
+    } catch (error) {
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+    }
+  },
+});
+
+// TOOL: Sauvegarder un prospect
+export const saveProspectTool = new DynamicStructuredTool({
+  name: "save_prospect",
+  description: "Sauvegarder un nouveau prospect dans la base de données ou mettre à jour un existant.",
+  schema: z.object({
+    name: z.string().describe("Nom complet"),
+    role: z.string().describe("Poste"),
+    company: z.string().describe("Entreprise"),
+    linkedin_url: z.string().describe("URL LinkedIn"),
+    industry: z.string().optional().describe("Secteur"),
+    location: z.string().optional().describe("Localisation"),
+    company_size: z.string().optional().describe("Taille entreprise"),
+    email: z.string().optional().describe("Email"),
+    score: z.number().optional().describe("Score de qualification"),
+    notes: z.string().optional().describe("Notes"),
+  }),
+  func: async ({ name, role, company, linkedin_url, industry, location, company_size, email, score, notes }) => {
+    try {
+      const result = await pool.query(
+        `INSERT INTO prospects (name, role, company, linkedin_url, industry, location, company_size, email, score, notes, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+         ON CONFLICT (linkedin_url) DO UPDATE SET
+           name = EXCLUDED.name, role = EXCLUDED.role, company = EXCLUDED.company,
+           industry = COALESCE(EXCLUDED.industry, prospects.industry),
+           location = COALESCE(EXCLUDED.location, prospects.location),
+           company_size = COALESCE(EXCLUDED.company_size, prospects.company_size),
+           email = COALESCE(EXCLUDED.email, prospects.email),
+           score = COALESCE(EXCLUDED.score, prospects.score),
+           notes = COALESCE(EXCLUDED.notes, prospects.notes),
+           updated_at = NOW()
+         RETURNING id, name, score, status`,
+        [name, role, company, linkedin_url, industry || null, location || null, company_size || null, email || null, score || 50, notes || null]
+      );
+
+      return JSON.stringify({
+        success: true,
+        prospect: result.rows[0],
+        message: `Prospect ${name} sauvegardé avec succès (score: ${result.rows[0].score}).`,
+      });
+    } catch (error) {
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+    }
+  },
+});
+
+// TOOL: Récupérer les stats d'une campagne
+export const getCampaignStatsTool = new DynamicStructuredTool({
+  name: "get_campaign_stats",
+  description: "Récupérer les statistiques détaillées d'une campagne de prospection.",
+  schema: z.object({
+    campaign_id: z.number().optional().describe("ID de la campagne. Si non fourni, retourne les stats globales."),
+  }),
+  func: async ({ campaign_id }) => {
+    try {
+      if (campaign_id) {
+        const campaign = await pool.query(`SELECT * FROM campaigns WHERE id = $1`, [campaign_id]);
+        if (campaign.rows.length === 0) {
+          return JSON.stringify({ success: false, error: "Campagne non trouvée" });
+        }
+
+        const messages = await pool.query(
+          `SELECT status, COUNT(*) as count FROM messages WHERE campaign_id = $1 GROUP BY status`,
+          [campaign_id]
+        );
+
+        const actions = await pool.query(
+          `SELECT action_type, status, COUNT(*) as count FROM linkedin_actions_queue WHERE campaign_id = $1 GROUP BY action_type, status`,
+          [campaign_id]
+        );
+
+        return JSON.stringify({
+          success: true,
+          campaign: campaign.rows[0],
+          message_stats: messages.rows,
+          action_stats: actions.rows,
+        });
+      }
+
+      // Stats globales
+      const totals = await pool.query(
+        `SELECT 
+          (SELECT COUNT(*) FROM campaigns) as total_campaigns,
+          (SELECT COUNT(*) FROM campaigns WHERE status = 'active') as active_campaigns,
+          (SELECT COUNT(*) FROM prospects) as total_prospects,
+          (SELECT COUNT(*) FROM messages) as total_messages,
+          (SELECT COUNT(*) FROM messages WHERE status = 'replied') as total_replies,
+          (SELECT COUNT(*) FROM linkedin_actions_queue WHERE status = 'pending') as pending_actions`
+      );
+
+      return JSON.stringify({ success: true, stats: totals.rows[0] });
+    } catch (error) {
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+    }
+  },
+});
+
+// TOOL: Planifier un follow-up
+export const scheduleFollowupTool = new DynamicStructuredTool({
+  name: "schedule_followup",
+  description: "Planifier un message de relance automatique pour un prospect à une date donnée.",
+  schema: z.object({
+    prospect_id: z.number().describe("ID du prospect"),
+    message_text: z.string().describe("Contenu du message de relance"),
+    delay_days: z.number().default(3).describe("Nombre de jours avant envoi (ex: 3 pour J+3)"),
+    campaign_id: z.number().optional().describe("ID de la campagne associée"),
+  }),
+  func: async ({ prospect_id, message_text, delay_days, campaign_id }) => {
+    try {
+      // Vérifier les limites pour les follow-ups
+      const rateLimit = await checkRateLimit("schedule_followup");
+      if (!rateLimit.allowed) {
+        return JSON.stringify({
+          success: false,
+          rate_limited: true,
+          error: rateLimit.reason,
+          daily_used: rateLimit.dailyUsed,
+          daily_max: rateLimit.dailyMax,
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO scheduled_followups (prospect_id, campaign_id, message_text, scheduled_for, status, created_at)
+         VALUES ($1, $2, $3, NOW() + INTERVAL '${delay_days} days', 'scheduled', NOW())
+         RETURNING id, scheduled_for`,
+        [prospect_id, campaign_id || null, message_text]
+      );
+
+      return JSON.stringify({
+        success: true,
+        followup_id: result.rows[0].id,
+        scheduled_for: result.rows[0].scheduled_for,
+        message: `Relance planifiée pour J+${delay_days} (${new Date(result.rows[0].scheduled_for).toLocaleDateString('fr-FR')}).`,
+      });
+    } catch (error) {
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+    }
+  },
+});
+
+// =============================================
+// CATÉGORIE 4: CAMPAGNES
+// =============================================
+
+// TOOL: Créer une campagne
+export const createCampaignTool = new DynamicStructuredTool({
+  name: "create_campaign",
+  description: "Créer une nouvelle campagne de prospection LinkedIn.",
+  schema: z.object({
+    name: z.string().describe("Nom de la campagne"),
+    description: z.string().describe("Description de la campagne"),
+    industry: z.string().describe("Secteur ciblé"),
+    company_size: z.string().describe("Taille des entreprises ciblées"),
+    location: z.string().describe("Localisation cible"),
+    target_role: z.string().describe("Poste cible"),
+    template_invitation: z.string().describe("Template de demande de connexion"),
+    template_followup: z.string().describe("Template de message de suivi"),
+  }),
+  func: async ({ name, description, industry, company_size, location, target_role, template_invitation, template_followup }) => {
+    try {
+      const result = await pool.query(
+        `INSERT INTO campaigns (name, description, industry, company_size, location, target_role, template_invitation, template_followup, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', NOW()) RETURNING id`,
+        [name, description, industry, company_size, location, target_role, template_invitation, template_followup]
+      );
+
+      return JSON.stringify({
+        success: true,
+        campaign_id: result.rows[0].id,
+        status: "draft",
+        message: `Campagne "${name}" créée avec succès. Utilisez update_campaign pour l'activer.`,
+      });
+    } catch (error) {
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+    }
+  },
+});
+
+// TOOL: Mettre à jour une campagne
+export const updateCampaignTool = new DynamicStructuredTool({
+  name: "update_campaign",
+  description: "Mettre à jour le statut ou les stats d'une campagne existante.",
+  schema: z.object({
+    campaign_id: z.number().describe("ID de la campagne"),
+    status: z.enum(["draft", "active", "paused", "completed"]).optional(),
+    contacted: z.number().optional(),
+    replied: z.number().optional(),
+    clicked: z.number().optional(),
+    converted: z.number().optional(),
+  }),
+  func: async ({ campaign_id, status, contacted, replied, clicked, converted }) => {
+    try {
+      const updates: string[] = [];
+      const values: any[] = [];
+      let idx = 1;
+
+      if (status) { updates.push(`status = $${idx}`); values.push(status); idx++; }
+      if (contacted !== undefined) { updates.push(`contacted = $${idx}`); values.push(contacted); idx++; }
+      if (replied !== undefined) { updates.push(`replied = $${idx}`); values.push(replied); idx++; }
+      if (clicked !== undefined) { updates.push(`clicked = $${idx}`); values.push(clicked); idx++; }
+      if (converted !== undefined) { updates.push(`converted = $${idx}`); values.push(converted); idx++; }
+
+      if (updates.length === 0) {
+        return JSON.stringify({ success: false, error: "Aucune mise à jour spécifiée" });
+      }
+
+      updates.push(`updated_at = NOW()`);
+      values.push(campaign_id);
+
+      await pool.query(`UPDATE campaigns SET ${updates.join(", ")} WHERE id = $${idx}`, values);
+      return JSON.stringify({ success: true, campaign_id, updated_fields: updates.length - 1 });
+    } catch (error) {
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+    }
+  },
+});
+
+// TOOL: Consulter le statut des limites LinkedIn
+export const getRateLimitsTool = new DynamicStructuredTool({
+  name: "get_rate_limits",
+  description: "Consulter le statut actuel des limites LinkedIn (quotidiennes et horaires) pour toutes les actions. Utiliser avant de planifier des actions en masse pour savoir combien il reste de quota.",
+  schema: z.object({}),
+  func: async () => {
+    try {
+      const status = await getRateLimitStatus();
+      return JSON.stringify({
+        success: true,
+        summary: formatRateLimitStatus(status),
+        details: status,
+      });
+    } catch (error) {
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+    }
+  },
+});
+
+// =============================================
+// HELPER: Construire l'URL de recherche LinkedIn
+// =============================================
+function buildLinkedInSearchUrl(params: {
+  keywords?: string;
+  role?: string;
+  location?: string;
+  industry?: string;
+  company_size?: string;
+}): string {
+  const base = "https://www.linkedin.com/search/results/people/";
+  const searchParams = new URLSearchParams();
+  
+  if (params.keywords) searchParams.set("keywords", params.keywords);
+  if (params.role) searchParams.set("title", params.role);
+  if (params.location) searchParams.set("geoUrn", params.location);
+  
+  return `${base}?${searchParams.toString()}`;
+}
+
+// =============================================
+// EXPORT: Tous les tools
+// =============================================
+export const ALL_TOOLS = [
+  // LinkedIn Actions
+  linkedinSearchTool,
+  linkedinVisitProfileTool,
+  linkedinSendConnectionTool,
+  linkedinSendMessageTool,
+  // Intelligence & IA
+  analyzeProspectTool,
+  generateMessageTool,
+  suggestStrategyTool,
+  // Base de données
+  searchProspectsDbTool,
+  saveProspectTool,
+  getCampaignStatsTool,
+  scheduleFollowupTool,
+  // Compliance LinkedIn
+  getRateLimitsTool,
+  // Campagnes
+  createCampaignTool,
+  updateCampaignTool,
+];
+
+export const TOOLS_MAP: Record<string, DynamicStructuredTool> = {};
+ALL_TOOLS.forEach(tool => { TOOLS_MAP[tool.name] = tool; });

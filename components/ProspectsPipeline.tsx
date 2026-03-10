@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -8,7 +8,7 @@ import {
   User, Building2, MapPin, Star, Plus, TrendingUp, Target, 
   Filter, MoreHorizontal, Mail, Phone, Calendar, ArrowRight,
   Sparkles, Zap, Trophy, Flame, Crown, Award, TrendingDown,
-  Users, BarChart3, Clock, CheckCircle2
+  Users, BarChart3, Clock, CheckCircle2, Search, Telescope, Eye, CheckSquare
 } from "lucide-react";
 
 interface ProspectsPipelineProps {
@@ -16,7 +16,7 @@ interface ProspectsPipelineProps {
 }
 
 interface Prospect {
-  id: string;
+  id: number;
   name: string;
   role: string;
   company: string;
@@ -24,9 +24,9 @@ interface Prospect {
   location: string;
   email?: string;
   phone?: string;
-  lastActivity?: string;
+  status: string;
   avatar?: string;
-  tags?: string[];
+  industry?: string;
 }
 
 interface PipelineStage {
@@ -34,87 +34,10 @@ interface PipelineStage {
   status: string;
   count: number;
   prospects: Prospect[];
-  conversionRate?: number;
-  avgTime?: string;
   gradient: string;
   icon: any;
   description: string;
 }
-
-const pipelineData: PipelineStage[] = [
-  {
-    id: "identified",
-    status: "Identified",
-    count: 50,
-    prospects: [
-      { id: "1", name: "Alex D.", role: "CTO", company: "TechFlow", score: 50, location: "Paris", lastActivity: "Il y a 2h", tags: ["Tech", "Startup"], avatar: "AD" },
-      { id: "2", name: "Sarah M.", role: "CEO", company: "DataCorp", score: 55, location: "Lyon", lastActivity: "Il y a 5h", tags: ["Data", "Scale-up"], avatar: "SM" },
-      { id: "3", name: "Marc T.", role: "VP Sales", company: "FinTech Co", score: 48, location: "Lille", lastActivity: "Il y a 1j", tags: ["Finance"], avatar: "MT" },
-    ],
-    gradient: "from-slate-500 to-slate-600",
-    icon: Target,
-    description: "Prospects identifiés",
-    conversionRate: 70,
-    avgTime: "2.5j"
-  },
-  {
-    id: "contacted",
-    status: "Contacted",
-    count: 35,
-    prospects: [
-      { id: "4", name: "Ben F.", role: "Marketing Dir.", company: "GrowthLab", score: 65, location: "Marseille", lastActivity: "Il y a 3h", tags: ["Marketing"], avatar: "BF" },
-      { id: "5", name: "Clara S.", role: "Sales VP", company: "Innovate AI", score: 68, location: "Toulouse", lastActivity: "Il y a 6h", tags: ["AI", "Tech"], avatar: "CS" },
-      { id: "6", name: "Julie R.", role: "COO", company: "DataScale", score: 62, location: "Bordeaux", lastActivity: "Il y a 8h", tags: ["Data"], avatar: "JR" },
-    ],
-    gradient: "from-blue-500 to-blue-600",
-    icon: Mail,
-    description: "Premier contact établi",
-    conversionRate: 63,
-    avgTime: "4.2j"
-  },
-  {
-    id: "replied",
-    status: "Replied",
-    count: 22,
-    prospects: [
-      { id: "7", name: "David K.", role: "CEO", company: "CloudScale", score: 75, location: "Bordeaux", lastActivity: "Il y a 1h", tags: ["Cloud", "SaaS"], avatar: "DK" },
-      { id: "8", name: "Emma L.", role: "Founder", company: "StartupX", score: 78, location: "Nantes", lastActivity: "Il y a 4h", tags: ["Startup"], avatar: "EL" },
-    ],
-    gradient: "from-purple-500 to-purple-600",
-    icon: MessageIcon,
-    description: "Réponse reçue",
-    conversionRate: 68,
-    avgTime: "3.8j"
-  },
-  {
-    id: "clicked",
-    status: "Clicked",
-    count: 15,
-    prospects: [
-      { id: "9", name: "Frank H.", role: "CTO", company: "DevOps Pro", score: 85, location: "Lille", lastActivity: "Il y a 30min", tags: ["DevOps"], avatar: "FH" },
-      { id: "10", name: "Grace W.", role: "VP Eng", company: "TechVision", score: 87, location: "Strasbourg", lastActivity: "Il y a 2h", tags: ["Tech"], avatar: "GW" },
-    ],
-    gradient: "from-cyan-500 to-cyan-600",
-    icon: Zap,
-    description: "Intérêt confirmé",
-    conversionRate: 53,
-    avgTime: "2.1j"
-  },
-  {
-    id: "converted",
-    status: "Converted",
-    count: 8,
-    prospects: [
-      { id: "11", name: "Henry P.", role: "CEO", company: "SaaS Master", score: 95, location: "Nice", lastActivity: "Il y a 15min", tags: ["SaaS", "Enterprise"], avatar: "HP" },
-      { id: "12", name: "Iris T.", role: "Founder", company: "AI Solutions", score: 98, location: "Rennes", lastActivity: "Il y a 1h", tags: ["AI"], avatar: "IT" },
-    ],
-    gradient: "from-green-500 to-green-600",
-    icon: Trophy,
-    description: "Client converti",
-    conversionRate: 100,
-    avgTime: "5.5j"
-  },
-];
 
 function MessageIcon({ className }: { className?: string }) {
   return (
@@ -140,25 +63,120 @@ function getScoreIcon(score: number) {
   return TrendingDown;
 }
 
-
 export default function ProspectsPipeline({ fullView = false }: ProspectsPipelineProps) {
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
-  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const [hoveredCard, setHoveredCard] = useState<number | null>(null);
+  const [pipelineData, setPipelineData] = useState<PipelineStage[]>([]);
+  const [allProspects, setAllProspects] = useState<Prospect[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const displayLimit = fullView ? 10 : 3;
 
+  useEffect(() => {
+    async function fetchProspects() {
+      try {
+        const response = await fetch('/api/prospects?limit=50');
+        const data = await response.json();
+        
+        if (data.success) {
+          // Organiser les prospects par statut
+          const prospects = data.prospects.map((p: any) => ({
+            ...p,
+            avatar: p.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || '?'
+          }));
+          
+          setAllProspects(prospects);
+          organizeProspects(prospects);
+        }
+      } catch (error) {
+        console.error('Error fetching prospects:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchProspects();
+  }, [displayLimit]);
+
+  // Function to organize prospects into stages - ALWAYS returns all 5 stages
+  const organizeProspects = (prospects: Prospect[]) => {
+    const filtered = searchQuery 
+      ? prospects.filter((p: Prospect) => 
+          p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.role?.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : prospects;
+    
+    const stages: PipelineStage[] = [
+      {
+        id: "new",
+        status: "Identifiés",
+        count: prospects.filter((p: Prospect) => p.status === 'new').length,
+        prospects: filtered.filter((p: Prospect) => p.status === 'new').slice(0, displayLimit),
+        gradient: "from-slate-500 to-slate-600",
+        icon: Eye,
+        description: "Prospects identifiés"
+      },
+      {
+        id: "contacted",
+        status: "Contactés",
+        count: prospects.filter((p: Prospect) => p.status === 'contacted').length,
+        prospects: filtered.filter((p: Prospect) => p.status === 'contacted').slice(0, displayLimit),
+        gradient: "from-blue-500 to-blue-600",
+        icon: Mail,
+        description: "Premier contact établi"
+      },
+      {
+        id: "responded",
+        status: "Réponses",
+        count: prospects.filter((p: Prospect) => p.status === 'responded').length,
+        prospects: filtered.filter((p: Prospect) => p.status === 'responded').slice(0, displayLimit),
+        gradient: "from-purple-500 to-purple-600",
+        icon: MessageIcon,
+        description: "Réponse reçue"
+      },
+      {
+        id: "qualified",
+        status: "Qualifiés",
+        count: prospects.filter((p: Prospect) => p.status === 'qualified').length,
+        prospects: filtered.filter((p: Prospect) => p.status === 'qualified').slice(0, displayLimit),
+        gradient: "from-cyan-500 to-cyan-600",
+        icon: Star,
+        description: "Intérêt confirmé"
+      },
+      {
+        id: "converted",
+        status: "Convertis",
+        count: prospects.filter((p: Prospect) => p.status === 'converted').length,
+        prospects: filtered.filter((p: Prospect) => p.status === 'converted').slice(0, displayLimit),
+        gradient: "from-green-500 to-green-600",
+        icon: CheckSquare,
+        description: "Client converti"
+      }
+    ];
+    
+    setPipelineData(stages);
+  };
+
+  // Update pipeline when search changes - ALWAYS show all stages
+  useEffect(() => {
+    organizeProspects(allProspects);
+  }, [searchQuery]);
+
   const totalProspects = pipelineData.reduce((acc, stage) => acc + stage.count, 0);
-  const totalConverted = pipelineData[pipelineData.length - 1].count;
-  const globalConversionRate = Math.round((totalConverted / totalProspects) * 100);
+  const totalConverted = pipelineData.find(s => s.id === 'converted')?.count || 0;
+  const globalConversionRate = totalProspects > 0 ? Math.round((totalConverted / totalProspects) * 100) : 0;
 
   return (
     <div className={fullView ? "w-full" : ""}>
       {!fullView ? (
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <BarChart3 className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+              <Users className="w-4 h-4 text-white" />
             </div>
-            <h2 className="text-lg font-bold text-gray-900">Pipeline CRM</h2>
+            <h2 className="text-lg font-bold text-gray-900">Prospects</h2>
           </div>
           <Badge className="bg-blue-100 text-blue-700 text-xs">
             {globalConversionRate}% conversion
@@ -170,33 +188,58 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
           animate={{ opacity: 1, y: 0 }}
           className="mb-4"
         >
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Target className="w-5 h-5 text-white" />
+          {/* Header with search */}
+          <div className="flex flex-col gap-4 mb-4">
+            {/* Title row with search */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Users className="w-8 h-8 text-blue-600 shrink-0" />
+                <h1 className="text-3xl font-bold text-gray-900">Prospects</h1>
+              </div>
+              
+              {/* Search bar aligned with title */}
+              <div className="flex-1 max-w-md">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Rechercher des prospects..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Pipeline CRM</h1>
-              <p className="text-gray-500 text-sm">Gérez vos prospects et votre pipeline de conversion</p>
+            
+            {/* Subtitles below */}
+            <div className="-mt-2">
+              <p className="text-gray-500 text-base">Gérez vos prospects et votre pipeline de conversion</p>
+              <p className="text-gray-900 font-semibold text-base">Pipeline CRM</p>
             </div>
           </div>
           
-          {/* Stats globales compactes */}
-          <div className="grid grid-cols-4 gap-2 mt-3">
+          {/* Stats globales - style cohérent avec Campaigns */}
+          <div className="grid grid-cols-4 gap-3 mt-3">
             {[
-              { label: "Total", value: totalProspects, icon: Users, color: "from-blue-500 to-blue-600" },
-              { label: "Convertis", value: totalConverted, icon: Trophy, color: "from-green-500 to-green-600" },
-              { label: "Taux", value: `${globalConversionRate}%`, icon: TrendingUp, color: "from-purple-500 to-purple-600" },
-              { label: "En cours", value: totalProspects - totalConverted, icon: Clock, color: "from-amber-500 to-amber-600" },
+              { label: "Total", value: totalProspects, icon: Users, color: "text-blue-600", bgColor: "bg-blue-50" },
+              { label: "Convertis", value: totalConverted, icon: Trophy, color: "text-green-600", bgColor: "bg-green-50" },
+              { label: "Taux", value: `${globalConversionRate}%`, icon: TrendingUp, color: "text-purple-600", bgColor: "bg-purple-50" },
+              { label: "En cours", value: totalProspects - totalConverted, icon: Clock, color: "text-amber-600", bgColor: "bg-amber-50" },
             ].map((stat) => (
-              <div key={stat.label} className="bg-white rounded-lg p-2 shadow-sm border border-gray-100 flex items-center gap-2">
-                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${stat.color} flex items-center justify-center`}>
-                  <stat.icon className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-gray-900 leading-tight">{stat.value}</p>
-                  <p className="text-[10px] text-gray-500">{stat.label}</p>
-                </div>
-              </div>
+              <Card key={stat.label} className="border border-gray-100 shadow-sm">
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 ${stat.bgColor} rounded-xl flex items-center justify-center`}>
+                      <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                    </div>
+                    <div>
+                      <p className="text-xl font-bold text-gray-900">{stat.value}</p>
+                      <p className="text-xs text-gray-500">{stat.label}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </motion.div>
@@ -237,11 +280,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                 <div className="flex items-center gap-2 text-[10px] text-white/80">
                   <span className="flex items-center gap-0.5">
                     <TrendingUp className="w-3 h-3" />
-                    {stage.conversionRate}%
-                  </span>
-                  <span className="flex items-center gap-0.5">
-                    <Clock className="w-3 h-3" />
-                    ~{stage.avgTime}
+                    {stage.count > 0 ? Math.round((stage.prospects.length / stage.count) * 100) : 0}%
                   </span>
                 </div>
               </div>
@@ -280,14 +319,12 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                           </div>
                         </div>
 
-                        {/* Tags */}
-                        {prospect.tags && (
+                        {/* Industry */}
+                        {prospect.industry && (
                           <div className="flex flex-wrap gap-1 mb-1.5">
-                            {prospect.tags.map((tag) => (
-                              <span key={tag} className="text-[9px] px-1 py-0.5 bg-gray-100 text-gray-600 rounded">
-                                {tag}
-                              </span>
-                            ))}
+                            <span className="text-[9px] px-1 py-0.5 bg-gray-100 text-gray-600 rounded">
+                              {prospect.industry}
+                            </span>
                           </div>
                         )}
 
@@ -302,7 +339,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                             <MapPin className="w-3 h-3" />
                             {prospect.location}
                           </div>
-                          <span className="text-[9px] text-gray-400">{prospect.lastActivity}</span>
+                          <span className="text-[9px] text-gray-400">Score: {prospect.score}</span>
                         </div>
 
                         {/* Actions rapides (visible au hover) */}
@@ -341,6 +378,16 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                   <Plus className="w-3.5 h-3.5" />
                   Ajouter
                 </motion.button>
+                
+                {/* Empty state */}
+                {stage.prospects.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mb-2">
+                      <Search className="w-4 h-4 text-gray-400" />
+                    </div>
+                    <p className="text-gray-400 text-xs">Aucun prospect</p>
+                  </div>
+                )}
               </div>
             </motion.div>
           );

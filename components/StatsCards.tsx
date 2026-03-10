@@ -11,11 +11,10 @@ interface StatCardProps {
   trend: "up" | "down";
   icon: React.ElementType;
   color: string;
-  subtitle: string;
   delay?: number;
 }
 
-function StatCard({ title, value, change, trend, icon: Icon, color, subtitle, delay = 0 }: StatCardProps) {
+function StatCard({ title, value, change, trend, icon: Icon, color, delay = 0 }: StatCardProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [count, setCount] = useState(0);
   
@@ -60,25 +59,22 @@ function StatCard({ title, value, change, trend, icon: Icon, color, subtitle, de
   return (
     <Card className={`group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-500 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
       <CardContent className={`p-0 bg-gradient-to-br ${colors.bg}`}>
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className={`w-14 h-14 rounded-2xl ${colors.iconBg} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-              <Icon className={`w-7 h-7 ${colors.text}`} />
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className={`w-10 h-10 rounded-xl ${colors.iconBg} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+              <Icon className={`w-5 h-5 ${colors.text}`} />
             </div>
-            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-              {isPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+            <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+              {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
               {change}
             </div>
           </div>
           <div className="space-y-1">
-            <p className="text-sm font-medium text-gray-500">{title}</p>
-            <p className="text-4xl font-bold text-gray-900">{displayValue}</p>
-            <p className="text-xs text-gray-500 flex items-center gap-1">
-              <Target className="w-3 h-3" />{subtitle}
-            </p>
+            <p className="text-xs font-medium text-gray-500">{title}</p>
+            <p className="text-3xl font-bold text-gray-900">{displayValue}</p>
           </div>
         </div>
-        <div className="h-1.5 bg-gray-200/50 mx-6 mb-6 rounded-full overflow-hidden">
+        <div className="h-1 bg-gray-200/50 mx-4 mb-4 rounded-full overflow-hidden">
           <div className={`h-full rounded-full bg-gradient-to-r ${color === 'purple' ? 'from-purple-500 to-purple-600' : color === 'green' ? 'from-green-500 to-green-600' : color === 'orange' ? 'from-orange-500 to-orange-600' : 'from-blue-500 to-blue-600'} transition-all duration-1000`} style={{ width: isVisible ? `${Math.min(numericValue, 100)}%` : '0%' }}/>
         </div>
       </CardContent>
@@ -87,16 +83,57 @@ function StatCard({ title, value, change, trend, icon: Icon, color, subtitle, de
 }
 
 export default function StatsCards() {
-  const stats = [
-    { title: "Reply Rate", value: "18%", change: "-2%", trend: "down" as const, icon: MessageSquare, color: "purple", subtitle: "Target: 20%" },
-    { title: "Click Rate", value: "8%", change: "+1%", trend: "up" as const, icon: MousePointerClick, color: "green", subtitle: "North Star ⭐" },
-    { title: "Conversions", value: "12", change: "+3", trend: "up" as const, icon: CheckCircle, color: "orange", subtitle: "Ce mois" },
-    { title: "Active Leads", value: "247", change: "+12%", trend: "up" as const, icon: Users, color: "blue", subtitle: "En prospection" }
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+        if (data.success) {
+          setStats(data.stats);
+        }
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchStats();
+  }, []);
+
+  // Default stats (all zeros when database is empty)
+  const defaultStats = [
+    { title: "Reply Rate", value: "0%", change: "0%", trend: "up" as const, icon: MessageSquare, color: "purple" },
+    { title: "Conversion Rate", value: "0%", change: "0%", trend: "up" as const, icon: MousePointerClick, color: "green" },
+    { title: "Conversions", value: "0", change: "0", trend: "up" as const, icon: CheckCircle, color: "orange" },
+    { title: "Prospects Actifs", value: "0", change: "0%", trend: "up" as const, icon: Users, color: "blue" }
   ];
 
+  // Calculate real stats from database (show 0 when empty)
+  const calculatedStats = stats ? [
+    { title: "Reply Rate", value: `${stats.campaigns?.response_rate || 0}%`, change: "+0%", trend: "up" as const, icon: MessageSquare, color: "purple" },
+    { title: "Conversion Rate", value: `${stats.campaigns?.conversion_rate || 0}%`, change: "+0%", trend: "up" as const, icon: MousePointerClick, color: "green" },
+    { title: "Conversions", value: String(stats.campaigns?.total_converted || 0), change: "+0", trend: "up" as const, icon: CheckCircle, color: "orange" },
+    { title: "Prospects Actifs", value: String(stats.prospects?.total || 0), change: "+0%", trend: "up" as const, icon: Users, color: "blue" }
+  ] : defaultStats;
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i} className="h-32 animate-pulse bg-gray-100 border-0" />
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {stats.map((stat, idx) => (<StatCard key={stat.title} {...stat} delay={idx * 100} />))}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {calculatedStats.map((stat, idx) => (
+        <StatCard key={stat.title} {...stat} delay={idx * 100} />
+      ))}
     </div>
   );
 }

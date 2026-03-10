@@ -1,6 +1,5 @@
 -- Schema de base de données pour LinkedIn Agent
 -- Exécuter ce script dans Neon DB pour créer les tables
-
 -- Table des campagnes
 CREATE TABLE IF NOT EXISTS campaigns (
   id SERIAL PRIMARY KEY,
@@ -12,6 +11,9 @@ CREATE TABLE IF NOT EXISTS campaigns (
   industry VARCHAR(100),
   location VARCHAR(100),
   company_size VARCHAR(50),
+  target_role VARCHAR(255),
+  template_invitation TEXT,
+  template_followup TEXT,
   contacted INTEGER DEFAULT 0,
   replied INTEGER DEFAULT 0,
   clicked INTEGER DEFAULT 0,
@@ -19,19 +21,19 @@ CREATE TABLE IF NOT EXISTS campaigns (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
 -- Table des messages
 CREATE TABLE IF NOT EXISTS messages (
   id SERIAL PRIMARY KEY,
   campaign_id INTEGER REFERENCES campaigns(id) ON DELETE CASCADE,
-  recipient_name VARCHAR(255) NOT NULL,
+  prospect_id INTEGER,
+  recipient_name VARCHAR(255),
   recipient_role VARCHAR(255),
   recipient_company VARCHAR(255),
   message_text TEXT NOT NULL,
+  message_type VARCHAR(50) DEFAULT 'connection',
   status VARCHAR(50) DEFAULT 'sent',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
 -- Table des prospects
 CREATE TABLE IF NOT EXISTS prospects (
   id SERIAL PRIMARY KEY,
@@ -41,14 +43,16 @@ CREATE TABLE IF NOT EXISTS prospects (
   company VARCHAR(255),
   industry VARCHAR(100),
   location VARCHAR(100),
+  company_size VARCHAR(50),
   email VARCHAR(255),
   phone VARCHAR(50),
+  score INTEGER DEFAULT 50,
   status VARCHAR(50) DEFAULT 'new',
   notes TEXT,
+  last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
 -- Table des utilisateurs
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
@@ -62,8 +66,77 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
+-- Table historique de chat agent IA
+CREATE TABLE IF NOT EXISTS agent_chat_history (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  role VARCHAR(20) NOT NULL,
+  content TEXT NOT NULL,
+  context JSONB,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+-- Table des templates de messages
+CREATE TABLE IF NOT EXISTS templates (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  tag VARCHAR(100) DEFAULT 'Invitation',
+  text TEXT NOT NULL,
+  usage_count INTEGER DEFAULT 0,
+  conversion_rate INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+-- Table des notifications
+CREATE TABLE IF NOT EXISTS notifications (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  type VARCHAR(50) NOT NULL,
+  -- 'message', 'reply', 'conversion', 'connection'
+  title VARCHAR(255) NOT NULL,
+  message TEXT NOT NULL,
+  read BOOLEAN DEFAULT false,
+  data JSONB DEFAULT '{}',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+-- Table de queue d'actions LinkedIn (communication avec extension Chrome)
+CREATE TABLE IF NOT EXISTS linkedin_actions_queue (
+  id SERIAL PRIMARY KEY,
+  action_type VARCHAR(50) NOT NULL,
+  -- 'search', 'visit_profile', 'send_connection', 'send_message'
+  target_url VARCHAR(500),
+  target_name VARCHAR(255),
+  payload JSONB DEFAULT '{}',
+  status VARCHAR(50) DEFAULT 'pending',
+  -- 'pending', 'processing', 'completed', 'failed'
+  result JSONB DEFAULT '{}',
+  error_message TEXT,
+  campaign_id INTEGER REFERENCES campaigns(id) ON DELETE
+  SET NULL,
+    prospect_id INTEGER REFERENCES prospects(id) ON DELETE
+  SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    executed_at TIMESTAMP
+);
+-- Table des follow-ups planifiés
+CREATE TABLE IF NOT EXISTS scheduled_followups (
+  id SERIAL PRIMARY KEY,
+  prospect_id INTEGER REFERENCES prospects(id) ON DELETE CASCADE,
+  campaign_id INTEGER REFERENCES campaigns(id) ON DELETE
+  SET NULL,
+    message_text TEXT NOT NULL,
+    scheduled_for TIMESTAMP NOT NULL,
+    status VARCHAR(50) DEFAULT 'scheduled',
+    -- 'scheduled', 'sent', 'cancelled'
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 -- Index pour améliorer les performances
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
 CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status);
 CREATE INDEX IF NOT EXISTS idx_messages_campaign_id ON messages(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_messages_prospect_id ON messages(prospect_id);
 CREATE INDEX IF NOT EXISTS idx_prospects_status ON prospects(status);
+CREATE INDEX IF NOT EXISTS idx_prospects_score ON prospects(score DESC);
+CREATE INDEX IF NOT EXISTS idx_prospects_industry ON prospects(industry);
+CREATE INDEX IF NOT EXISTS idx_agent_chat_user ON agent_chat_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_templates_tag ON templates(tag);

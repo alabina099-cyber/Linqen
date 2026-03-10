@@ -1,27 +1,23 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, Cell } from "recharts";
-import { TrendingUp, Users, MousePointer, CheckCircle, ArrowUpRight } from "lucide-react";
+import { TrendingUp, Users, CheckCircle, ArrowUpRight } from "lucide-react";
 
-const growthData = [
-  { day: "Day 1", qualified: 5, sent: 10, target: 15 },
-  { day: "Day 5", qualified: 35, sent: 50, target: 55 },
-  { day: "Day 10", qualified: 75, sent: 100, target: 110 },
-  { day: "Day 15", qualified: 110, sent: 140, target: 150 },
-  { day: "Day 20", qualified: 145, sent: 180, target: 190 },
-  { day: "Day 25", qualified: 165, sent: 195, target: 210 },
-  { day: "Day 30", qualified: 178, sent: 200, target: 230 },
-];
+interface FunnelItem {
+  stage: string;
+  count: number;
+  color: string;
+}
 
-const funnelData = [
-  { stage: "Identified", count: 250, color: "#94a3b8" },
-  { stage: "Contacted", count: 180, color: "#60a5fa" },
-  { stage: "Replied", count: 95, color: "#818cf8" },
-  { stage: "Clicked", count: 42, color: "#34d399" },
-  { stage: "Converted", count: 12, color: "#10b981" },
-];
+interface GrowthItem {
+  day: string;
+  qualified: number;
+  sent: number;
+  target: number;
+}
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -42,6 +38,55 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function PerformanceCharts() {
+  const [funnelData, setFunnelData] = useState<FunnelItem[]>([
+    { stage: "Identified", count: 0, color: "#94a3b8" },
+    { stage: "Contacted", count: 0, color: "#60a5fa" },
+    { stage: "Replied", count: 0, color: "#818cf8" },
+    { stage: "Clicked", count: 0, color: "#34d399" },
+    { stage: "Converted", count: 0, color: "#10b981" },
+  ]);
+  
+  const [growthData, setGrowthData] = useState<GrowthItem[]>([
+    { day: "Day 1", qualified: 0, sent: 0, target: 0 },
+    { day: "Day 5", qualified: 0, sent: 0, target: 0 },
+    { day: "Day 10", qualified: 0, sent: 0, target: 0 },
+    { day: "Day 15", qualified: 0, sent: 0, target: 0 },
+    { day: "Day 20", qualified: 0, sent: 0, target: 0 },
+    { day: "Day 25", qualified: 0, sent: 0, target: 0 },
+    { day: "Day 30", qualified: 0, sent: 0, target: 0 },
+  ]);
+  
+  const [conversionRate, setConversionRate] = useState("0%");
+  const [growthPercent, setGrowthPercent] = useState("+0%");
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+        if (data.success) {
+          if (data.stats.funnel && data.stats.funnel.length > 0) {
+            setFunnelData(data.stats.funnel);
+          }
+          if (data.stats.growth && data.stats.growth.length > 0) {
+            setGrowthData(data.stats.growth);
+          }
+          if (data.stats.campaigns?.conversion_rate) {
+            setConversionRate(`${data.stats.campaigns.conversion_rate}%`);
+          }
+          if (data.stats.growthPercent) {
+            setGrowthPercent(`+${data.stats.growthPercent}%`);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching performance stats:', error);
+      }
+    }
+
+    fetchStats();
+  }, []);
+
+  const totalProspects = funnelData[0]?.count || 250;
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Growth Chart */}
@@ -59,7 +104,7 @@ export default function PerformanceCharts() {
             </div>
             <Badge className="bg-green-100 text-green-700 border-0">
               <ArrowUpRight className="w-3 h-3 mr-1" />
-              +24%
+              {growthPercent}
             </Badge>
           </div>
         </CardHeader>
@@ -103,7 +148,7 @@ export default function PerformanceCharts() {
             </div>
             <Badge className="bg-blue-100 text-blue-700 border-0">
               <CheckCircle className="w-3 h-3 mr-1" />
-              4.8% global
+              {conversionRate} global
             </Badge>
           </div>
         </CardHeader>
@@ -118,7 +163,7 @@ export default function PerformanceCharts() {
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     const data = payload[0].payload;
-                    const percentage = data.stage === "Identified" ? 100 : Math.round((data.count / 250) * 100);
+                    const percentage = data.stage === "Identified" ? 100 : Math.round((data.count / totalProspects) * 100);
                     return (
                       <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-3">
                         <p className="font-semibold text-gray-900">{data.stage}</p>

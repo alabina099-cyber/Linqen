@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -122,6 +122,15 @@ export default function Settings() {
     premiumOnly: false,
   });
 
+  // Dropdown open states
+  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+  const [industryDropdownOpen, setIndustryDropdownOpen] = useState(false);
+  const [sizeDropdownOpen, setSizeDropdownOpen] = useState(false);
+  const [seniorityDropdownOpen, setSeniorityDropdownOpen] = useState(false);
+  const [functionDropdownOpen, setFunctionDropdownOpen] = useState(false);
+  const [aiModelDropdownOpen, setAiModelDropdownOpen] = useState(false);
+  const [toneDropdownOpen, setToneDropdownOpen] = useState(false);
+
   // Notifications
   const [notifications, setNotifications] = useState({
     emailDailySummary: true,
@@ -179,6 +188,30 @@ export default function Settings() {
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const dropdowns = [
+        'role-dropdown', 'industry-dropdown', 'size-dropdown', 
+        'seniority-dropdown', 'function-dropdown', 'ai-model-dropdown', 'tone-dropdown'
+      ];
+      
+      dropdowns.forEach((id, index) => {
+        const dropdown = document.getElementById(id);
+        if (dropdown && !dropdown.contains(event.target as Node)) {
+          const setters = [
+            setRoleDropdownOpen, setIndustryDropdownOpen, setSizeDropdownOpen,
+            setSeniorityDropdownOpen, setFunctionDropdownOpen, setAiModelDropdownOpen, setToneDropdownOpen
+          ];
+          setters[index](false);
+        }
+      });
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -373,17 +406,42 @@ export default function Settings() {
                   <label htmlFor="account-role" className="block text-sm font-medium text-gray-700 mb-1">
                     Rôle
                   </label>
-                  <select
-                    id="account-role"
-                    aria-label="Rôle"
-                    value={account.role}
-                    onChange={(e) => setAccount({ ...account, role: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                  >
-                    <option>Admin</option>
-                    <option>Manager</option>
-                    <option>Utilisateur</option>
-                  </select>
+                  <div id="role-dropdown" className="relative">
+                    <button
+                      onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:border-blue-300 transition-all cursor-pointer"
+                    >
+                      <span className={`w-2.5 h-2.5 rounded-full ${
+                        account.role === 'Admin' ? 'bg-purple-500' : 
+                        account.role === 'Manager' ? 'bg-blue-500' : 'bg-green-500'
+                      }`}></span>
+                      <span>{account.role}</span>
+                    </button>
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                    
+                    {roleDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                        {[
+                          { value: 'Admin', color: 'bg-purple-500' },
+                          { value: 'Manager', color: 'bg-blue-500' },
+                          { value: 'Utilisateur', color: 'bg-green-500' }
+                        ].map((role) => (
+                          <button
+                            key={role.value}
+                            onClick={() => { setAccount({ ...account, role: role.value }); setRoleDropdownOpen(false); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            <span className={`w-2.5 h-2.5 rounded-full ${role.color}`}></span>
+                            <span>{role.value}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -574,38 +632,73 @@ export default function Settings() {
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label htmlFor="target-industry" className="block text-sm font-medium text-gray-700 mb-1">Secteur d'activité</label>
-                  <select
-                    id="target-industry"
-                    aria-label="Secteur d'activité"
-                    value={targeting.defaultIndustry}
-                    onChange={(e) => setTargeting({ ...targeting, defaultIndustry: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
-                  >
-                    <option>Tous</option>
-                    <option>Technologie / SaaS</option>
-                    <option>Finance / Banque</option>
-                    <option>Marketing / Média</option>
-                    <option>Consulting</option>
-                    <option>Retail / E-commerce</option>
-                    <option>Santé / Pharma</option>
-                  </select>
+                  <div id="industry-dropdown" className="relative">
+                    <button
+                      onClick={() => setIndustryDropdownOpen(!industryDropdownOpen)}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:border-blue-300 transition-all cursor-pointer"
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                      <span className="truncate">{targeting.defaultIndustry}</span>
+                    </button>
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                    
+                    {industryDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 max-h-60 overflow-auto">
+                        {[
+                          'Tous', 'Technologie / SaaS', 'Finance / Banque', 'Marketing / Média',
+                          'Consulting', 'Retail / E-commerce', 'Santé / Pharma'
+                        ].map((industry) => (
+                          <button
+                            key={industry}
+                            onClick={() => { setTargeting({ ...targeting, defaultIndustry: industry }); setIndustryDropdownOpen(false); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
+                          >
+                            <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                            <span className="truncate">{industry}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label htmlFor="target-size" className="block text-sm font-medium text-gray-700 mb-1">Taille d'entreprise</label>
-                  <select
-                    id="target-size"
-                    aria-label="Taille d'entreprise"
-                    value={targeting.defaultCompanySize}
-                    onChange={(e) => setTargeting({ ...targeting, defaultCompanySize: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
-                  >
-                    <option>Toutes</option>
-                    <option>1-10 employés (Startup)</option>
-                    <option>11-50 employés</option>
-                    <option>51-200 employés</option>
-                    <option>201-500 employés</option>
-                    <option>500+ employés</option>
-                  </select>
+                  <div id="size-dropdown" className="relative">
+                    <button
+                      onClick={() => setSizeDropdownOpen(!sizeDropdownOpen)}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:border-blue-300 transition-all cursor-pointer"
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                      <span className="truncate">{targeting.defaultCompanySize}</span>
+                    </button>
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                    
+                    {sizeDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 max-h-60 overflow-auto">
+                        {[
+                          'Toutes', '1-10 employés (Startup)', '11-50 employés', '51-200 employés',
+                          '201-500 employés', '500+ employés'
+                        ].map((size) => (
+                          <button
+                            key={size}
+                            onClick={() => { setTargeting({ ...targeting, defaultCompanySize: size }); setSizeDropdownOpen(false); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
+                          >
+                            <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                            <span className="truncate">{size}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label htmlFor="target-location" className="block text-sm font-medium text-gray-700 mb-1">Localisation</label>
@@ -619,36 +712,81 @@ export default function Settings() {
                 </div>
                 <div>
                   <label htmlFor="target-seniority" className="block text-sm font-medium text-gray-700 mb-1">Seniorité</label>
-                  <select
-                    id="target-seniority"
-                    aria-label="Seniorité"
-                    value={targeting.defaultSeniority}
-                    onChange={(e) => setTargeting({ ...targeting, defaultSeniority: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
-                  >
-                    <option>Tous niveaux</option>
-                    <option>Débutant / Junior</option>
-                    <option>Confirmé</option>
-                    <option>Cadre / Directeur</option>
-                    <option>VP / C-Level</option>
-                  </select>
+                  <div id="seniority-dropdown" className="relative">
+                    <button
+                      onClick={() => setSeniorityDropdownOpen(!seniorityDropdownOpen)}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:border-blue-300 transition-all cursor-pointer"
+                    >
+                      <span className={`w-2.5 h-2.5 rounded-full ${
+                        targeting.defaultSeniority === 'Tous niveaux' ? 'bg-gray-400' :
+                        targeting.defaultSeniority === 'Débutant / Junior' ? 'bg-green-500' :
+                        targeting.defaultSeniority === 'Confirmé' ? 'bg-blue-500' :
+                        targeting.defaultSeniority === 'Cadre / Directeur' ? 'bg-purple-500' : 'bg-orange-500'
+                      }`}></span>
+                      <span className="truncate">{targeting.defaultSeniority}</span>
+                    </button>
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                    
+                    {seniorityDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                        {[
+                          { value: 'Tous niveaux', color: 'bg-gray-400' },
+                          { value: 'Débutant / Junior', color: 'bg-green-500' },
+                          { value: 'Confirmé', color: 'bg-blue-500' },
+                          { value: 'Cadre / Directeur', color: 'bg-purple-500' },
+                          { value: 'VP / C-Level', color: 'bg-orange-500' }
+                        ].map((seniority) => (
+                          <button
+                            key={seniority.value}
+                            onClick={() => { setTargeting({ ...targeting, defaultSeniority: seniority.value }); setSeniorityDropdownOpen(false); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
+                          >
+                            <span className={`w-2.5 h-2.5 rounded-full ${seniority.color}`}></span>
+                            <span className="truncate">{seniority.value}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label htmlFor="target-function" className="block text-sm font-medium text-gray-700 mb-1">Fonction</label>
-                  <select
-                    id="target-function"
-                    aria-label="Fonction"
-                    value={targeting.defaultFunction}
-                    onChange={(e) => setTargeting({ ...targeting, defaultFunction: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
-                  >
-                    <option>Toutes fonctions</option>
-                    <option>IT / Engineering</option>
-                    <option>Marketing / Communication</option>
-                    <option>Ventes / Business Dev</option>
-                    <option>Finance / RH</option>
-                    <option>Opérations / Produit</option>
-                  </select>
+                  <div id="function-dropdown" className="relative">
+                    <button
+                      onClick={() => setFunctionDropdownOpen(!functionDropdownOpen)}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:border-blue-300 transition-all cursor-pointer"
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                      <span className="truncate">{targeting.defaultFunction}</span>
+                    </button>
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                    
+                    {functionDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50 max-h-60 overflow-auto">
+                        {[
+                          'Toutes fonctions', 'IT / Engineering', 'Marketing / Communication',
+                          'Ventes / Business Dev', 'Finance / RH', 'Opérations / Produit'
+                        ].map((func) => (
+                          <button
+                            key={func}
+                            onClick={() => { setTargeting({ ...targeting, defaultFunction: func }); setFunctionDropdownOpen(false); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
+                          >
+                            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                            <span className="truncate">{func}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">2nd degré uniquement</label>
@@ -875,32 +1013,90 @@ export default function Settings() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="ai-model" className="block text-sm font-medium text-gray-700 mb-1">Modèle IA</label>
-                  <select
-                    id="ai-model"
-                    aria-label="Modèle IA"
-                    value={aiSettings.aiModel}
-                    onChange={(e) => setAiSettings({ ...aiSettings, aiModel: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
-                  >
-                    <option value="gpt-4">GPT-4 (Meilleure qualité)</option>
-                    <option value="gpt-3.5">GPT-3.5 (Plus rapide)</option>
-                    <option value="claude">Claude 3</option>
-                  </select>
+                  <div id="ai-model-dropdown" className="relative">
+                    <button
+                      onClick={() => setAiModelDropdownOpen(!aiModelDropdownOpen)}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:border-blue-300 transition-all cursor-pointer"
+                    >
+                      <span className={`w-2.5 h-2.5 rounded-full ${
+                        aiSettings.aiModel === 'gpt-4' ? 'bg-green-500' :
+                        aiSettings.aiModel === 'gpt-3.5' ? 'bg-blue-500' : 'bg-purple-500'
+                      }`}></span>
+                      <span className="truncate">{
+                        aiSettings.aiModel === 'gpt-4' ? 'GPT-4 (Meilleure qualité)' :
+                        aiSettings.aiModel === 'gpt-3.5' ? 'GPT-3.5 (Plus rapide)' : 'Claude 3'
+                      }</span>
+                    </button>
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                    
+                    {aiModelDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                        {[
+                          { value: 'gpt-4', label: 'GPT-4 (Meilleure qualité)', color: 'bg-green-500' },
+                          { value: 'gpt-3.5', label: 'GPT-3.5 (Plus rapide)', color: 'bg-blue-500' },
+                          { value: 'claude', label: 'Claude 3', color: 'bg-purple-500' }
+                        ].map((model) => (
+                          <button
+                            key={model.value}
+                            onClick={() => { setAiSettings({ ...aiSettings, aiModel: model.value }); setAiModelDropdownOpen(false); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
+                          >
+                            <span className={`w-2.5 h-2.5 rounded-full ${model.color}`}></span>
+                            <span className="truncate">{model.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label htmlFor="ai-tone" className="block text-sm font-medium text-gray-700 mb-1">Ton des messages</label>
-                  <select
-                    id="ai-tone"
-                    aria-label="Ton des messages"
-                    value={aiSettings.tone}
-                    onChange={(e) => setAiSettings({ ...aiSettings, tone: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
-                  >
-                    <option value="professional">Professionnel</option>
-                    <option value="friendly">Amical</option>
-                    <option value="formal">Formel</option>
-                    <option value="casual">Décontracté</option>
-                  </select>
+                  <div id="tone-dropdown" className="relative">
+                    <button
+                      onClick={() => setToneDropdownOpen(!toneDropdownOpen)}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:border-blue-300 transition-all cursor-pointer"
+                    >
+                      <span className={`w-2.5 h-2.5 rounded-full ${
+                        aiSettings.tone === 'professional' ? 'bg-blue-500' :
+                        aiSettings.tone === 'friendly' ? 'bg-green-500' :
+                        aiSettings.tone === 'formal' ? 'bg-purple-500' : 'bg-orange-500'
+                      }`}></span>
+                      <span className="truncate">{
+                        aiSettings.tone === 'professional' ? 'Professionnel' :
+                        aiSettings.tone === 'friendly' ? 'Amical' :
+                        aiSettings.tone === 'formal' ? 'Formel' : 'Décontracté'
+                      }</span>
+                    </button>
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                    
+                    {toneDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                        {[
+                          { value: 'professional', label: 'Professionnel', color: 'bg-blue-500' },
+                          { value: 'friendly', label: 'Amical', color: 'bg-green-500' },
+                          { value: 'formal', label: 'Formel', color: 'bg-purple-500' },
+                          { value: 'casual', label: 'Décontracté', color: 'bg-orange-500' }
+                        ].map((tone) => (
+                          <button
+                            key={tone.value}
+                            onClick={() => { setAiSettings({ ...aiSettings, tone: tone.value }); setToneDropdownOpen(false); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
+                          >
+                            <span className={`w-2.5 h-2.5 rounded-full ${tone.color}`}></span>
+                            <span className="truncate">{tone.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

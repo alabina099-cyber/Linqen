@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bell, Check, Trash2, MessageCircle, UserPlus, Star, AlertCircle, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -13,16 +13,6 @@ interface Notification {
   time: string;
   read: boolean;
 }
-
-const mockNotifications: Notification[] = [
-  { id: "1", type: "message", title: "Nouveau message", description: "Marie Dupont a répondu à votre message", time: "2 min", read: false },
-  { id: "2", type: "connection", title: "Nouvelle connexion", description: "Jean Martin a accepté votre invitation", time: "15 min", read: false },
-  { id: "3", type: "reply", title: "Réponse reçue", description: "Pierre Durand est intéressé par votre offre", time: "1h", read: true },
-  { id: "4", type: "alert", title: "Limite approchée", description: "Vous avez atteint 80% de vos connexions quotidiennes", time: "3h", read: true },
-  { id: "5", type: "message", title: "Campagne terminée", description: "Votre campagne 'Q1 Prospecting' est terminée", time: "5h", read: true },
-  { id: "6", type: "message", title: "Note", description: "Ceci est une notification pour tester le scroll bleu", time: "6h", read: true },
-  { id: "7", type: "connection", title: "Archive", description: "Ancienne notification pour forcer le scroll", time: "1j", read: true },
-];
 
 const iconMap = {
   message: MessageCircle,
@@ -40,19 +30,77 @@ const colorMap = {
 
 export default function NotificationPanel() {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch real notifications from API
+  useEffect(() => {
+    async function fetchNotifications() {
+      try {
+        const response = await fetch('/api/notifications');
+        const data = await response.json();
+        if (data.success && data.notifications) {
+          // Map database notifications to component format
+          const mappedNotifications = data.notifications.map((n: any) => ({
+            id: String(n.id),
+            type: n.type as Notification['type'],
+            title: n.title,
+            description: n.message,
+            time: formatTimeAgo(n.created_at),
+            read: n.read
+          }));
+          setNotifications(mappedNotifications);
+        }
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (isOpen) {
+      fetchNotifications();
+    }
+  }, [isOpen]);
+
+  function formatTimeAgo(dateString: string): string {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return "À l'instant";
+    if (diffInMinutes < 60) return `${diffInMinutes} min`;
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h`;
+    return `${Math.floor(diffInHours / 24)}j`;
+  }
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const markAllRead = () => {
-    setNotifications(notifications.map((n) => ({ ...n, read: true })));
+  const markAllRead = async () => {
+    try {
+      await fetch('/api/notifications', { method: 'PATCH' });
+      setNotifications(notifications.map((n) => ({ ...n, read: true })));
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
   };
 
-  const markAsRead = (id: string) => {
-    setNotifications(notifications.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  const markAsRead = async (id: string) => {
+    try {
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: parseInt(id), read: true })
+      });
+      setNotifications(notifications.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    } catch (error) {
+      console.error('Error marking as read:', error);
+    }
   };
 
-  const clearAll = () => {
+  const clearAll = async () => {
+    // Note: API doesn't have bulk delete, so we just clear locally
     setNotifications([]);
   };
 

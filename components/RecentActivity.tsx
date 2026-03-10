@@ -3,53 +3,115 @@
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   UserPlus, MessageSquare, MousePointerClick, CheckCircle, Clock, 
-  Target, Send, Filter, Sparkles, TrendingUp, RefreshCw, MoreHorizontal
+  Target, Filter, Activity, TrendingUp
 } from "lucide-react";
 
-const activities = [
-  { type: "conversion", icon: CheckCircle, color: "text-green-600", bgColor: "bg-green-50", badgeColor: "bg-green-100 text-green-700 border-green-200", badge: "Conversion", title: "Démo réservée", prospect: "Emma L.", role: "Founder @ StartupX", detail: "Emma a réservé un créneau de 30 min via Calendly", campaign: "CTOs Tech Paris", time: "Il y a 5 min" },
-  { type: "click", icon: MousePointerClick, color: "text-cyan-600", bgColor: "bg-cyan-50", badgeColor: "bg-cyan-100 text-cyan-700 border-cyan-200", badge: "Clic", title: "Lien visité", prospect: "David K.", role: "CEO @ CloudScale", detail: "David a cliqué sur le lien de démonstration produit", campaign: "Fondateurs SaaS B2B", time: "Il y a 12 min" },
-  { type: "reply", icon: MessageSquare, color: "text-purple-600", bgColor: "bg-purple-50", badgeColor: "bg-purple-100 text-purple-700 border-purple-200", badge: "Réponse", title: "Message reçu", prospect: "Sarah M.", role: "CEO @ DataCorp", detail: "\"Merci pour votre message, je reviendrai vers vous très prochainement\"", campaign: "Directeurs Marketing", time: "Il y a 23 min" },
-  { type: "connection", icon: UserPlus, color: "text-blue-600", bgColor: "bg-blue-50", badgeColor: "bg-blue-100 text-blue-700 border-blue-200", badge: "Connexion", title: "Invitation acceptée", prospect: "Ben F.", role: "Marketing Dir. @ GrowthLab", detail: "Ben a accepté votre invitation LinkedIn — relance planifiée dans 3 jours", campaign: "Fondateurs SaaS B2B", time: "Il y a 1h" },
-  { type: "connection", icon: UserPlus, color: "text-blue-600", bgColor: "bg-blue-50", badgeColor: "bg-blue-100 text-blue-700 border-blue-200", badge: "Connexion", title: "Invitation acceptée", prospect: "Clara S.", role: "Sales VP @ Innovate AI", detail: "Clara a accepté votre invitation LinkedIn — relance planifiée dans 3 jours", campaign: "CTOs Tech Paris", time: "Il y a 2h" },
-  { type: "reply", icon: MessageSquare, color: "text-purple-600", bgColor: "bg-purple-50", badgeColor: "bg-purple-100 text-purple-700 border-purple-200", badge: "Réponse", title: "Message reçu", prospect: "Alex D.", role: "CTO @ TechFlow", detail: "\"Oui, votre solution semble intéressante, envoyez-moi plus d'infos\"", campaign: "CTOs Tech Paris", time: "Il y a 3h" },
-];
+interface Message {
+  id: number;
+  type: string;
+  recipient_name: string;
+  recipient_role: string;
+  recipient_company: string;
+  message_text: string;
+  status: string;
+  campaign_name: string;
+  created_at: string;
+}
 
 const filters = ["Tous", "Réponses", "Conversions", "Connexions", "Clics"];
 
+const statusConfig: Record<string, { icon: React.ElementType; color: string; bgColor: string; badgeColor: string; badge: string; title: string }> = {
+  replied: { icon: MessageSquare, color: "text-purple-600", bgColor: "bg-purple-50", badgeColor: "bg-purple-100 text-purple-700 border-purple-200", badge: "Réponse", title: "Message reçu" },
+  clicked: { icon: MousePointerClick, color: "text-cyan-600", bgColor: "bg-cyan-50", badgeColor: "bg-cyan-100 text-cyan-700 border-cyan-200", badge: "Clic", title: "Lien visité" },
+  converted: { icon: CheckCircle, color: "text-green-600", bgColor: "bg-green-50", badgeColor: "bg-green-100 text-green-700 border-green-200", badge: "Conversion", title: "Conversion" },
+  sent: { icon: UserPlus, color: "text-blue-600", bgColor: "bg-blue-50", badgeColor: "bg-blue-100 text-blue-700 border-blue-200", badge: "Connexion", title: "Message envoyé" },
+  pending: { icon: Clock, color: "text-gray-600", bgColor: "bg-gray-50", badgeColor: "bg-gray-100 text-gray-700 border-gray-200", badge: "En attente", title: "En attente" },
+};
+
+function formatTimeAgo(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+  
+  if (diffInHours < 1) return "Il y a quelques minutes";
+  if (diffInHours < 24) return `Il y a ${diffInHours}h`;
+  return `Il y a ${Math.floor(diffInHours / 24)}j`;
+}
+
 export default function RecentActivity() {
   const [activeFilter, setActiveFilter] = useState("Tous");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredActivities = activeFilter === "Tous" 
-    ? activities 
-    : activities.filter(a => {
-        if (activeFilter === "Réponses") return a.type === "reply";
-        if (activeFilter === "Conversions") return a.type === "conversion";
-        if (activeFilter === "Connexions") return a.type === "connection";
-        if (activeFilter === "Clics") return a.type === "click";
+  useEffect(() => {
+    async function fetchMessages() {
+      try {
+        const response = await fetch('/api/messages?limit=12');
+        const data = await response.json();
+        if (data.success) {
+          setMessages(data.messages);
+        }
+      } catch (error) {
+        console.error('Error fetching messages:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchMessages();
+  }, []);
+
+  const getMessageConfig = (status: string) => {
+    return statusConfig[status] || statusConfig.pending;
+  };
+
+  const filteredMessages = activeFilter === "Tous" 
+    ? messages 
+    : messages.filter(m => {
+        if (activeFilter === "Réponses") return m.status === 'replied';
+        if (activeFilter === "Conversions") return m.status === 'converted';
+        if (activeFilter === "Connexions") return m.status === 'sent';
+        if (activeFilter === "Clics") return m.status === 'clicked';
         return true;
       });
 
   const stats = [
-    { label: "Aujourd'hui", value: activities.length, icon: Clock },
-    { label: "Conversions", value: activities.filter(a => a.type === "conversion").length, icon: CheckCircle },
-    { label: "Taux d'eng.", value: "24%", icon: TrendingUp },
+    { label: "Aujourd'hui", value: messages.length, icon: Clock },
+    { label: "Conversions", value: messages.filter(m => m.status === 'converted').length, icon: CheckCircle },
+    { label: "Réponses", value: messages.filter(m => m.status === 'replied').length, icon: MessageSquare },
   ];
+
+  if (loading) {
+    return (
+      <Card className="border-0 shadow-lg overflow-hidden">
+        <CardHeader className="border-b bg-gradient-to-r from-gray-50 to-white pb-4">
+          <div className="h-8 bg-gray-200 rounded animate-pulse w-48" />
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="h-32 bg-gray-100 rounded-xl animate-pulse" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-0 shadow-lg overflow-hidden">
-      <CardHeader className="border-b bg-gradient-to-r from-gray-50 to-white pb-4">
+      <CardHeader className="border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white pb-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-blue-100 rounded-2xl flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-purple-600" />
+              <Activity className="w-6 h-6 text-purple-600" />
             </div>
             <div>
               <CardTitle className="text-xl">Activité Récente</CardTitle>
-              <p className="text-sm text-gray-500">{activities.length} événements aujourd'hui</p>
+              <p className="text-sm text-gray-500">{filteredMessages.length} événements</p>
             </div>
           </div>
           
@@ -69,7 +131,6 @@ export default function RecentActivity() {
 
         {/* Filters */}
         <div className="flex items-center gap-2 mt-4 flex-wrap">
-          <Filter className="w-4 h-4 text-gray-400 mr-1" />
           {filters.map((f) => (
             <button
               key={f}
@@ -83,46 +144,51 @@ export default function RecentActivity() {
               {f}
             </button>
           ))}
-          <Button variant="ghost" size="sm" className="ml-auto text-gray-400 hover:text-gray-600">
-            <RefreshCw className="w-4 h-4" />
-          </Button>
         </div>
       </CardHeader>
 
       <CardContent className="p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredActivities.map((activity, idx) => {
-            const Icon = activity.icon;
-            return (
-              <div
-                key={idx}
-                className="group flex gap-3 p-4 rounded-xl border border-gray-100 bg-white hover:shadow-lg hover:border-blue-200 hover:-translate-y-0.5 transition-all duration-300"
-              >
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${activity.bgColor} group-hover:scale-110 transition-transform duration-300`}>
-                  <Icon className={`w-6 h-6 ${activity.color}`} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="text-sm font-bold text-gray-900">{activity.title}</span>
-                    <Badge className={`text-xs shrink-0 ${activity.badgeColor}`}>{activity.badge}</Badge>
+          {filteredMessages.length === 0 ? (
+            <div className="col-span-full text-center py-12 text-gray-500">
+              <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <p>Aucune activité récente</p>
+            </div>
+          ) : (
+            filteredMessages.map((message) => {
+              const config = getMessageConfig(message.status);
+              const Icon = config.icon;
+              return (
+                <div
+                  key={message.id}
+                  className="group flex gap-3 p-4 rounded-xl border border-gray-100 bg-white hover:shadow-lg hover:border-blue-200 hover:-translate-y-0.5 transition-all duration-300"
+                >
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${config.bgColor} group-hover:scale-110 transition-transform duration-300`}>
+                    <Icon className={`w-6 h-6 ${config.color}`} />
                   </div>
-                  <p className="text-sm font-semibold text-gray-800">{activity.prospect}</p>
-                  <p className="text-xs text-gray-500">{activity.role}</p>
-                  <p className="text-xs text-gray-600 mt-2 leading-relaxed line-clamp-2 bg-gray-50 rounded-lg p-2">{activity.detail}</p>
-                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
-                    <div className="flex items-center gap-1 text-xs text-gray-400">
-                      <Target className="w-3 h-3" />
-                      {activity.campaign}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-sm font-bold text-gray-900">{config.title}</span>
+                      <Badge className={`text-xs shrink-0 ${config.badgeColor}`}>{config.badge}</Badge>
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-gray-400">
-                      <Clock className="w-3 h-3" />
-                      {activity.time}
+                    <p className="text-sm font-semibold text-gray-800">{message.recipient_name}</p>
+                    <p className="text-xs text-gray-500">{message.recipient_role} @ {message.recipient_company}</p>
+                    <p className="text-xs text-gray-600 mt-2 leading-relaxed line-clamp-2 bg-gray-50 rounded-lg p-2">{message.message_text}</p>
+                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
+                      <div className="flex items-center gap-1 text-xs text-gray-400">
+                        <Target className="w-3 h-3" />
+                        {message.campaign_name || 'Sans campagne'}
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-gray-400">
+                        <Clock className="w-3 h-3" />
+                        {formatTimeAgo(message.created_at)}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </CardContent>
     </Card>
