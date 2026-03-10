@@ -220,6 +220,52 @@
       color: #94a3b8;
       border-top: 1px solid #e2e8f0;
     }
+
+    .linkedin-account-bar {
+      padding: 10px 20px;
+      background: white;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .account-info {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      color: #334155;
+    }
+
+    .account-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #94a3b8;
+      flex-shrink: 0;
+    }
+    .account-dot.li-connected { background: #0a66c2; }
+    .account-dot.li-disconnected { background: #ef4444; }
+
+    .btn-linkedin {
+      font-size: 10px;
+      padding: 4px 10px;
+      background: #0a66c2;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .btn-linkedin:hover { background: #004182; }
+    .btn-linkedin.disconnect {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+    .btn-linkedin.disconnect:hover { background: #fecaca; }
   </style>
 </head>
 <body>
@@ -234,9 +280,18 @@
   <div class="status-bar">
     <div class="status-indicator">
       <div class="status-dot" id="statusDot"></div>
-      <span id="statusText">Connexion...</span>
+      <span style="font-size: 11px; color: #94a3b8; margin-right: 2px;">Serveur:</span>
+      <span id="statusText">Vérification...</span>
     </div>
     <span id="processingText" style="font-size: 11px; color: #64748b;"></span>
+  </div>
+
+  <div class="linkedin-account-bar">
+    <div class="account-info">
+      <div class="account-dot li-disconnected" id="liAccountDot"></div>
+      <span id="liAccountText">Compte LinkedIn non connecté</span>
+    </div>
+    <button class="btn-linkedin" id="liAccountBtn">Connecter</button>
   </div>
 
   <div class="content">
