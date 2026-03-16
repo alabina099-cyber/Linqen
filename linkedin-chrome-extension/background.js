@@ -1,7 +1,82 @@
 // Configuration
-const API_BASE_URL = "http://localhost:3000/api";
+const DEFAULT_API_BASE_URL = "http://localhost:3000/api";
+let API_BASE_URL = DEFAULT_API_BASE_URL;
+
+// Charger l'URL serveur depuis le storage au démarrage
+chrome.storage.local.get(["serverUrl"], (result) => {
+  if (result.serverUrl) {
+    API_BASE_URL = result.serverUrl.replace(/\/$/, "") + "/api";
+    console.log("[Config] Serveur configuré:", API_BASE_URL);
+  }
+});
+
+// Écouter les changements de config
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.serverUrl) {
+    API_BASE_URL =
+      (
+        changes.serverUrl.newValue || DEFAULT_API_BASE_URL.replace("/api", "")
+      ).replace(/\/$/, "") + "/api";
+    console.log("[Config] Serveur mis à jour:", API_BASE_URL);
+  }
+});
 const POLL_INTERVAL_MS = 10000; // 10 secondes
-const DELAY_BETWEEN_ACTIONS_MS = 3000; // 3 secondes entre chaque action
+
+// Délais sécurisés par type d'action (en ms) - fourchette [min, max]
+const ACTION_DELAYS = {
+  send_connection: [90000, 120000], // 1m30 à 2min
+  send_message: [60000, 90000], // 1min à 1m30
+  visit_profile: [15000, 30000], // 15s à 30s
+  search: [30000, 45000], // 30s à 45s
+  default: [10000, 20000] // 10s à 20s
+};
+
+// Limites journalières LinkedIn (conservatives)
+const DAILY_LIMITS = {
+  send_connection: 20,
+  send_message: 50,
+  visit_profile: 80,
+  search: 30
+};
+
+// Compteurs journaliers — réinitialisés à minuit
+let dailyCounters = {};
+let lastResetDate = new Date().toDateString();
+
+function getRandomDelay(actionType) {
+  const [min, max] = ACTION_DELAYS[actionType] || ACTION_DELAYS.default;
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function resetDailyCountersIfNeeded() {
+  const today = new Date().toDateString();
+  if (today !== lastResetDate) {
+    dailyCounters = {};
+    lastResetDate = today;
+    console.log("[LinkedIn Guard] Compteurs journaliers réinitialisés.");
+  }
+}
+
+function isLimitReached(actionType) {
+  resetDailyCountersIfNeeded();
+  const limit = DAILY_LIMITS[actionType];
+  if (!limit) return false;
+  const count = dailyCounters[actionType] || 0;
+  if (count >= limit) {
+    console.warn(
+      `[LinkedIn Guard] Limite journalière atteinte pour "${actionType}" (${count}/${limit}). Action ignorée.`
+    );
+    return true;
+  }
+  return false;
+}
+
+function incrementCounter(actionType) {
+  dailyCounters[actionType] = (dailyCounters[actionType] || 0) + 1;
+  console.log(
+    `[LinkedIn Guard] ${actionType}: ${dailyCounters[actionType]}/${DAILY_LIMITS[actionType] || "∞"} aujourd'hui.`
+  );
+}
 
 let isProcessing = false;
 let isConnected = false;
@@ -62,6 +137,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     );
     return true;
   }
+
+  if (message.type === "CAPTURE_LINKEDIN_COOKIE") {
+    captureLinkedInCookie()
+      .then((result) => sendResponse(result))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
 });
 
 // Récupérer et exécuter les actions APPROUVÉES (statut = 'approved')
@@ -93,8 +175,22 @@ async function pollAndExecuteActions() {
 
     for (const action of data.actions) {
       try {
+        if (isLimitReached(action.action_type)) {
+          await updateActionStatus(
+            action.id,
+            "failed",
+            null,
+            `Limite journalière atteinte pour "${action.action_type}".`
+          );
+          continue;
+        }
         await executeAction(action);
-        await delay(DELAY_BETWEEN_ACTIONS_MS);
+        incrementCounter(action.action_type);
+        const waitMs = getRandomDelay(action.action_type);
+        console.log(
+          `[LinkedIn Guard] Attente de ${Math.round(waitMs / 1000)}s avant la prochaine action...`
+        );
+        await delay(waitMs);
       } catch (error) {
         console.error(`Error executing action ${action.id}:`, error);
         await updateActionStatus(action.id, "failed", null, error.message);
@@ -313,6 +409,62 @@ function updateBadge(count) {
     chrome.action.setBadgeBackgroundColor({ color: "#3B82F6" });
   } else {
     chrome.action.setBadgeText({ text: "" });
+  }
+}
+
+// =============================================
+// CAPTURE AUTOMATIQUE DU COOKIE LinkedIn li_at
+// =============================================
+async function captureLinkedInCookie() {
+  try {
+    // Lire le cookie li_at depuis le store Chrome
+    const cookie = await chrome.cookies.get({
+      url: "https://www.linkedin.com",
+      name: "li_at"
+    });
+
+    if (!cookie || !cookie.value) {
+      console.warn(
+        "[LinkedIn Agent] Cookie li_at non trouvé. Connectez-vous d'abord sur linkedin.com"
+      );
+      return {
+        success: false,
+        error:
+          "Cookie li_at non trouvé. Ouvrez linkedin.com et connectez-vous d'abord."
+      };
+    }
+
+    console.log("[LinkedIn Agent] Cookie li_at capturé avec succès");
+
+    // Envoyer le cookie au backend
+    const response = await fetch(`${API_BASE_URL}/linkedin-auth`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        method: "cookie",
+        cookie: cookie.value,
+        name: "",
+        email: ""
+      })
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(
+        errData.error || "Erreur serveur lors de la sauvegarde du cookie"
+      );
+    }
+
+    const data = await response.json();
+    console.log("[LinkedIn Agent] Cookie sauvegardé en base de données:", data);
+
+    return { success: true, message: "Compte LinkedIn connecté avec succès !" };
+  } catch (error) {
+    console.error("[LinkedIn Agent] Erreur capture cookie:", error);
+    return {
+      success: false,
+      error: error.message || "Erreur lors de la capture du cookie"
+    };
   }
 }
 

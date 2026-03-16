@@ -1,23 +1,143 @@
-const API_BASE_URL = "http://localhost:3000/api";
+const DEFAULT_SERVER_URL = "http://localhost:3000";
+let API_BASE_URL = DEFAULT_SERVER_URL + "/api";
+let SERVER_URL = DEFAULT_SERVER_URL;
+
+// Charger l'URL depuis le storage
+chrome.storage.local.get(["serverUrl"], (result) => {
+  if (result.serverUrl) {
+    SERVER_URL = result.serverUrl.replace(/\/$/, "");
+    API_BASE_URL = SERVER_URL + "/api";
+  }
+  const input = document.getElementById("serverUrlInput");
+  if (input) input.value = SERVER_URL;
+});
 
 document.addEventListener("DOMContentLoaded", () => {
-  refreshData();
-  refreshLinkedInAccount();
+  chrome.storage.local.get(["serverUrl"], (result) => {
+    if (result.serverUrl) {
+      SERVER_URL = result.serverUrl.replace(/\/$/, "");
+      API_BASE_URL = SERVER_URL + "/api";
+    }
+    const input = document.getElementById("serverUrlInput");
+    if (input) input.value = SERVER_URL;
+    refreshData();
+    refreshLinkedInAccount();
+  });
 
   document.getElementById("refreshBtn").addEventListener("click", () => {
     refreshData();
     refreshLinkedInAccount();
-    // Aussi déclencher un poll manuel dans le background
     chrome.runtime.sendMessage({ type: "MANUAL_POLL" });
   });
 
   document.getElementById("openDashboardBtn").addEventListener("click", () => {
-    chrome.tabs.create({ url: "http://localhost:3000" });
+    chrome.tabs.create({ url: SERVER_URL });
   });
 
-  document.getElementById("liAccountBtn").addEventListener("click", () => {
-    chrome.tabs.create({ url: "http://localhost:3000/#linkedin-account" });
-  });
+  document
+    .getElementById("liAccountBtn")
+    .addEventListener("click", async () => {
+      const btn = document.getElementById("liAccountBtn");
+      const text = document.getElementById("liAccountText");
+
+      // Si déjà connecté, ouvrir la page de gestion
+      if (btn.textContent === "Gérer") {
+        chrome.tabs.create({ url: SERVER_URL + "/#linkedin-account" });
+        return;
+      }
+
+      // Capturer le cookie directement depuis popup.js (plus fiable que message passing)
+      btn.textContent = "Capture...";
+      btn.disabled = true;
+      if (text) text.textContent = "Capture du cookie en cours...";
+
+      try {
+        // Vérifier que l'API cookies est disponible
+        if (!chrome.cookies || !chrome.cookies.get) {
+          btn.disabled = false;
+          btn.textContent = "Connecter";
+          if (text)
+            text.textContent = "Rechargez l'extension (désactiver/réactiver)";
+          console.error(
+            "[LinkedIn Agent] chrome.cookies API non disponible. Rechargez l'extension."
+          );
+          return;
+        }
+
+        // 1. Lire le cookie li_at depuis Chrome
+        const cookie = await chrome.cookies.get({
+          url: "https://www.linkedin.com",
+          name: "li_at"
+        });
+
+        if (!cookie || !cookie.value) {
+          btn.disabled = false;
+          btn.textContent = "Connecter";
+          if (text) text.textContent = "Cookie li_at non trouvé";
+          setTimeout(() => {
+            if (
+              confirm(
+                "Vous devez d'abord vous connecter sur linkedin.com.\n\nOuvrir LinkedIn maintenant ?"
+              )
+            ) {
+              chrome.tabs.create({ url: "https://www.linkedin.com/login" });
+            }
+          }, 300);
+          return;
+        }
+
+        // 2. Envoyer le cookie au serveur
+        const response = await fetch(`${API_BASE_URL}/linkedin-auth`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            method: "cookie",
+            cookie: cookie.value,
+            name: "",
+            email: ""
+          })
+        });
+
+        const data = await response.json();
+
+        btn.disabled = false;
+        if (response.ok && data.success) {
+          btn.textContent = "Connecté ✓";
+          if (text) text.textContent = "Compte LinkedIn connecté !";
+          setTimeout(() => refreshLinkedInAccount(), 1000);
+        } else {
+          btn.textContent = "Connecter";
+          if (text) text.textContent = data.error || "Erreur serveur";
+        }
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = "Connecter";
+        if (text)
+          text.textContent = "Erreur: " + (err.message || "connexion échouée");
+        console.error("[LinkedIn Agent] Capture error:", err);
+      }
+    });
+
+  // Sauvegarde de l'URL serveur
+  const saveBtn = document.getElementById("saveServerUrlBtn");
+  if (saveBtn) {
+    saveBtn.addEventListener("click", () => {
+      const input = document.getElementById("serverUrlInput");
+      const newUrl = (input?.value || "").trim().replace(/\/$/, "");
+      if (!newUrl) return;
+      SERVER_URL = newUrl;
+      API_BASE_URL = newUrl + "/api";
+      chrome.storage.local.set({ serverUrl: newUrl }, () => {
+        chrome.runtime.sendMessage({ type: "SERVER_URL_UPDATED", url: newUrl });
+        saveBtn.textContent = "Sauvegardé ✓";
+        setTimeout(() => {
+          saveBtn.textContent = "Sauvegarder";
+        }, 2000);
+        refreshData();
+        refreshLinkedInAccount();
+      });
+    });
+  }
 
   // Auto-refresh toutes les 5 secondes
   setInterval(refreshData, 5000);
@@ -57,8 +177,7 @@ function updateLinkedInAccountBar(data) {
 }
 
 function openLinkedInAccountPage() {
-  // Ouvre directement sur l'onglet Compte LinkedIn via le hash URL
-  chrome.tabs.create({ url: "http://localhost:3000/#linkedin-account" });
+  chrome.tabs.create({ url: SERVER_URL + "/#linkedin-account" });
 }
 
 async function refreshData() {

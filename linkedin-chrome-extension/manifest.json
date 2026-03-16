@@ -6,11 +6,14 @@
   "permissions": [
     "activeTab",
     "storage",
-    "alarms"
+    "alarms",
+    "cookies"
   ],
   "host_permissions": [
     "https://www.linkedin.com/*",
-    "http://localhost:3000/*"
+    "http://localhost:3000/*",
+    "https://*/*",
+    "http://*/*"
   ],
   "background": {
     "service_worker": "background.js"
