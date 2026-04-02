@@ -40,9 +40,10 @@ export class LinkedInAgent {
   private history: BaseMessage[] = [];
   private maxHistory = 20;
 
-  // Envoyer un message à l'agent
+  // Envoyer un message à l'agent — boucle multi-tool pour chaîner les actions
   async chat(userMessage: string, context?: Record<string, unknown>): Promise<AgentChatResult> {
     const toolSteps: ToolStep[] = [];
+    const MAX_TOOL_ROUNDS = 6; // Max 6 rounds de tool calls pour éviter les boucles infinies
 
     try {
       const llm = createBoundLLM();
@@ -57,33 +58,45 @@ export class LinkedInAgent {
       const messages: BaseMessage[] = [
         new SystemMessage(`${SYSTEM_PROMPTS.prospecting}
 
-Tu es un agent IA autonome pour LinkedIn. Tu dois:
-1. Comprendre les demandes de l'utilisateur
-2. Utiliser les tools appropriés pour exécuter les actions
-3. Fournir des réponses claires et structurées en français
-4. Toujours respecter les limites LinkedIn (100 connexions/jour max)
-5. Être proactif et suggérer des actions pertinentes`),
+RAPPEL CRITIQUE:
+- TOUTES les actions passent par la file d'approbation. AUCUNE action ne s'exécute directement.
+- Quand on te demande d'envoyer un message → appelle linkedin_send_message DIRECTEMENT (pas de check_network_connections).
+- Quand on te demande d'envoyer une connexion → appelle linkedin_send_connection DIRECTEMENT.
+- Ne JAMAIS afficher un message à copier-coller. TOUJOURS utiliser le tool pour créer l'action.
+- Si l'URL LinkedIn du prospect manque, DEMANDE-LA d'abord.
+- N'appelle PAS check_network_connections ni get_connection_results. Ces tools ne sont plus utilisés.
+- Réponds toujours en français, de manière claire et structurée.`),
         ...this.history,
         new HumanMessage(input),
       ];
 
-      // Appel au LLM
-      const response = await llm.invoke(messages);
+      // Boucle multi-tool: le LLM peut appeler des tools, recevoir les résultats,
+      // puis décider d'appeler d'autres tools — jusqu'à ce qu'il donne une réponse finale
+      let currentMessages = [...messages];
+      let finalOutput = "";
 
-      // Vérifier s'il y a des tool calls
-      if (response.tool_calls && response.tool_calls.length > 0) {
+      for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+        const response = await llm.invoke(currentMessages);
+
+        // Si pas de tool calls → c'est la réponse finale
+        if (!response.tool_calls || response.tool_calls.length === 0) {
+          finalOutput = response.content?.toString() || "Action exécutée avec succès.";
+          break;
+        }
+
+        // Exécuter les tool calls
         let toolResults = "";
-
         for (const toolCall of response.tool_calls) {
           const tool = TOOLS_MAP[toolCall.name];
           if (tool) {
             try {
               const result = await tool.invoke(toolCall.args);
-              toolResults += `\n[Résultat de ${toolCall.name}]: ${result}`;
+              const resultStr = typeof result === "string" ? result : JSON.stringify(result);
+              toolResults += `\n[Résultat de ${toolCall.name}]: ${resultStr}`;
               toolSteps.push({
                 toolName: toolCall.name,
                 args: toolCall.args as Record<string, unknown>,
-                result: typeof result === "string" ? result : JSON.stringify(result),
+                result: resultStr,
                 status: "success",
                 timestamp: new Date().toISOString(),
               });
@@ -101,31 +114,20 @@ Tu es un agent IA autonome pour LinkedIn. Tu dois:
           }
         }
 
-        // Deuxième appel avec les résultats des tools
-        const followUpMessages: BaseMessage[] = [
-          ...messages,
-          new AIMessage(response.content?.toString() || ""),
-          new HumanMessage(`Voici les résultats des actions exécutées:${toolResults}\n\nRésume les résultats de manière claire pour l'utilisateur.`),
-        ];
-
-        const finalLlm = new ChatOpenAI({
-          modelName: OPENAI_CONFIG.model,
-          temperature: OPENAI_CONFIG.temperature,
-          maxTokens: OPENAI_CONFIG.maxTokens,
-          openAIApiKey: process.env.OPENAI_API_KEY,
-        });
-
-        const finalResponse = await finalLlm.invoke(followUpMessages);
-        const output = finalResponse.content?.toString() || "Action exécutée avec succès.";
-
-        this.addToHistory(userMessage, output);
-        return { response: output, toolSteps };
+        // Ajouter la réponse de l'assistant + résultats des tools aux messages
+        currentMessages.push(new AIMessage(response.content?.toString() || ""));
+        currentMessages.push(new HumanMessage(
+          `Résultats des tools exécutés:${toolResults}\n\nContinue le workflow: si tu as encore des étapes à faire (vérifier les résultats, envoyer un message, etc.), appelle le prochain tool. Sinon, donne ta réponse finale à l'utilisateur.`
+        ));
       }
 
-      // Réponse simple sans tool call
-      const output = response.content?.toString() || "Je suis prêt à vous aider.";
-      this.addToHistory(userMessage, output);
-      return { response: output, toolSteps };
+      // Si on a atteint MAX_TOOL_ROUNDS sans réponse finale
+      if (!finalOutput) {
+        finalOutput = "Les actions ont été exécutées. Consultez l'onglet Approbations pour les détails.";
+      }
+
+      this.addToHistory(userMessage, finalOutput);
+      return { response: finalOutput, toolSteps };
 
     } catch (error) {
       console.error("Agent error:", error);

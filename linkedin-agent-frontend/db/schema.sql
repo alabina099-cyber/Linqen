@@ -121,8 +121,8 @@ CREATE TABLE IF NOT EXISTS linkedin_actions_queue (
   target_url VARCHAR(500),
   target_name VARCHAR(255),
   payload JSONB DEFAULT '{}',
-  status VARCHAR(50) DEFAULT 'pending',
-  -- 'pending', 'processing', 'completed', 'failed'
+  status VARCHAR(50) DEFAULT 'pending_approval',
+  -- 'pending_approval', 'processing', 'completed', 'failed'
   result JSONB DEFAULT '{}',
   error_message TEXT,
   campaign_id INTEGER REFERENCES campaigns(id) ON DELETE

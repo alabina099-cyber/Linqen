@@ -27,13 +27,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Stats par statut
+    // Stats par statut - inclure tous les statuts possibles
     const stats = await query(
       `SELECT 
-        status,
-        COUNT(*) as count
-       FROM linkedin_actions_queue 
-       GROUP BY status`
+        s.status,
+        COALESCE(COUNT(a.id), 0) as count
+       FROM (VALUES 
+         ('pending_approval'), 
+         ('approved'), 
+         ('completed'), 
+         ('rejected'), 
+         ('failed'),
+         ('processing')
+       ) AS s(status)
+       LEFT JOIN linkedin_actions_queue a ON a.status = s.status
+       GROUP BY s.status
+       ORDER BY s.status`
     );
 
     return NextResponse.json({
@@ -64,14 +73,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!['approve', 'reject'].includes(action)) {
+    if (!['approve', 'reject', 'stop', 'retry'].includes(action)) {
       return NextResponse.json(
-        { success: false, error: 'action doit être "approve" ou "reject"' },
+        { success: false, error: 'action doit être "approve", "reject", "stop" ou "retry"' },
         { status: 400 }
       );
     }
 
-    const newStatus = action === 'approve' ? 'approved' : 'rejected';
+    let newStatus: string;
+    switch (action) {
+      case 'approve':
+        newStatus = 'approved';
+        break;
+      case 'reject':
+        newStatus = 'rejected';
+        break;
+      case 'stop':
+        newStatus = 'failed';
+        break;
+      case 'retry':
+        newStatus = 'pending_approval';
+        break;
+      default:
+        return NextResponse.json(
+          { success: false, error: 'Action invalide' },
+          { status: 400 }
+        );
+    }
 
     // Vérifier que l'action existe et est en attente d'approbation
     const checkResult = await query(
@@ -88,12 +116,33 @@ export async function POST(request: NextRequest) {
 
     const actionData = checkResult.rows[0];
 
-    // Vérifier que l'action est bien en attente d'approbation
-    if (actionData.status !== 'pending_approval') {
-      return NextResponse.json(
-        { success: false, error: `Action déjà ${actionData.status}` },
-        { status: 400 }
-      );
+    // Valider le statut actuel selon l'action demandée
+    switch (action) {
+      case 'approve':
+      case 'reject':
+        if (actionData.status !== 'pending_approval') {
+          return NextResponse.json(
+            { success: false, error: `Seules les actions en attente peuvent être approuvées/rejetées (statut actuel: ${actionData.status})` },
+            { status: 400 }
+          );
+        }
+        break;
+      case 'stop':
+        if (actionData.status !== 'approved') {
+          return NextResponse.json(
+            { success: false, error: `Seules les actions approuvées peuvent être arrêtées (statut actuel: ${actionData.status})` },
+            { status: 400 }
+          );
+        }
+        break;
+      case 'retry':
+        if (!['rejected', 'failed'].includes(actionData.status)) {
+          return NextResponse.json(
+            { success: false, error: `Seules les actions rejetées ou échouées peuvent être réessayées (statut actuel: ${actionData.status})` },
+            { status: 400 }
+          );
+        }
+        break;
     }
 
     // Mettre à jour le statut
@@ -102,12 +151,30 @@ export async function POST(request: NextRequest) {
        SET status = $1, result = COALESCE(result, '{}') || $2::jsonb
        WHERE id = $3
        RETURNING *`,
-      [newStatus, JSON.stringify({ approval_reason: reason || null, approved_at: new Date().toISOString() }), id]
+      [newStatus, JSON.stringify({ 
+        approval_reason: reason || null, 
+        approved_at: new Date().toISOString(),
+        last_action: action
+      }), id]
     );
 
-    const message = action === 'approve' 
-      ? `✅ Action #${id} approuvée. Elle sera exécutée par l'extension Chrome.`
-      : `❌ Action #${id} rejetée. Elle ne sera pas exécutée.`;
+    let message: string;
+    switch (action) {
+      case 'approve':
+        message = `✅ Action #${id} approuvée. Elle sera exécutée par l'extension Chrome.`;
+        break;
+      case 'reject':
+        message = `❌ Action #${id} rejetée. Elle ne sera pas exécutée.`;
+        break;
+      case 'stop':
+        message = `⏹️ Action #${id} arrêtée. L'exécution a été interrompue.`;
+        break;
+      case 'retry':
+        message = `🔄 Action #${id} remise en attente. Vous pouvez l'approuver à nouveau.`;
+        break;
+      default:
+        message = `Action #${id} mise à jour.`;
+    }
 
     return NextResponse.json({
       success: true,

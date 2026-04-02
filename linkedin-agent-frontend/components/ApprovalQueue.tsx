@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   Check,
@@ -14,6 +14,7 @@ import {
   AlertCircle,
   RefreshCw,
   ExternalLink,
+  Square,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,29 +42,35 @@ export default function ApprovalQueue() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string | null>("pending_approval");
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   // --- API helpers ---
 
-  const fetchActionsAndStats = useCallback(async () => {
+  const fetchActionsAndStats = useCallback(async (statusFilter?: string | null) => {
     try {
       setIsRefreshing(true);
-      // Fetch all actions for stats
+      const currentFilter = statusFilter !== undefined ? statusFilter : selectedStatus;
+
+      // Fetch all actions for allActions cache + stats
       const allResponse = await fetch("/api/linkedin-actions/approval");
       const allData = await allResponse.json();
-      
-      // Fetch pending actions for the list
-      const pendingResponse = await fetch(
-        "/api/linkedin-actions/approval?status=pending_approval"
-      );
-      const pendingData = await pendingResponse.json();
-      
+
       if (allData.success) {
         setAllActions(allData.actions || []);
         setStats(allData.stats || []);
-      }
-      if (pendingData.success) {
-        setActions(pendingData.actions || []);
+
+        // Filtrer les actions affichées selon le statut sélectionné
+        const all = allData.actions || [];
+        if (currentFilter === null) {
+          setActions([...all].sort((a: PendingAction, b: PendingAction) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          ));
+        } else if (currentFilter === "rejected_failed") {
+          setActions(all.filter((a: PendingAction) => a.status === "rejected" || a.status === "failed"));
+        } else {
+          setActions(all.filter((a: PendingAction) => a.status === currentFilter));
+        }
       }
     } catch (error) {
       console.error("Error fetching actions:", error);
@@ -71,28 +78,32 @@ export default function ApprovalQueue() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [selectedStatus]);
 
   const filterByStatus = (status: string | null) => {
     setSelectedStatus(status);
-    if (!status) {
-      // Total - show all actions ordered chronologically
-      const sorted = [...allActions].sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-      setActions(sorted);
-      return;
-    }
-    if (status === "rejected_failed") {
-      setActions(allActions.filter(a => a.status === "rejected" || a.status === "failed"));
-      return;
-    }
-    setActions(allActions.filter(a => a.status === status));
+    // Re-fetch avec le nouveau filtre pour avoir des données fraîches
+    fetchActionsAndStats(status);
   };
+
+  // Démarrer un auto-refresh temporaire (ex: après une approbation)
+  const startPolling = useCallback((targetStatus: string | null) => {
+    if (pollingRef.current) clearInterval(pollingRef.current);
+    let count = 0;
+    pollingRef.current = setInterval(async () => {
+      count++;
+      await fetchActionsAndStats(targetStatus);
+      if (count >= 6) {
+        // Stop après 30s (6 x 5s)
+        if (pollingRef.current) clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    }, 5000);
+  }, [fetchActionsAndStats]);
 
   const updateAction = async (
     id: number,
-    action: "approve" | "reject" | "retry"
+    action: "approve" | "reject" | "retry" | "stop"
   ) => {
     setProcessingId(id);
     try {
@@ -103,7 +114,20 @@ export default function ApprovalQueue() {
       });
       const data = await response.json();
       if (data.success) {
-        await fetchActionsAndStats();
+        // Naviguer vers le bon onglet après l'action
+        let targetStatus: string | null = selectedStatus;
+        if (action === "approve") targetStatus = "approved";
+        else if (action === "reject") targetStatus = "rejected_failed";
+        else if (action === "retry") targetStatus = "pending_approval";
+        else if (action === "stop") targetStatus = "rejected_failed";
+
+        setSelectedStatus(targetStatus);
+        await fetchActionsAndStats(targetStatus);
+
+        // Démarrer un polling temporaire pour suivre l'action
+        if (action === "approve" || action === "retry") {
+          startPolling(targetStatus);
+        }
       }
     } catch (error) {
       console.error(`Error trying to ${action} action:`, error);
@@ -112,9 +136,17 @@ export default function ApprovalQueue() {
     }
   };
 
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, []);
+
   const approveAction = (id: number) => updateAction(id, "approve");
   const rejectAction = (id: number) => updateAction(id, "reject");
   const retryAction = (id: number) => updateAction(id, "retry");
+  const stopAction = (id: number) => updateAction(id, "stop");
 
   useEffect(() => {
     fetchActionsAndStats();
@@ -133,6 +165,8 @@ export default function ApprovalQueue() {
         return <LinkIcon className="w-5 h-5 text-green-600" />;
       case "send_message":
         return <MessageSquare className="w-5 h-5 text-purple-600" />;
+      case "check_connection":
+        return <CheckSquare className="w-5 h-5 text-cyan-600" />;
       default:
         return <AlertCircle className="w-5 h-5 text-gray-600" />;
     }
@@ -144,6 +178,7 @@ export default function ApprovalQueue() {
       visit_profile: "Visiter profil",
       send_connection: "Demande de connexion",
       send_message: "Envoyer message",
+      check_connection: "Vérification réseau",
     };
     return labels[type] || type;
   };
@@ -163,8 +198,10 @@ export default function ApprovalQueue() {
     }
   };
 
-  const getCount = (status: string) =>
-    stats.find((s) => s.status === status)?.count || 0;
+  const getCount = (status: string): number => {
+    const found = stats.find((s) => s.status === status);
+    return found ? Number(found.count) : 0;
+  };
 
   const formatPayload = (action: PendingAction) => {
     const payload =
@@ -201,6 +238,106 @@ export default function ApprovalQueue() {
     0
   );
 
+  // Badge de statut pour chaque action
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "pending_approval":
+        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-[10px]">En attente</Badge>;
+      case "approved":
+        return <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-[10px]">Approuvée</Badge>;
+      case "processing":
+        return <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300 text-[10px]">En cours</Badge>;
+      case "completed":
+        return <Badge className="bg-green-100 text-green-800 border-green-300 text-[10px]">Terminée</Badge>;
+      case "rejected":
+        return <Badge className="bg-red-100 text-red-800 border-red-300 text-[10px]">Rejetée</Badge>;
+      case "failed":
+        return <Badge className="bg-red-100 text-red-800 border-red-300 text-[10px]">Échouée</Badge>;
+      default:
+        return <Badge className="bg-gray-100 text-gray-800 text-[10px]">{status}</Badge>;
+    }
+  };
+
+  // Helper pour afficher les bons boutons selon le statut
+  const renderActionButtons = (action: PendingAction) => {
+    const isProcessing = processingId === action.id;
+    
+    switch (action.status) {
+      case "pending_approval":
+        return (
+          <>
+            <Button
+              size="sm"
+              onClick={() => approveAction(action.id)}
+              disabled={isProcessing}
+              className="bg-green-600 hover:bg-green-700 h-8 px-2 text-xs"
+            >
+              {isProcessing ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Check className="w-3.5 h-3.5 mr-1" />
+              )}
+              Approuver
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => rejectAction(action.id)}
+              disabled={isProcessing}
+              className="border-red-200 text-red-600 hover:bg-red-50 h-8 px-2 text-xs"
+            >
+              <X className="w-3.5 h-3.5 mr-1" />
+              Rejeter
+            </Button>
+          </>
+        );
+      
+      case "approved":
+        return (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => stopAction(action.id)}
+            disabled={isProcessing}
+            className="border-orange-200 text-orange-600 hover:bg-orange-50 h-8 px-2 text-xs"
+          >
+            {isProcessing ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Square className="w-3.5 h-3.5 mr-1" />
+            )}
+            Arrêter
+          </Button>
+        );
+      
+      case "rejected":
+      case "failed":
+        return (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => retryAction(action.id)}
+            disabled={isProcessing}
+            className="border-purple-200 text-purple-700 hover:bg-purple-50 h-8 px-2 text-xs"
+          >
+            {isProcessing ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="w-3.5 h-3.5 mr-1" />
+            )}
+            Réessayer
+          </Button>
+        );
+      
+      case "completed":
+        // Aucun bouton pour les actions terminées
+        return null;
+      
+      default:
+        return null;
+    }
+  };
+
   const pendingCount = getCount("pending_approval");
   const approvedCount = getCount("approved");
   const completedCount = getCount("completed");
@@ -226,7 +363,7 @@ export default function ApprovalQueue() {
         </div>
         <Button
           variant="outline"
-          onClick={fetchActionsAndStats}
+          onClick={() => fetchActionsAndStats()}
           disabled={isRefreshing}
           className="bg-white hover:bg-gray-50 border-gray-300 shadow-sm hover:shadow-md transition-all"
         >
@@ -450,6 +587,7 @@ export default function ApprovalQueue() {
                         >
                           #{action.id}
                         </Badge>
+                        {getStatusBadge(action.status)}
                       </div>
 
                       {action.target_name && (
@@ -485,42 +623,7 @@ export default function ApprovalQueue() {
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => approveAction(action.id)}
-                        disabled={processingId === action.id}
-                        className="bg-green-600 hover:bg-green-700 h-8 px-2 text-xs"
-                      >
-                        {processingId === action.id ? (
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Check className="w-3.5 h-3.5 mr-1" />
-                        )}
-                        Approuver
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => rejectAction(action.id)}
-                        disabled={processingId === action.id}
-                        className="border-red-200 text-red-600 hover:bg-red-50 h-8 px-2 text-xs"
-                      >
-                        <X className="w-3.5 h-3.5 mr-1" />
-                        Rejeter
-                      </Button>
-                      {/* Optionnel : bouton Réessayer pour les échouées */}
-                      {action.status === "failed" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => retryAction(action.id)}
-                          disabled={processingId === action.id}
-                          className="border-purple-200 text-purple-700 hover:bg-purple-50 h-8 px-2 text-xs"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5 mr-1" />
-                          Réessayer
-                        </Button>
-                      )}
+                      {renderActionButtons(action)}
                     </div>
                   </div>
                 </motion.div>

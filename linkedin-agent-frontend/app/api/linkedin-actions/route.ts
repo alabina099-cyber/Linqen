@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     const result = await query(
       `INSERT INTO linkedin_actions_queue (action_type, target_url, target_name, payload, status, campaign_id, created_at)
-       VALUES ($1, $2, $3, $4, 'pending', $5, NOW())
+       VALUES ($1, $2, $3, $4, 'pending_approval', $5, NOW())
        RETURNING *`,
       [action_type, target_url || null, target_name || null, JSON.stringify(payload || {}), campaign_id || null]
     );

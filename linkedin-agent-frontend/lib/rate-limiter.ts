@@ -64,23 +64,23 @@ export async function checkRateLimit(actionType: ActionType): Promise<RateLimitR
   const config = RATE_LIMITS[actionType];
 
   try {
-    // Compter les actions du jour (hors rejected/failed)
+    // Compter uniquement les actions TERMINÉES (completed) = messages réellement envoyés
     const dailyResult = await pool.query(
       `SELECT COUNT(*) as count
        FROM linkedin_actions_queue
        WHERE action_type = $1
-         AND status NOT IN ('failed', 'rejected')
+         AND status = 'completed'
          AND created_at >= CURRENT_DATE`,
       [actionType]
     );
     const dailyUsed = parseInt(dailyResult.rows[0].count);
 
-    // Compter les actions de la dernière heure
+    // Compter les actions terminées de la dernière heure
     const hourlyResult = await pool.query(
       `SELECT COUNT(*) as count
        FROM linkedin_actions_queue
        WHERE action_type = $1
-         AND status NOT IN ('failed', 'rejected')
+         AND status = 'completed'
          AND created_at >= NOW() - INTERVAL '1 hour'`,
       [actionType]
     );
@@ -125,11 +125,11 @@ export async function checkRateLimit(actionType: ActionType): Promise<RateLimitR
       };
     }
 
-    // Vérifier le délai minimum depuis la dernière action du même type
+    // Vérifier le délai minimum depuis la dernière action terminée du même type
     const lastActionResult = await pool.query(
       `SELECT created_at FROM linkedin_actions_queue
        WHERE action_type = $1
-         AND status NOT IN ('failed', 'rejected')
+         AND status = 'completed'
        ORDER BY created_at DESC LIMIT 1`,
       [actionType]
     );

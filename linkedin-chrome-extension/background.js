@@ -80,6 +80,7 @@ function incrementCounter(actionType) {
 
 let isProcessing = false;
 let isConnected = false;
+let activeActionTabId = null; // onglet ouvert pour l'action en cours
 
 // Initialiser l'alarme de polling
 chrome.alarms.create("pollActions", { periodInMinutes: 0.2 }); // Toutes les 12 secondes
@@ -124,6 +125,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     updateActionStatus(message.actionId, "completed", message.result).then(
       () => {
         sendResponse({ success: true });
+        // Fermer l'onglet action après succès
+        if (activeActionTabId) {
+          setTimeout(() => {
+            chrome.tabs.remove(activeActionTabId).catch(() => {});
+            activeActionTabId = null;
+          }, 1500);
+        }
       }
     );
     return true;
@@ -133,6 +141,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     updateActionStatus(message.actionId, "failed", null, message.error).then(
       () => {
         sendResponse({ success: true });
+        // Fermer l'onglet action après échec
+        if (activeActionTabId) {
+          setTimeout(() => {
+            chrome.tabs.remove(activeActionTabId).catch(() => {});
+            activeActionTabId = null;
+          }, 1500);
+        }
       }
     );
     return true;
@@ -175,7 +190,10 @@ async function pollAndExecuteActions() {
 
     for (const action of data.actions) {
       try {
-        if (isLimitReached(action.action_type)) {
+        if (
+          action.action_type !== "check_connection" &&
+          isLimitReached(action.action_type)
+        ) {
           await updateActionStatus(
             action.id,
             "failed",
@@ -185,12 +203,15 @@ async function pollAndExecuteActions() {
           continue;
         }
         await executeAction(action);
-        incrementCounter(action.action_type);
-        const waitMs = getRandomDelay(action.action_type);
-        console.log(
-          `[LinkedIn Guard] Attente de ${Math.round(waitMs / 1000)}s avant la prochaine action...`
-        );
-        await delay(waitMs);
+        // check_connection est silencieux — pas de délai ni de compteur
+        if (action.action_type !== "check_connection") {
+          incrementCounter(action.action_type);
+          const waitMs = getRandomDelay(action.action_type);
+          console.log(
+            `[LinkedIn Guard] Attente de ${Math.round(waitMs / 1000)}s avant la prochaine action...`
+          );
+          await delay(waitMs);
+        }
       } catch (error) {
         console.error(`Error executing action ${action.id}:`, error);
         await updateActionStatus(action.id, "failed", null, error.message);
@@ -206,9 +227,22 @@ async function pollAndExecuteActions() {
   }
 }
 
+// Normaliser une URL LinkedIn (assurer https://www.linkedin.com/)
+function normalizeLinkedInUrl(url) {
+  if (!url) return url;
+  return url.replace(
+    /^https?:\/\/((?!www\.))(linkedin\.com)/i,
+    "https://www.$2"
+  );
+}
+
 // Exécuter une action spécifique
 async function executeAction(action) {
   console.log(`Executing action: ${action.action_type} (ID: ${action.id})`);
+  // Normaliser l'URL avant exécution
+  if (action.target_url) {
+    action.target_url = normalizeLinkedInUrl(action.target_url);
+  }
 
   // Marquer l'action comme "processing"
   await updateActionStatus(action.id, "processing");
@@ -226,6 +260,9 @@ async function executeAction(action) {
     case "send_message":
       await executeSendMessage(action);
       break;
+    case "check_connection":
+      await executeCheckConnection(action);
+      break;
     default:
       await updateActionStatus(
         action.id,
@@ -236,129 +273,603 @@ async function executeAction(action) {
   }
 }
 
+// Ouvrir un onglet LinkedIn et attendre son chargement complet
+async function openLinkedInTab(url) {
+  const tab = await chrome.tabs.create({ url, active: true });
+  activeActionTabId = tab.id;
+  await waitForTabLoad(tab.id);
+  await delay(3000); // attendre le rendu dynamique LinkedIn
+  return tab;
+}
+
+// Injecter le content script si pas déjà chargé (MV3 service worker)
+async function ensureContentScript(tabId) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["content.js"]
+    });
+  } catch (e) {
+    // Déjà injecté ou erreur non bloquante
+    console.log(
+      "[Extension] Content script déjà présent ou non injectable:",
+      e.message
+    );
+  }
+  await delay(500);
+}
+
 // Exécuter une recherche LinkedIn
 async function executeSearch(action) {
+  let tab;
   try {
-    const tab = await getLinkedInTab();
-    if (!tab) {
-      await updateActionStatus(
-        action.id,
-        "failed",
-        null,
-        "Aucun onglet LinkedIn ouvert. Ouvrez LinkedIn d'abord."
-      );
-      return;
-    }
-
-    // Naviguer vers l'URL de recherche
-    await chrome.tabs.update(tab.id, { url: action.target_url });
-    await delay(3000); // Attendre le chargement
-
-    // Demander au content script de scraper les résultats
+    tab = await openLinkedInTab(action.target_url);
+    await ensureContentScript(tab.id);
     chrome.tabs.sendMessage(tab.id, {
       type: "SCRAPE_SEARCH_RESULTS",
       actionId: action.id,
       payload: action.payload
     });
   } catch (error) {
+    if (tab) chrome.tabs.remove(tab.id).catch(() => {});
     await updateActionStatus(action.id, "failed", null, error.message);
   }
 }
 
 // Visiter un profil LinkedIn
 async function executeVisitProfile(action) {
+  let tab;
   try {
-    const tab = await getLinkedInTab();
-    if (!tab) {
-      await updateActionStatus(
-        action.id,
-        "failed",
-        null,
-        "Aucun onglet LinkedIn ouvert."
-      );
-      return;
-    }
-
-    await chrome.tabs.update(tab.id, { url: action.target_url });
-    await delay(3000);
-
-    // Demander au content script de scraper le profil
+    tab = await openLinkedInTab(action.target_url);
+    await ensureContentScript(tab.id);
     chrome.tabs.sendMessage(tab.id, {
       type: "SCRAPE_PROFILE",
       actionId: action.id
     });
   } catch (error) {
+    if (tab) chrome.tabs.remove(tab.id).catch(() => {});
     await updateActionStatus(action.id, "failed", null, error.message);
   }
 }
 
-// Envoyer une demande de connexion
+// Vérifier le degré de connexion d'un profil LinkedIn
+async function executeCheckConnection(action) {
+  let tab;
+  try {
+    tab = await openLinkedInTab(action.target_url);
+
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: async () => {
+        function wait(ms) {
+          return new Promise((r) => setTimeout(r, ms));
+        }
+
+        // Fonction de détection du degré
+        function detectDegree() {
+          // Méthode 1: span avec texte exact du degré
+          for (const span of document.querySelectorAll("span")) {
+            const txt = (span.textContent || "").trim();
+            if (txt === "1er" || txt === "1st") return 1;
+            if (txt === "2e" || txt === "2nd") return 2;
+            if (
+              txt === "3e+" ||
+              txt === "3rd+" ||
+              txt === "3e" ||
+              txt === "3rd"
+            )
+              return 3;
+          }
+
+          // Méthode 2: aria-label
+          for (const el of document.querySelectorAll("[aria-label]")) {
+            const label = (el.getAttribute("aria-label") || "").toLowerCase();
+            if (label.includes("1st degree") || label.includes("1er")) return 1;
+            if (label.includes("2nd degree") || label.includes("2e")) return 2;
+            if (label.includes("3rd") || label.includes("3e")) return 3;
+          }
+
+          // Méthode 3: classes CSS LinkedIn
+          const degreeEl = document.querySelector(
+            ".dist-value, .profile-topcard-person-entity__distance, [data-test-id='distance-badge']"
+          );
+          if (degreeEl) {
+            const txt = (degreeEl.textContent || "").trim();
+            if (txt.includes("1")) return 1;
+            if (txt.includes("2")) return 2;
+            return 3;
+          }
+
+          // Méthode 4: bouton "Message" visible = 1er degré
+          for (const btn of document.querySelectorAll(
+            "button, a[role='button']"
+          )) {
+            const txt = (btn.textContent || "").trim().toLowerCase();
+            if (txt === "message" || txt === "envoyer un message") return 1;
+          }
+
+          // Méthode 5: bouton "Se connecter" visible = pas 1er degré
+          for (const btn of document.querySelectorAll(
+            "button, a[role='button']"
+          )) {
+            const txt = (btn.textContent || "").trim().toLowerCase();
+            if (txt === "se connecter" || txt === "connect") return 2;
+          }
+
+          return null;
+        }
+
+        // Attendre que le profil soit chargé (chercher h1 ou .text-heading-xlarge)
+        for (let i = 0; i < 15; i++) {
+          const h1 = document.querySelector("h1");
+          if (h1 && h1.textContent.trim().length > 0) break;
+          await wait(500);
+        }
+
+        // Essayer de détecter le degré — avec retry (max 8 tentatives = ~8s)
+        let degree = null;
+        for (let attempt = 0; attempt < 8; attempt++) {
+          degree = detectDegree();
+          if (degree !== null) break;
+          await wait(1000);
+        }
+
+        return { degree: degree || 0, connected: degree === 1 };
+      },
+      args: []
+    });
+
+    const res = results && results[0] && results[0].result;
+    console.log("[Extension] checkConnection result:", JSON.stringify(res));
+
+    await updateActionStatus(action.id, "completed", {
+      degree: (res && res.degree) || 0,
+      connected: (res && res.connected) || false,
+      target_url: action.target_url,
+      target_name: action.target_name
+    });
+
+    setTimeout(() => chrome.tabs.remove(tab.id).catch(() => {}), 1500);
+  } catch (error) {
+    console.error("[Extension] executeCheckConnection error:", error);
+    if (tab) chrome.tabs.remove(tab.id).catch(() => {});
+    await updateActionStatus(action.id, "failed", null, error.message);
+  }
+}
+
+// Envoyer une demande de connexion via executeScript inline
 async function executeSendConnection(action) {
+  let tab;
   try {
-    const tab = await getLinkedInTab();
-    if (!tab) {
-      await updateActionStatus(
-        action.id,
-        "failed",
-        null,
-        "Aucun onglet LinkedIn ouvert."
-      );
-      return;
-    }
-
-    // Naviguer vers le profil
-    await chrome.tabs.update(tab.id, { url: action.target_url });
-    await delay(3000);
-
     const payload =
       typeof action.payload === "string"
         ? JSON.parse(action.payload)
         : action.payload;
+    const note = payload.note || "";
 
-    // Demander au content script d'envoyer la connexion
-    chrome.tabs.sendMessage(tab.id, {
-      type: "SEND_CONNECTION",
-      actionId: action.id,
-      note: payload.note || ""
+    tab = await openLinkedInTab(action.target_url);
+
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: async (noteText) => {
+        function delay(ms) {
+          return new Promise((r) => setTimeout(r, ms));
+        }
+        try {
+          await delay(1000);
+          const allBtns = document.querySelectorAll('button, a[role="button"]');
+          let connectBtn = null;
+          for (const btn of allBtns) {
+            const txt = (
+              btn.textContent ||
+              btn.getAttribute("aria-label") ||
+              ""
+            )
+              .trim()
+              .toLowerCase();
+            if (txt === "se connecter" || txt === "connect") {
+              connectBtn = btn;
+              break;
+            }
+          }
+          if (!connectBtn)
+            return { success: false, error: "Bouton Se connecter non trouvé" };
+          connectBtn.click();
+          await delay(1500);
+          if (noteText) {
+            const addNoteBtn = Array.from(
+              document.querySelectorAll("button")
+            ).find((b) => {
+              const t = (b.textContent || "").trim().toLowerCase();
+              return t.includes("ajouter une note") || t.includes("add a note");
+            });
+            if (addNoteBtn) {
+              addNoteBtn.click();
+              await delay(500);
+              const noteField = document.querySelector(
+                "#custom-message, textarea[name='message'], .send-invite__custom-message"
+              );
+              if (noteField) {
+                noteField.focus();
+                document.execCommand("insertText", false, noteText);
+                noteField.dispatchEvent(new Event("input", { bubbles: true }));
+                await delay(300);
+              }
+            }
+          }
+          const sendBtn = Array.from(document.querySelectorAll("button")).find(
+            (b) => {
+              const t = (b.textContent || "").trim().toLowerCase();
+              return t === "envoyer" || t === "send" || t.includes("envoyer l");
+            }
+          );
+          if (!sendBtn)
+            return { success: false, error: "Bouton Envoyer non trouvé" };
+          sendBtn.click();
+          await delay(1000);
+          return { success: true };
+        } catch (e) {
+          return { success: false, error: e.message || "Erreur inconnue" };
+        }
+      },
+      args: [note]
     });
+
+    const res = results && results[0] && results[0].result;
+    if (res && res.success) {
+      await updateActionStatus(action.id, "completed", { sent: true });
+    } else {
+      await updateActionStatus(
+        action.id,
+        "failed",
+        null,
+        (res && res.error) || "Erreur inconnue"
+      );
+    }
+    setTimeout(() => chrome.tabs.remove(tab.id).catch(() => {}), 2000);
   } catch (error) {
+    if (tab) chrome.tabs.remove(tab.id).catch(() => {});
     await updateActionStatus(action.id, "failed", null, error.message);
   }
 }
 
-// Envoyer un message direct
+// Envoyer un message direct — GESTION POPUP OVERLAY
 async function executeSendMessage(action) {
+  let tab;
+
   try {
-    const tab = await getLinkedInTab();
-    if (!tab) {
-      await updateActionStatus(
-        action.id,
-        "failed",
-        null,
-        "Aucun onglet LinkedIn ouvert."
-      );
-      return;
-    }
-
-    // Naviguer vers la page de messaging du profil
-    const messagingUrl =
-      action.target_url.replace("/in/", "/messaging/thread/new/") ||
-      action.target_url;
-    await chrome.tabs.update(tab.id, { url: action.target_url });
-    await delay(3000);
-
     const payload =
       typeof action.payload === "string"
         ? JSON.parse(action.payload)
         : action.payload;
 
-    // Demander au content script d'envoyer le message
-    chrome.tabs.sendMessage(tab.id, {
-      type: "SEND_MESSAGE",
-      actionId: action.id,
-      message: payload.message || ""
+    const messageText = payload.message || "";
+
+    // Ouvrir le profil LinkedIn
+    tab = await openLinkedInTab(action.target_url);
+    console.log("[SEND MSG] Profil ouvert, tab", tab.id);
+
+    // Injection UNIQUE : cliquer Message + attendre popup + écrire + envoyer
+    const result = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: async (msgText) => {
+        function wait(ms) {
+          return new Promise((r) => setTimeout(r, ms));
+        }
+        function isVisible(el) {
+          return el && el.offsetParent !== null;
+        }
+        function log(...args) {
+          console.log("[AUTO MESSAGE]", ...args);
+        }
+
+        try {
+          log("🚀 START: Recherche bouton Message sur", window.location.href);
+
+          // ========================================
+          // ÉTAPE 1: Attendre le profil et cliquer Message
+          // ========================================
+          for (let i = 0; i < 15; i++) {
+            const h1 = document.querySelector("h1");
+            if (h1 && h1.textContent.trim().length > 0) break;
+            await wait(1000);
+          }
+          await wait(2000);
+
+          // Chercher bouton Message
+          const clickables = document.querySelectorAll(
+            'button, a[role="button"], a[href*="messaging"]'
+          );
+          let messageBtn = null;
+          for (const el of clickables) {
+            if (!isVisible(el)) continue;
+            const txt = (el.innerText || "").trim().toLowerCase();
+            const aria = (el.getAttribute("aria-label") || "")
+              .trim()
+              .toLowerCase();
+            if (
+              txt === "message" ||
+              txt === "envoyer un message" ||
+              aria === "message" ||
+              aria.startsWith("envoyer un message") ||
+              aria.startsWith("send a message")
+            ) {
+              messageBtn = el;
+              break;
+            }
+          }
+          // Fallback: match partiel
+          if (!messageBtn) {
+            for (const el of clickables) {
+              if (!isVisible(el)) continue;
+              const txt = (el.innerText || "").trim().toLowerCase();
+              const aria = (el.getAttribute("aria-label") || "")
+                .trim()
+                .toLowerCase();
+              const combined = txt + " " + aria;
+              if (
+                combined.includes("message") &&
+                !combined.includes("demande") &&
+                !combined.includes("signaler") &&
+                !combined.includes("request")
+              ) {
+                messageBtn = el;
+                break;
+              }
+            }
+          }
+
+          if (!messageBtn) {
+            return {
+              success: false,
+              error: "Bouton Message non trouvé sur le profil"
+            };
+          }
+
+          log("✅ Bouton Message trouvé, click...");
+          messageBtn.click();
+
+          // ========================================
+          // ÉTAPE 2: Attendre que le popup overlay apparaisse (3-5s)
+          // ========================================
+          log("⏳ Attente du popup overlay...");
+          await wait(4000);
+
+          // ========================================
+          // ÉTAPE 3: Trouver le champ contenteditable dans le popup
+          // ========================================
+          log("🔍 Recherche du champ de saisie dans le popup...");
+          let input = null;
+
+          // Sélecteurs ultra-larges basés sur les screenshots
+          const inputSelectors = [
+            // Sélecteurs exacts des screenshots
+            "div.msg-form__contenteditable.t-14.t-black.t-normal[contenteditable='true']",
+            "div.msg-form__contenteditable[contenteditable='true']",
+            "div[role='textbox'][contenteditable='true']",
+            // Sélecteurs génériques
+            ".msg-form__msg-content-container [contenteditable='true']",
+            ".msg-overlay-conversation-bubble [contenteditable='true']",
+            ".msg-form [contenteditable='true']",
+            "div[aria-label*='Rédigez'][contenteditable='true']",
+            "div[aria-label*='message'][contenteditable='true']",
+            "div[aria-label*='Write'][contenteditable='true']",
+            "div[data-placeholder*='message'][contenteditable='true']"
+          ];
+
+          for (let attempt = 0; attempt < 25; attempt++) {
+            // Essayer chaque sélecteur spécifique
+            for (const sel of inputSelectors) {
+              try {
+                const el = document.querySelector(sel);
+                if (el && isVisible(el)) {
+                  input = el;
+                  log("✅ Champ trouvé avec sélecteur:", sel);
+                  break;
+                }
+              } catch (e) {}
+            }
+            if (input) break;
+
+            // Fallback 1: chercher dans les éléments avec classe msg-*
+            const allEditable = document.querySelectorAll(
+              "[contenteditable='true']"
+            );
+            for (const el of allEditable) {
+              if (!isVisible(el)) continue;
+              const parent = el.closest("[class*='msg-']");
+              if (parent) {
+                input = el;
+                log(
+                  "✅ Champ trouvé via parent msg-*:",
+                  el.className.substring(0, 60)
+                );
+                break;
+              }
+            }
+            if (input) break;
+
+            // Fallback 2: chercher dans artdeco-modal (popup LinkedIn)
+            for (const el of allEditable) {
+              if (!isVisible(el)) continue;
+              const modal = el.closest(
+                ".artdeco-modal, [role='dialog'], .msg-overlay-bubble-extension"
+              );
+              if (modal) {
+                input = el;
+                log(
+                  "✅ Champ trouvé dans modal/dialog:",
+                  el.className.substring(0, 60)
+                );
+                break;
+              }
+            }
+            if (input) break;
+
+            // Fallback 3: après 15 tentatives, prendre N'IMPORTE QUEL div contenteditable visible
+            if (attempt >= 15) {
+              for (const el of allEditable) {
+                if (isVisible(el) && el.tagName === "DIV") {
+                  input = el;
+                  log(
+                    "⚠️ Champ trouvé via fallback ultime (premier div contenteditable visible):",
+                    el.className.substring(0, 60)
+                  );
+                  break;
+                }
+              }
+              if (input) break;
+            }
+
+            log(`⏳ Recherche champ... tentative ${attempt + 1}/25`);
+            await wait(800);
+          }
+
+          if (!input) {
+            // Debug: lister TOUS les contenteditable
+            const allCE = [
+              ...document.querySelectorAll("[contenteditable='true']")
+            ].map((el) => {
+              const vis = isVisible(el) ? "VISIBLE" : "HIDDEN";
+              const cls = (el.className || "no-class").substring(0, 80);
+              const aria = el.getAttribute("aria-label") || "";
+              return `[${vis}] class="${cls}" aria="${aria.substring(0, 40)}"`;
+            });
+            log(
+              "❌ AUCUN champ trouvé après 25 tentatives. ContentEditable sur la page:",
+              allCE
+            );
+            return {
+              success: false,
+              error: `Champ introuvable après 25 tentatives. URL: ${window.location.href.substring(0, 60)}. ContentEditable: ${allCE.join(" | ")}`
+            };
+          }
+
+          // ========================================
+          // ÉTAPE 4: Écrire le message
+          // ========================================
+          log("✍️ Écriture du message...");
+          input.focus();
+          await wait(500);
+
+          // Vider
+          input.innerHTML = "";
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          await wait(300);
+
+          // Écrire via execCommand
+          document.execCommand("selectAll", false, null);
+          document.execCommand("delete", false, null);
+          document.execCommand("insertText", false, msgText);
+
+          // Événements pour LinkedIn
+          input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+          input.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true }));
+          await wait(2000);
+
+          // Vérifier que le texte est bien écrit
+          const written = (input.innerText || input.textContent || "").trim();
+          log("📝 Texte écrit:", written.substring(0, 60));
+          if (!written || written.length < 3) {
+            log("⚠️ Texte vide ou trop court, retry avec innerHTML...");
+            input.innerHTML = `<p>${msgText}</p>`;
+            input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+            await wait(1500);
+          }
+
+          // ========================================
+          // ÉTAPE 5: Trouver et cliquer le bouton Envoyer
+          // ========================================
+          log("🔍 Recherche bouton Envoyer...");
+          let sendBtn = null;
+
+          for (let i = 0; i < 20; i++) {
+            // Sélecteur exact des screenshots
+            sendBtn = document.querySelector(
+              "button.msg-form__send-button[type='submit']"
+            );
+            if (sendBtn && isVisible(sendBtn)) break;
+
+            // Fallback: classe msg-form__send-button sans type
+            sendBtn = document.querySelector("button.msg-form__send-button");
+            if (sendBtn && isVisible(sendBtn)) break;
+
+            // Fallback: chercher par texte "Envoyer" / "Send"
+            for (const btn of document.querySelectorAll("button")) {
+              if (!isVisible(btn)) continue;
+              const txt = (btn.innerText || "").trim().toLowerCase();
+              const aria = (btn.getAttribute("aria-label") || "")
+                .trim()
+                .toLowerCase();
+              if (
+                txt === "envoyer" ||
+                txt === "send" ||
+                aria.includes("send") ||
+                aria.includes("envoyer")
+              ) {
+                sendBtn = btn;
+                break;
+              }
+            }
+            if (sendBtn) break;
+
+            log(`⏳ Recherche bouton envoyer... tentative ${i + 1}/20`);
+            await wait(500);
+          }
+
+          if (!sendBtn) {
+            const allBtns = [...document.querySelectorAll("button")]
+              .filter((b) => isVisible(b))
+              .map(
+                (b) =>
+                  `"${(b.innerText || "").trim().substring(0, 30)}" class="${(b.className || "").substring(0, 50)}"`
+              )
+              .slice(0, 15);
+            log("❌ Bouton Envoyer introuvable. Boutons visibles:", allBtns);
+            return {
+              success: false,
+              error:
+                "Bouton Envoyer introuvable. Boutons: " + allBtns.join(" | ")
+            };
+          }
+
+          log("✅ Bouton Envoyer trouvé, envoi...");
+          sendBtn.click();
+          sendBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+          await wait(2500);
+
+          log("🎉 MESSAGE ENVOYÉ avec succès!");
+          return { success: true };
+        } catch (e) {
+          log("💥 ERREUR:", e.message, e.stack);
+          return { success: false, error: e.message };
+        }
+      },
+      args: [messageText]
     });
+
+    const res = result?.[0]?.result;
+    console.log("[SEND MSG] Résultat final:", res);
+
+    if (res?.success) {
+      await updateActionStatus(action.id, "completed", { sent: true });
+    } else {
+      await updateActionStatus(
+        action.id,
+        "failed",
+        null,
+        res?.error || "Erreur inconnue"
+      );
+    }
+
+    // Fermer l'onglet après 3s
+    setTimeout(() => {
+      if (tab?.id) chrome.tabs.remove(tab.id).catch(() => {});
+    }, 3000);
   } catch (error) {
+    console.error("❌ executeSendMessage error:", error);
+    if (tab?.id) chrome.tabs.remove(tab.id).catch(() => {});
     await updateActionStatus(action.id, "failed", null, error.message);
   }
 }
@@ -396,10 +907,22 @@ async function handleSearchResults(searchResults, actionId) {
   await updateActionStatus(actionId, "completed", { profiles: searchResults });
 }
 
-// Trouver un onglet LinkedIn existant
-async function getLinkedInTab() {
-  const tabs = await chrome.tabs.query({ url: "https://www.linkedin.com/*" });
-  return tabs.length > 0 ? tabs[0] : null;
+// Attendre que l'onglet soit complètement chargé
+function waitForTabLoad(tabId) {
+  return new Promise((resolve) => {
+    function listener(id, changeInfo) {
+      if (id === tabId && changeInfo.status === "complete") {
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    }
+    chrome.tabs.onUpdated.addListener(listener);
+    // Timeout de sécurité 15s
+    setTimeout(() => {
+      chrome.tabs.onUpdated.removeListener(listener);
+      resolve();
+    }, 15000);
+  });
 }
 
 // Mettre à jour le badge de l'extension

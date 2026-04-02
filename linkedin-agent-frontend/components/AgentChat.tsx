@@ -108,6 +108,7 @@ function getActivityIcon(actionType: string) {
   if (actionType === "create_campaign" || actionType === "update_campaign") return Megaphone;
   if (actionType === "analyze_prospect" || actionType === "generate_message" || actionType === "suggest_strategy") return Zap;
   if (actionType === "save_prospect" || actionType === "search_prospects_db") return UserRound;
+  if (actionType === "check_network_connections") return Link2;
   if (actionType === "get_campaign_stats" || actionType === "get_rate_limits") return TrendingUp;
   return Sparkles;
 }

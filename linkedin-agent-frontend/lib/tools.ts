@@ -118,6 +118,7 @@ export const linkedinSendConnectionTool = new DynamicStructuredTool({
   }),
   func: async ({ linkedin_url, prospect_name, note, campaign_id }) => {
     try {
+      const normalizedUrl = normalizeLinkedInUrl(linkedin_url);
       // Vérifier les limites LinkedIn (quotidienne + horaire + délai)
       const rateLimit = await checkRateLimit("send_connection");
       if (!rateLimit.allowed) {
@@ -135,7 +136,7 @@ export const linkedinSendConnectionTool = new DynamicStructuredTool({
       const result = await pool.query(
         `INSERT INTO linkedin_actions_queue (action_type, target_url, target_name, payload, status, campaign_id, created_at)
          VALUES ('send_connection', $1, $2, $3, 'pending_approval', $4, NOW()) RETURNING id`,
-        [linkedin_url, prospect_name, JSON.stringify({ note }), campaign_id || null]
+        [normalizedUrl, prospect_name, JSON.stringify({ note }), campaign_id || null]
       );
 
       return JSON.stringify({
@@ -156,6 +157,13 @@ export const linkedinSendConnectionTool = new DynamicStructuredTool({
   },
 });
 
+// Helper: normaliser l'URL LinkedIn (assurer https://www.linkedin.com/)
+function normalizeLinkedInUrl(url: string): string {
+  if (!url) return url;
+  // Remplacer linkedin.com par www.linkedin.com si manquant
+  return url.replace(/^https?:\/\/((?!www\.))linkedin\.com/i, "https://www.linkedin.com");
+}
+
 // TOOL: Envoyer un message LinkedIn direct
 export const linkedinSendMessageTool = new DynamicStructuredTool({
   name: "linkedin_send_message",
@@ -169,6 +177,7 @@ export const linkedinSendMessageTool = new DynamicStructuredTool({
   }),
   func: async ({ linkedin_url, prospect_name, message, campaign_id, message_type }) => {
     try {
+      const normalizedUrl = normalizeLinkedInUrl(linkedin_url);
       // Vérifier les limites LinkedIn (quotidienne + horaire + délai)
       const rateLimit = await checkRateLimit("send_message");
       if (!rateLimit.allowed) {
@@ -187,15 +196,19 @@ export const linkedinSendMessageTool = new DynamicStructuredTool({
       const actionResult = await pool.query(
         `INSERT INTO linkedin_actions_queue (action_type, target_url, target_name, payload, status, campaign_id, created_at)
          VALUES ('send_message', $1, $2, $3, 'pending_approval', $4, NOW()) RETURNING id`,
-        [linkedin_url, prospect_name, JSON.stringify({ message, message_type }), campaign_id || null]
+        [normalizedUrl, prospect_name, JSON.stringify({ message, message_type }), campaign_id || null]
       );
 
-      // Aussi sauvegarder dans la table messages
-      await pool.query(
-        `INSERT INTO messages (prospect_id, recipient_name, message_text, message_type, status, campaign_id, created_at)
-         VALUES ((SELECT id FROM prospects WHERE linkedin_url = $1 LIMIT 1), $2, $3, $4, 'pending_approval', $5, NOW())`,
-        [linkedin_url, prospect_name, message, message_type, campaign_id || null]
-      );
+      // Aussi sauvegarder dans la table messages (non bloquant si prospect n'existe pas encore)
+      try {
+        await pool.query(
+          `INSERT INTO messages (prospect_id, recipient_name, message_text, message_type, status, campaign_id, created_at)
+           VALUES ((SELECT id FROM prospects WHERE linkedin_url = $1 LIMIT 1), $2, $3, $4, 'pending_approval', $5, NOW())`,
+          [linkedin_url, prospect_name, message, message_type, campaign_id || null]
+        );
+      } catch (msgErr) {
+        console.error("Non-fatal: failed to save message copy:", msgErr);
+      }
 
       return JSON.stringify({
         success: true,
@@ -676,6 +689,116 @@ function buildLinkedInSearchUrl(params: {
   return `${base}?${searchParams.toString()}`;
 }
 
+// TOOL: Lancer la vérification des connexions LinkedIn via l'extension Chrome
+// Crée les actions check_connection et retourne les IDs — appeler get_connection_results ensuite
+export const checkNetworkConnectionsTool = new DynamicStructuredTool({
+  name: "check_network_connections",
+  description: "Lance la vérification des connexions LinkedIn pour une liste de prospects via l'extension Chrome. Crée les tâches de vérification et retourne un check_id. Appeler ensuite get_connection_results avec ce check_id pour obtenir les résultats (attendre ~15-20 secondes par prospect).",
+  schema: z.object({
+    prospect_names: z.array(z.string()).describe("Liste des noms de prospects à vérifier"),
+    prospect_urls: z.array(z.string()).describe("Liste des URLs LinkedIn (même ordre que prospect_names)"),
+  }),
+  func: async ({ prospect_names, prospect_urls }) => {
+    try {
+      if (!prospect_urls || prospect_urls.length !== prospect_names.length) {
+        return JSON.stringify({ success: false, error: "prospect_urls doit avoir le même nombre d'éléments que prospect_names." });
+      }
+
+      const normalizeUrl = (url: string) =>
+        url.replace(/^https?:\/\/((?!www\.))(linkedin\.com)/i, "https://www.$2");
+
+      const actionIds: number[] = [];
+      for (let i = 0; i < prospect_names.length; i++) {
+        const r = await pool.query(
+          `INSERT INTO linkedin_actions_queue (action_type, target_url, target_name, payload, status, created_at)
+           VALUES ('check_connection', $1, $2, $3, 'approved', NOW()) RETURNING id`,
+          [normalizeUrl(prospect_urls[i]), prospect_names[i], JSON.stringify({ check_only: true })]
+        );
+        actionIds.push(r.rows[0].id);
+      }
+
+      const estimatedSeconds = prospect_names.length * 20;
+      return JSON.stringify({
+        success: true,
+        check_id: actionIds.join(","),
+        action_ids: actionIds,
+        total: prospect_names.length,
+        message: `✅ Vérification lancée pour ${prospect_names.length} prospect(s). L'extension Chrome visite leurs profils. Attends ~${estimatedSeconds} secondes puis appelle get_connection_results avec check_id="${actionIds.join(",")}" pour voir les résultats.`,
+      });
+    } catch (error) {
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+    }
+  },
+});
+
+// TOOL: Récupérer les résultats de vérification des connexions LinkedIn
+export const getConnectionResultsTool = new DynamicStructuredTool({
+  name: "get_connection_results",
+  description: "Récupère les résultats de la vérification des connexions LinkedIn lancée par check_network_connections. Appeler avec le check_id retourné. Si les résultats ne sont pas encore prêts, attendre quelques secondes et réessayer.",
+  schema: z.object({
+    check_id: z.string().describe("L'identifiant retourné par check_network_connections (IDs séparés par virgule)"),
+  }),
+  func: async ({ check_id }) => {
+    try {
+      const actionIds = check_id.split(",").map((id: string) => parseInt(id.trim())).filter((id: number) => !isNaN(id));
+      if (actionIds.length === 0) {
+        return JSON.stringify({ success: false, error: "check_id invalide." });
+      }
+
+      const rows = await pool.query(
+        `SELECT id, target_name, target_url, result, status FROM linkedin_actions_queue WHERE id = ANY($1)`,
+        [actionIds]
+      );
+
+      const pending = rows.rows.filter((r: { status: string }) => r.status === "approved" || r.status === "processing");
+      if (pending.length > 0) {
+        return JSON.stringify({
+          success: true,
+          ready: false,
+          pending_count: pending.length,
+          total: actionIds.length,
+          message: `⏳ ${pending.length}/${actionIds.length} vérification(s) encore en cours. Réessaie dans 15 secondes.`,
+        });
+      }
+
+      const inNetwork: Array<{ name: string; url: string }> = [];
+      const notInNetwork: Array<{ name: string; url: string; reason: string }> = [];
+
+      for (const row of rows.rows) {
+        const res = typeof row.result === "string" ? JSON.parse(row.result || "{}") : (row.result || {});
+        const degree = res.degree ?? 0;
+        const connected = res.connected ?? (degree === 1);
+
+        if (connected || degree === 1) {
+          inNetwork.push({ name: row.target_name, url: row.target_url });
+        } else if (row.status === "failed") {
+          notInNetwork.push({ name: row.target_name, url: row.target_url, reason: "Vérification échouée — profil inaccessible" });
+        } else {
+          notInNetwork.push({
+            name: row.target_name,
+            url: row.target_url,
+            reason: degree === 0 ? "Degré non déterminé" : `${degree}e degré — pas encore connecté`,
+          });
+        }
+      }
+
+      return JSON.stringify({
+        success: true,
+        ready: true,
+        in_network: inNetwork,
+        in_network_count: inNetwork.length,
+        not_in_network: notInNetwork,
+        not_in_network_count: notInNetwork.length,
+        summary: `✅ ${inNetwork.length} prospect(s) dans votre réseau (message possible) : ${inNetwork.map(p => p.name).join(", ") || "aucun"}.\n❌ ${notInNetwork.length} prospect(s) hors réseau (message impossible) : ${notInNetwork.map(p => `${p.name} (${p.reason})`).join(", ") || "aucun"}.`,
+        can_message: inNetwork,
+        cannot_message: notInNetwork,
+      });
+    } catch (error) {
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+    }
+  },
+});
+
 // =============================================
 // EXPORT: Tous les tools
 // =============================================
@@ -699,6 +822,8 @@ export const ALL_TOOLS = [
   // Campagnes
   createCampaignTool,
   updateCampaignTool,
+  // NOTE: check_network_connections et get_connection_results supprimés
+  // car ils créaient des actions 'approved' qui s'exécutaient sans approbation
 ];
 
 export const TOOLS_MAP: Record<string, DynamicStructuredTool> = {};

@@ -321,7 +321,9 @@ function getToolStepTitle(toolName: string) {
     analyze_prospect: "Étape: Analyse de prospect",
     generate_message: "Étape: Génération de message",
     suggest_strategy: "Étape: Suggestion de stratégie",
-    search_prospects_db: "Étape: Recherche en base",
+    search_prospects_db: "Étape: Analyse de la liste de prospects",
+    check_network_connections: "Étape: Vérification des connexions réseau",
+    get_connection_results: "Étape: Résultats des connexions réseau",
     save_prospect: "Étape: Sauvegarde prospect",
     get_campaign_stats: "Étape: Stats campagne",
     schedule_followup: "Étape: Planification relance",
@@ -340,6 +342,13 @@ function getToolStepDescription(toolName: string, args: any, status: string) {
   if (toolName === "generate_message") return `Rédaction d'un message ${args?.message_type || ""} — ${statusText}`;
   if (toolName === "suggest_strategy") return `Élaboration d'une stratégie de prospection — ${statusText}`;
   if (toolName === "save_prospect") return `Sauvegarde de ${args?.name || "prospect"} en base — ${statusText}`;
+  if (toolName === "search_prospects_db") return `Analyse de la liste de prospects en base de données — ${statusText}`;
+  if (toolName === "check_network_connections") {
+    const names = args?.prospect_names;
+    const count = Array.isArray(names) ? names.length : "?";
+    return `Vérification réseau lancée pour ${count} prospect(s) via l'extension Chrome — ${statusText}`;
+  }
+  if (toolName === "get_connection_results") return `Récupération des résultats de connexion LinkedIn — ${statusText}`;
   if (toolName === "get_campaign_stats") return `Récupération des statistiques — ${statusText}`;
   if (toolName === "schedule_followup") return `Planification d'une relance — ${statusText}`;
   return `Exécution de ${toolName} — ${statusText}`;
@@ -357,8 +366,15 @@ function buildToolStepDetail(toolName: string, args: any, result: string) {
   // Try to extract a summary from the result
   try {
     const parsed = JSON.parse(result);
-    if (parsed.message) details.push(`Résultat: ${parsed.message}`);
-    else if (parsed.success !== undefined) details.push(`Succès: ${parsed.success ? "Oui" : "Non"}`);
+    if (toolName === "check_network_connections" && parsed.summary) {
+      details.push(parsed.summary);
+    } else if (parsed.message) {
+      details.push(`Résultat: ${parsed.message}`);
+    } else if (parsed.summary) {
+      details.push(parsed.summary);
+    } else if (parsed.success !== undefined) {
+      details.push(`Succès: ${parsed.success ? "Oui" : "Non"}`);
+    }
   } catch {
     if (result && result.length < 300) details.push(`Résultat: ${result.substring(0, 200)}`);
   }

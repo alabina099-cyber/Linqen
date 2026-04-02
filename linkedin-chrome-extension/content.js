@@ -1,34 +1,34 @@
 // Content script - S'exécute sur les pages LinkedIn
 // Gère le scraping de profils, résultats de recherche, et l'envoi de connexions/messages
 
-(function() {
-  'use strict';
+(function () {
+  "use strict";
 
   // Écouter les messages du background script
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     switch (message.type) {
-      case 'SCRAPE_PROFILE':
+      case "SCRAPE_PROFILE":
         scrapeProfile(message.actionId);
         sendResponse({ received: true });
         break;
 
-      case 'SCRAPE_SEARCH_RESULTS':
+      case "SCRAPE_SEARCH_RESULTS":
         scrapeSearchResults(message.actionId, message.payload);
         sendResponse({ received: true });
         break;
 
-      case 'SEND_CONNECTION':
+      case "SEND_CONNECTION":
         sendConnection(message.actionId, message.note);
         sendResponse({ received: true });
         break;
 
-      case 'SEND_MESSAGE':
+      case "SEND_MESSAGE":
         sendMessage(message.actionId, message.message);
         sendResponse({ received: true });
         break;
 
       default:
-        sendResponse({ error: 'Unknown message type' });
+        sendResponse({ error: "Unknown message type" });
     }
     return true;
   });
@@ -38,73 +38,84 @@
   // =============================================
   async function scrapeProfile(actionId) {
     try {
-      await waitForSelector('.pv-top-card', 8000);
+      await waitForSelector(".pv-top-card", 8000);
 
-      const name = getTextContent('.pv-top-card--list .text-heading-xlarge') ||
-                   getTextContent('h1.text-heading-xlarge') ||
-                   getTextContent('.pv-text-details--left-aligned h1');
+      const name =
+        getTextContent(".pv-top-card--list .text-heading-xlarge") ||
+        getTextContent("h1.text-heading-xlarge") ||
+        getTextContent(".pv-text-details--left-aligned h1");
 
-      const role = getTextContent('.pv-top-card--list .text-body-medium') ||
-                   getTextContent('.pv-text-details--left-aligned .text-body-medium');
+      const role =
+        getTextContent(".pv-top-card--list .text-body-medium") ||
+        getTextContent(".pv-text-details--left-aligned .text-body-medium");
 
-      const headline = getTextContent('.pv-top-card .text-body-medium');
+      const headline = getTextContent(".pv-top-card .text-body-medium");
 
-      const locationEl = document.querySelector('.pv-top-card--list-bullet .text-body-small') ||
-                         document.querySelector('.pv-text-details--left-aligned .text-body-small.t-black--light');
-      const location = locationEl ? locationEl.textContent.trim() : '';
+      const locationEl =
+        document.querySelector(".pv-top-card--list-bullet .text-body-small") ||
+        document.querySelector(
+          ".pv-text-details--left-aligned .text-body-small.t-black--light"
+        );
+      const location = locationEl ? locationEl.textContent.trim() : "";
 
       // Trouver l'entreprise actuelle dans l'expérience
-      const experienceSection = document.querySelector('#experience');
-      let company = '';
+      const experienceSection = document.querySelector("#experience");
+      let company = "";
       if (experienceSection) {
-        const companyEl = experienceSection.closest('section')?.querySelector('.pv-entity__secondary-title') ||
-                          experienceSection.parentElement?.querySelector('span.t-bold span[aria-hidden="true"]');
-        company = companyEl ? companyEl.textContent.trim() : '';
+        const companyEl =
+          experienceSection
+            .closest("section")
+            ?.querySelector(".pv-entity__secondary-title") ||
+          experienceSection.parentElement?.querySelector(
+            'span.t-bold span[aria-hidden="true"]'
+          );
+        company = companyEl ? companyEl.textContent.trim() : "";
       }
 
       // Fallback: extraire l'entreprise du headline
       if (!company && headline) {
-        const parts = headline.split(' chez ');
+        const parts = headline.split(" chez ");
         if (parts.length > 1) company = parts[1].trim();
         if (!company) {
-          const atParts = headline.split(' at ');
+          const atParts = headline.split(" at ");
           if (atParts.length > 1) company = atParts[1].trim();
         }
       }
 
       // Nombre de connexions
-      const connectionsEl = document.querySelector('.pv-top-card--list-bullet .t-bold');
-      const connections = connectionsEl ? connectionsEl.textContent.trim() : '';
+      const connectionsEl = document.querySelector(
+        ".pv-top-card--list-bullet .t-bold"
+      );
+      const connections = connectionsEl ? connectionsEl.textContent.trim() : "";
 
       // Secteur/industrie
-      const aboutSection = document.querySelector('#about');
-      const industry = ''; // LinkedIn ne montre plus toujours l'industrie directement
+      const aboutSection = document.querySelector("#about");
+      const industry = ""; // LinkedIn ne montre plus toujours l'industrie directement
 
       const profileData = {
-        name: name || 'Inconnu',
-        role: role || headline || '',
+        name: name || "Inconnu",
+        role: role || headline || "",
         company,
         location,
         connections,
         industry,
-        linkedin_url: window.location.href.split('?')[0],
-        scraped_at: new Date().toISOString(),
+        linkedin_url: window.location.href.split("?")[0],
+        scraped_at: new Date().toISOString()
       };
 
-      console.log('[LinkedIn Agent] Profile scraped:', profileData);
+      console.log("[LinkedIn Agent] Profile scraped:", profileData);
 
       chrome.runtime.sendMessage({
-        type: 'PROFILE_DATA',
+        type: "PROFILE_DATA",
         actionId,
-        data: profileData,
+        data: profileData
       });
-
     } catch (error) {
-      console.error('[LinkedIn Agent] Scrape profile error:', error);
+      console.error("[LinkedIn Agent] Scrape profile error:", error);
       chrome.runtime.sendMessage({
-        type: 'ACTION_FAILED',
+        type: "ACTION_FAILED",
         actionId,
-        error: error.message || 'Erreur lors du scraping du profil',
+        error: error.message || "Erreur lors du scraping du profil"
       });
     }
   }
@@ -114,55 +125,69 @@
   // =============================================
   async function scrapeSearchResults(actionId, payload) {
     try {
-      await waitForSelector('.reusable-search__result-container', 8000);
+      await waitForSelector(".reusable-search__result-container", 8000);
 
-      const parsedPayload = typeof payload === 'string' ? JSON.parse(payload) : payload;
+      const parsedPayload =
+        typeof payload === "string" ? JSON.parse(payload) : payload;
       const limit = parsedPayload?.limit || 10;
 
-      const resultCards = document.querySelectorAll('.reusable-search__result-container');
+      const resultCards = document.querySelectorAll(
+        ".reusable-search__result-container"
+      );
       const profiles = [];
 
       for (let i = 0; i < Math.min(resultCards.length, limit); i++) {
         const card = resultCards[i];
 
-        const nameEl = card.querySelector('.entity-result__title-text a span[aria-hidden="true"]') ||
-                       card.querySelector('.entity-result__title-text .t-bold span[aria-hidden="true"]');
-        const name = nameEl ? nameEl.textContent.trim() : '';
+        const nameEl =
+          card.querySelector(
+            '.entity-result__title-text a span[aria-hidden="true"]'
+          ) ||
+          card.querySelector(
+            '.entity-result__title-text .t-bold span[aria-hidden="true"]'
+          );
+        const name = nameEl ? nameEl.textContent.trim() : "";
 
-        const subtitleEl = card.querySelector('.entity-result__primary-subtitle');
-        const subtitle = subtitleEl ? subtitleEl.textContent.trim() : '';
+        const subtitleEl = card.querySelector(
+          ".entity-result__primary-subtitle"
+        );
+        const subtitle = subtitleEl ? subtitleEl.textContent.trim() : "";
 
-        const secondaryEl = card.querySelector('.entity-result__secondary-subtitle');
-        const location = secondaryEl ? secondaryEl.textContent.trim() : '';
+        const secondaryEl = card.querySelector(
+          ".entity-result__secondary-subtitle"
+        );
+        const location = secondaryEl ? secondaryEl.textContent.trim() : "";
 
-        const linkEl = card.querySelector('.entity-result__title-text a') ||
-                       card.querySelector('a.app-aware-link');
-        const linkedinUrl = linkEl ? linkEl.href.split('?')[0] : '';
+        const linkEl =
+          card.querySelector(".entity-result__title-text a") ||
+          card.querySelector("a.app-aware-link");
+        const linkedinUrl = linkEl ? linkEl.href.split("?")[0] : "";
 
-        if (name && name !== 'Utilisateur LinkedIn') {
+        if (name && name !== "Utilisateur LinkedIn") {
           profiles.push({
             name,
             role: subtitle,
             location,
-            linkedin_url: linkedinUrl,
+            linkedin_url: linkedinUrl
           });
         }
       }
 
-      console.log(`[LinkedIn Agent] Search results: ${profiles.length} profiles found`);
+      console.log(
+        `[LinkedIn Agent] Search results: ${profiles.length} profiles found`
+      );
 
       chrome.runtime.sendMessage({
-        type: 'SEARCH_RESULTS',
+        type: "SEARCH_RESULTS",
         actionId,
-        data: profiles,
+        data: profiles
       });
-
     } catch (error) {
-      console.error('[LinkedIn Agent] Search scrape error:', error);
+      console.error("[LinkedIn Agent] Search scrape error:", error);
       chrome.runtime.sendMessage({
-        type: 'ACTION_FAILED',
+        type: "ACTION_FAILED",
         actionId,
-        error: error.message || 'Erreur lors du scraping des résultats',
+        error: error.message || "Erreur lors du scraping des résultats"
       });
     }
   }
@@ -172,26 +197,28 @@
   // =============================================
   async function sendConnection(actionId, note) {
     try {
-      await waitForSelector('.pv-top-card', 5000);
+      await waitForSelector(".pv-top-card", 5000);
 
       // Chercher le bouton "Se connecter" / "Connect"
-      const connectBtn = findButton(['Se connecter', 'Connect', 'Connexion']);
-      
+      const connectBtn = findButton(["Se connecter", "Connect", "Connexion"]);
+
       if (!connectBtn) {
         // Essayer via le menu "Plus" / "More"
-        const moreBtn = findButton(['Plus', 'More', '...']);
+        const moreBtn = findButton(["Plus", "More", "..."]);
         if (moreBtn) {
           moreBtn.click();
           await delay(1000);
-          
-          const connectOption = findButton(['Se connecter', 'Connect']);
+
+          const connectOption = findButton(["Se connecter", "Connect"]);
           if (connectOption) {
             connectOption.click();
           } else {
             throw new Error('Bouton "Se connecter" non trouvé dans le menu');
           }
         } else {
-          throw new Error('Bouton "Se connecter" non trouvé sur le profil. Peut-être déjà connecté.');
+          throw new Error(
+            'Bouton "Se connecter" non trouvé sur le profil. Peut-être déjà connecté.'
+          );
         }
       } else {
         connectBtn.click();
@@ -201,20 +228,21 @@
 
       // Si une note est fournie, cliquer sur "Ajouter une note"
       if (note) {
-        const addNoteBtn = findButton(['Ajouter une note', 'Add a note']);
+        const addNoteBtn = findButton(["Ajouter une note", "Add a note"]);
         if (addNoteBtn) {
           addNoteBtn.click();
           await delay(500);
 
           // Remplir le champ de note
-          const noteField = document.querySelector('#custom-message') ||
-                            document.querySelector('textarea[name="message"]') ||
-                            document.querySelector('.send-invite__custom-message');
-          
+          const noteField =
+            document.querySelector("#custom-message") ||
+            document.querySelector('textarea[name="message"]') ||
+            document.querySelector(".send-invite__custom-message");
+
           if (noteField) {
             noteField.focus();
             noteField.value = note;
-            noteField.dispatchEvent(new Event('input', { bubbles: true }));
+            noteField.dispatchEvent(new Event("input", { bubbles: true }));
             await delay(300);
           }
         }
@@ -222,26 +250,25 @@
 
       // Cliquer sur "Envoyer" / "Send"
       await delay(500);
-      const sendBtn = findButton(['Envoyer', 'Send', 'Envoyer l\'invitation']);
+      const sendBtn = findButton(["Envoyer", "Send", "Envoyer l'invitation"]);
       if (sendBtn) {
         sendBtn.click();
         await delay(1000);
 
         chrome.runtime.sendMessage({
-          type: 'ACTION_COMPLETED',
+          type: "ACTION_COMPLETED",
           actionId,
-          result: { sent: true, note_included: !!note },
+          result: { sent: true, note_included: !!note }
         });
       } else {
         throw new Error('Bouton "Envoyer" non trouvé');
       }
-
     } catch (error) {
-      console.error('[LinkedIn Agent] Send connection error:', error);
+      console.error("[LinkedIn Agent] Send connection error:", error);
       chrome.runtime.sendMessage({
-        type: 'ACTION_FAILED',
+        type: "ACTION_FAILED",
         actionId,
-        error: error.message || 'Erreur lors de l\'envoi de la connexion',
+        error: error.message || "Erreur lors de l'envoi de la connexion"
       });
     }
   }
@@ -251,56 +278,143 @@
   // =============================================
   async function sendMessage(actionId, messageText) {
     try {
-      await waitForSelector('.pv-top-card', 5000);
+      // Attendre que la page LinkedIn soit chargée
+      await waitForSelector("main", 10000);
+      await delay(1500);
 
-      // Chercher le bouton "Message"
-      const messageBtn = findButton(['Message', 'Envoyer un message']);
-      
+      // Chercher le bouton "Message" sur la page profil
+      // LinkedIn utilise plusieurs sélecteurs selon la version
+      let messageBtn = null;
+
+      // Méthode 1: sélecteur direct aria-label
+      const allBtns = document.querySelectorAll('button, a[role="button"]');
+      for (const btn of allBtns) {
+        const txt = (btn.textContent || btn.getAttribute("aria-label") || "")
+          .trim()
+          .toLowerCase();
+        if (
+          txt === "message" ||
+          txt === "envoyer un message" ||
+          txt === "send message"
+        ) {
+          messageBtn = btn;
+          break;
+        }
+      }
+
+      // Méthode 2: sélecteur partiel si méthode 1 échoue
       if (!messageBtn) {
-        throw new Error('Bouton "Message" non trouvé. Vérifiez que vous êtes connecté avec ce prospect.');
+        for (const btn of allBtns) {
+          const txt = (btn.textContent || btn.getAttribute("aria-label") || "")
+            .trim()
+            .toLowerCase();
+          if (
+            txt.includes("message") &&
+            !txt.includes("demande") &&
+            !txt.includes("request")
+          ) {
+            messageBtn = btn;
+            break;
+          }
+        }
+      }
+
+      if (!messageBtn) {
+        throw new Error(
+          'Bouton "Message" non trouvé sur le profil. Assurez-vous d\'être connecté en 1ère relation avec ce prospect ou que LinkedIn est ouvert.'
+        );
       }
 
       messageBtn.click();
-      await delay(2000);
+      await delay(2500);
 
-      // Trouver le champ de saisie du message
-      const messageInput = document.querySelector('.msg-form__contenteditable') ||
-                           document.querySelector('[contenteditable="true"][role="textbox"]') ||
-                           document.querySelector('.msg-form__msg-content-container .msg-form__contenteditable');
+      // Trouver le champ de saisie du message (plusieurs sélecteurs possibles)
+      let messageInput = null;
+      const inputSelectors = [
+        ".msg-form__contenteditable",
+        '[contenteditable="true"][role="textbox"]',
+        ".msg-form__msg-content-container [contenteditable]",
+        ".msg-overlay-conversation-bubble [contenteditable]",
+        "div.msg-form__contenteditable[contenteditable]"
+      ];
+
+      for (const sel of inputSelectors) {
+        messageInput = document.querySelector(sel);
+        if (messageInput) break;
+      }
+
+      // Attendre jusqu'à 5s si le champ n'est pas encore apparu
+      if (!messageInput) {
+        for (let i = 0; i < 10; i++) {
+          await delay(500);
+          for (const sel of inputSelectors) {
+            messageInput = document.querySelector(sel);
+            if (messageInput) break;
+          }
+          if (messageInput) break;
+        }
+      }
 
       if (!messageInput) {
-        throw new Error('Champ de message non trouvé');
+        throw new Error(
+          "Champ de saisie du message non trouvé après l'ouverture de la fenêtre de messagerie"
+        );
       }
 
       // Remplir le message
       messageInput.focus();
-      messageInput.innerHTML = `<p>${messageText}</p>`;
-      messageInput.dispatchEvent(new Event('input', { bubbles: true }));
-      await delay(500);
+      // Vider d'abord le champ
+      messageInput.innerHTML = "";
+      await delay(200);
+      // Insérer le texte via execCommand pour déclencher les événements React
+      document.execCommand("insertText", false, messageText);
+      messageInput.dispatchEvent(new Event("input", { bubbles: true }));
+      messageInput.dispatchEvent(new Event("change", { bubbles: true }));
+      await delay(800);
 
       // Cliquer sur "Envoyer"
-      const sendBtn = document.querySelector('.msg-form__send-button') ||
-                      findButton(['Envoyer', 'Send']);
+      let sendBtn =
+        document.querySelector(".msg-form__send-button") ||
+        document.querySelector('[data-control-name="send"]') ||
+        document.querySelector('button[type="submit"].msg-form__send-button');
 
-      if (sendBtn) {
-        sendBtn.click();
-        await delay(1000);
-
-        chrome.runtime.sendMessage({
-          type: 'ACTION_COMPLETED',
-          actionId,
-          result: { sent: true, message_length: messageText.length },
-        });
-      } else {
-        throw new Error('Bouton d\'envoi de message non trouvé');
+      if (!sendBtn) {
+        // Fallback: chercher par texte
+        const btns = document.querySelectorAll("button");
+        for (const btn of btns) {
+          const txt = (btn.textContent || "").trim().toLowerCase();
+          if (txt === "envoyer" || txt === "send") {
+            sendBtn = btn;
+            break;
+          }
+        }
       }
 
-    } catch (error) {
-      console.error('[LinkedIn Agent] Send message error:', error);
+      if (!sendBtn) {
+        throw new Error(
+          "Bouton d'envoi de message non trouvé après avoir rempli le message"
+        );
+      }
+
+      // Vérifier que le bouton est activé (pas disabled)
+      if (sendBtn.disabled) {
+        await delay(500);
+      }
+
+      sendBtn.click();
+      await delay(1500);
+
       chrome.runtime.sendMessage({
-        type: 'ACTION_FAILED',
+        type: "ACTION_COMPLETED",
         actionId,
-        error: error.message || 'Erreur lors de l\'envoi du message',
+        result: { sent: true, message_length: messageText.length }
+      });
+    } catch (error) {
+      console.error("[LinkedIn Agent] Send message error:", error);
+      chrome.runtime.sendMessage({
+        type: "ACTION_FAILED",
+        actionId,
+        error: error.message || "Erreur lors de l'envoi du message"
       });
     }
   }
@@ -311,7 +425,7 @@
 
   function getTextContent(selector) {
     const el = document.querySelector(selector);
-    return el ? el.textContent.trim() : '';
+    return el ? el.textContent.trim() : "";
   }
 
   function findButton(labels) {
@@ -346,15 +460,18 @@
         observer.disconnect();
         const el = document.querySelector(selector);
         if (el) resolve(el);
-        else reject(new Error(`Timeout: ${selector} non trouvé après ${timeout}ms`));
+        else
+          reject(
+            new Error(`Timeout: ${selector} non trouvé après ${timeout}ms`)
+          );
       }, timeout);
     });
   }
 
   function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   // Indicateur visuel que l'extension est active
-  console.log('[LinkedIn Agent] Extension active sur cette page');
+  console.log("[LinkedIn Agent] Extension active sur cette page");
 })();
