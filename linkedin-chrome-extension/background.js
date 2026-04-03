@@ -533,9 +533,10 @@ async function executeSendConnection(action) {
   }
 }
 
-// Envoyer un message direct — GESTION POPUP OVERLAY
+// Envoyer un message — ARCHITECTURE 2 PHASES + DÉTECTION NOUVEL ONGLET
 async function executeSendMessage(action) {
   let tab;
+  let newTab = null;
 
   try {
     const payload =
@@ -549,9 +550,274 @@ async function executeSendMessage(action) {
     tab = await openLinkedInTab(action.target_url);
     console.log("[SEND MSG] Profil ouvert, tab", tab.id);
 
-    // Injection UNIQUE : cliquer Message + attendre popup + écrire + envoyer
-    const result = await chrome.scripting.executeScript({
+    // =============================================
+    // PHASE 1: Cliquer sur le bouton Message
+    // =============================================
+    // Écouter les nouveaux onglets AVANT de cliquer
+    const tabsBefore = (await chrome.tabs.query({})).map((t) => t.id);
+    console.log("[SEND MSG] Tabs avant clic:", tabsBefore.length);
+
+    const phase1 = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
+      func: async () => {
+        function wait(ms) {
+          return new Promise((r) => setTimeout(r, ms));
+        }
+        function isVisible(el) {
+          return el && el.offsetParent !== null;
+        }
+
+        // Attendre le profil
+        for (let i = 0; i < 15; i++) {
+          const h1 = document.querySelector("h1");
+          if (h1 && h1.textContent.trim().length > 0) break;
+          await wait(1000);
+        }
+        await wait(2000);
+
+        // Chercher bouton Message
+        const clickables = document.querySelectorAll(
+          'button, a[role="button"], a[href*="messaging"], a'
+        );
+        let messageBtn = null;
+        for (const el of clickables) {
+          if (!isVisible(el)) continue;
+          const txt = (el.innerText || "").trim().toLowerCase();
+          const aria = (el.getAttribute("aria-label") || "")
+            .trim()
+            .toLowerCase();
+          if (
+            txt === "message" ||
+            txt === "envoyer un message" ||
+            aria === "message" ||
+            aria.startsWith("envoyer un message") ||
+            aria.startsWith("send a message")
+          ) {
+            messageBtn = el;
+            break;
+          }
+        }
+        if (!messageBtn) {
+          for (const el of clickables) {
+            if (!isVisible(el)) continue;
+            const txt = (el.innerText || "").trim().toLowerCase();
+            const aria = (el.getAttribute("aria-label") || "")
+              .trim()
+              .toLowerCase();
+            const combined = txt + " " + aria;
+            if (
+              combined.includes("message") &&
+              !combined.includes("demande") &&
+              !combined.includes("signaler") &&
+              !combined.includes("request")
+            ) {
+              messageBtn = el;
+              break;
+            }
+          }
+        }
+
+        if (!messageBtn) {
+          return {
+            success: false,
+            error: "Bouton Message non trouvé sur le profil"
+          };
+        }
+
+        const btnInfo = {
+          tag: messageBtn.tagName,
+          cls: (messageBtn.className || "").substring(0, 80),
+          text: (messageBtn.innerText || "").trim().substring(0, 30),
+          href: messageBtn.getAttribute("href") || "",
+          isAnchor: messageBtn.tagName === "A"
+        };
+
+        // STRATÉGIE 1: Si c'est un <a> avec href → naviguer directement
+        if (messageBtn.tagName === "A" && messageBtn.href) {
+          console.log(
+            "[AUTO MESSAGE] Navigation directe via href:",
+            messageBtn.href
+          );
+          window.location.href = messageBtn.href;
+          return {
+            success: true,
+            btnInfo,
+            method: "href_navigation",
+            urlBeforeClick: window.location.href
+          };
+        }
+
+        // STRATÉGIE 2: Simuler des événements souris complets (pas juste .click())
+        console.log("[AUTO MESSAGE] Simulation événements souris...");
+        const rect = messageBtn.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        const evtOpts = {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          clientX: x,
+          clientY: y,
+          button: 0
+        };
+
+        messageBtn.dispatchEvent(new PointerEvent("pointerdown", evtOpts));
+        messageBtn.dispatchEvent(new MouseEvent("mousedown", evtOpts));
+        await wait(100);
+        messageBtn.dispatchEvent(new PointerEvent("pointerup", evtOpts));
+        messageBtn.dispatchEvent(new MouseEvent("mouseup", evtOpts));
+        await wait(50);
+        messageBtn.dispatchEvent(new MouseEvent("click", evtOpts));
+        messageBtn.click();
+
+        // Attendre 3s et vérifier si ça a fait quelque chose
+        await wait(3000);
+        const changed = window.location.href;
+        const overlaysNow = document.querySelectorAll(
+          "[class*='msg-overlay']"
+        ).length;
+        const ceNow = document.querySelectorAll(
+          "[contenteditable='true']"
+        ).length;
+
+        // STRATÉGIE 3: Si rien n'a changé, chercher le href dans le bouton ou ses parents
+        if (overlaysNow === 0 && ceNow === 0) {
+          // Chercher un lien messaging dans le bouton ou autour
+          const nearbyLinks =
+            messageBtn
+              .closest("section, div")
+              ?.querySelectorAll("a[href*='messaging']") || [];
+          for (const link of nearbyLinks) {
+            if (link.href) {
+              console.log(
+                "[AUTO MESSAGE] Fallback: lien messaging trouvé:",
+                link.href
+              );
+              window.location.href = link.href;
+              return {
+                success: true,
+                btnInfo,
+                method: "nearby_link",
+                urlBeforeClick: changed
+              };
+            }
+          }
+        }
+
+        return {
+          success: true,
+          btnInfo,
+          method: "mouse_events",
+          urlAfterClick: changed,
+          overlaysAfterClick: overlaysNow,
+          ceAfterClick: ceNow
+        };
+      }
+    });
+
+    const p1 = phase1?.[0]?.result;
+    console.log("[SEND MSG] Phase 1 result:", p1);
+
+    if (!p1?.success) {
+      await updateActionStatus(
+        action.id,
+        "failed",
+        null,
+        p1?.error || "Bouton Message non trouvé"
+      );
+      setTimeout(() => {
+        if (tab?.id) chrome.tabs.remove(tab.id).catch(() => {});
+      }, 2000);
+      return;
+    }
+
+    // =============================================
+    // DÉTECTION: Attendre et vérifier ce qui s'est passé
+    // =============================================
+    console.log(
+      "[SEND MSG] ⏳ Attente 8s pour détecter navigation ou nouvel onglet..."
+    );
+    await new Promise((r) => setTimeout(r, 8000));
+
+    // Vérifier si un nouvel onglet a été ouvert
+    const tabsAfter = await chrome.tabs.query({});
+    const newTabs = tabsAfter.filter(
+      (t) => !tabsBefore.includes(t.id) && t.id !== tab.id
+    );
+    console.log(
+      "[SEND MSG] Tabs après clic:",
+      tabsAfter.length,
+      "Nouveaux:",
+      newTabs.length
+    );
+    if (newTabs.length > 0) {
+      console.log("[SEND MSG] 🆕 Nouveaux onglets détectés:");
+      newTabs.forEach((t) => console.log("  →", t.id, t.url?.substring(0, 80)));
+    }
+
+    // Vérifier si l'onglet original a navigué
+    const updatedTab = await chrome.tabs.get(tab.id);
+    console.log(
+      "[SEND MSG] Tab original URL maintenant:",
+      updatedTab.url?.substring(0, 80)
+    );
+
+    // Déterminer le bon onglet pour Phase 2
+    let targetTabId = tab.id;
+    let targetUrl = updatedTab.url || "";
+
+    // Cas 1: Un nouvel onglet messaging a été ouvert
+    const messagingTab = newTabs.find(
+      (t) => t.url && t.url.includes("/messaging")
+    );
+    if (messagingTab) {
+      targetTabId = messagingTab.id;
+      targetUrl = messagingTab.url;
+      newTab = messagingTab;
+      console.log(
+        "[SEND MSG] ✅ Onglet messaging trouvé:",
+        targetTabId,
+        targetUrl.substring(0, 80)
+      );
+    }
+    // Cas 2: L'onglet original a navigué vers messaging
+    else if (targetUrl.includes("/messaging")) {
+      console.log("[SEND MSG] ✅ Tab original a navigué vers messaging");
+    }
+    // Cas 3: Toujours sur le profil — popup overlay possible
+    else {
+      console.log("[SEND MSG] ⚠️ Toujours sur le profil. Popup overlay ?");
+    }
+
+    // Attendre que le tab cible soit complètement chargé
+    try {
+      const targetTabInfo = await chrome.tabs.get(targetTabId);
+      if (targetTabInfo.status !== "complete") {
+        console.log("[SEND MSG] ⏳ Attente chargement tab cible...");
+        await new Promise((resolve) => {
+          const timeout = setTimeout(resolve, 10000);
+          function listener(updatedId, changeInfo) {
+            if (updatedId === targetTabId && changeInfo.status === "complete") {
+              clearTimeout(timeout);
+              chrome.tabs.onUpdated.removeListener(listener);
+              resolve();
+            }
+          }
+          chrome.tabs.onUpdated.addListener(listener);
+        });
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    } catch (e) {
+      console.log("[SEND MSG] Tab check error:", e.message);
+    }
+
+    // =============================================
+    // PHASE 2: Diagnostic + Trouver input + Écrire + Envoyer
+    // =============================================
+    console.log("[SEND MSG] Phase 2: injection sur tab", targetTabId);
+
+    const phase2 = await chrome.scripting.executeScript({
+      target: { tabId: targetTabId },
       func: async (msgText) => {
         function wait(ms) {
           return new Promise((r) => setTimeout(r, ms));
@@ -559,298 +825,288 @@ async function executeSendMessage(action) {
         function isVisible(el) {
           return el && el.offsetParent !== null;
         }
+        function safeCls(el) {
+          try {
+            return typeof el.className === "string"
+              ? el.className
+              : el.className?.baseVal || el.getAttribute("class") || "";
+          } catch (e) {
+            return "";
+          }
+        }
+        const logs = [];
         function log(...args) {
+          const msg = args
+            .map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a)))
+            .join(" ");
+          logs.push(msg);
           console.log("[AUTO MESSAGE]", ...args);
         }
 
         try {
-          log("🚀 START: Recherche bouton Message sur", window.location.href);
-
-          // ========================================
-          // ÉTAPE 1: Attendre le profil et cliquer Message
-          // ========================================
-          for (let i = 0; i < 15; i++) {
-            const h1 = document.querySelector("h1");
-            if (h1 && h1.textContent.trim().length > 0) break;
-            await wait(1000);
-          }
+          log("🚀 Phase 2 sur:", window.location.href);
           await wait(2000);
 
-          // Chercher bouton Message
-          const clickables = document.querySelectorAll(
-            'button, a[role="button"], a[href*="messaging"]'
-          );
-          let messageBtn = null;
-          for (const el of clickables) {
-            if (!isVisible(el)) continue;
-            const txt = (el.innerText || "").trim().toLowerCase();
-            const aria = (el.getAttribute("aria-label") || "")
-              .trim()
-              .toLowerCase();
-            if (
-              txt === "message" ||
-              txt === "envoyer un message" ||
-              aria === "message" ||
-              aria.startsWith("envoyer un message") ||
-              aria.startsWith("send a message")
-            ) {
-              messageBtn = el;
-              break;
-            }
-          }
-          // Fallback: match partiel
-          if (!messageBtn) {
-            for (const el of clickables) {
-              if (!isVisible(el)) continue;
-              const txt = (el.innerText || "").trim().toLowerCase();
-              const aria = (el.getAttribute("aria-label") || "")
-                .trim()
-                .toLowerCase();
-              const combined = txt + " " + aria;
-              if (
-                combined.includes("message") &&
-                !combined.includes("demande") &&
-                !combined.includes("signaler") &&
-                !combined.includes("request")
-              ) {
-                messageBtn = el;
-                break;
-              }
-            }
-          }
+          // === DIAGNOSTIC ===
+          const diag = {};
+          diag.url = window.location.href;
+          diag.isMessaging = diag.url.includes("/messaging");
+          diag.isProfile = diag.url.includes("/in/");
 
-          if (!messageBtn) {
+          // msg-overlay elements
+          const overlays = document.querySelectorAll("[class*='msg-overlay']");
+          diag.msgOverlays = overlays.length;
+          diag.overlayDetails = [...overlays].map((o, i) => ({
+            cls: safeCls(o).substring(0, 80),
+            visible: isVisible(o),
+            children: o.children.length
+          }));
+
+          // msg-form elements
+          const forms = document.querySelectorAll("[class*='msg-form']");
+          diag.msgForms = forms.length;
+          diag.formDetails = [...forms].map((f) => ({
+            cls: safeCls(f).substring(0, 80),
+            visible: isVisible(f),
+            tag: f.tagName
+          }));
+
+          // ALL contenteditable
+          const allCE = document.querySelectorAll("[contenteditable]");
+          diag.ceTotal = allCE.length;
+          diag.ceDetails = [...allCE].map((el) => {
+            const rect = el.getBoundingClientRect();
+            const styles = window.getComputedStyle(el);
             return {
-              success: false,
-              error: "Bouton Message non trouvé sur le profil"
+              tag: el.tagName,
+              ce: el.getAttribute("contenteditable"),
+              visible: isVisible(el),
+              display: styles.display,
+              visibility: styles.visibility,
+              opacity: styles.opacity,
+              w: Math.round(rect.width),
+              h: Math.round(rect.height),
+              cls: safeCls(el).substring(0, 100),
+              role: el.getAttribute("role") || "",
+              aria: (el.getAttribute("aria-label") || "").substring(0, 50)
             };
-          }
+          });
 
-          log("✅ Bouton Message trouvé, click...");
-          messageBtn.click();
+          // role=textbox
+          const textboxes = document.querySelectorAll("[role='textbox']");
+          diag.textboxes = textboxes.length;
+          diag.textboxDetails = [...textboxes].map((el) => ({
+            tag: el.tagName,
+            visible: isVisible(el),
+            cls: safeCls(el).substring(0, 80),
+            ce: el.getAttribute("contenteditable")
+          }));
 
-          // ========================================
-          // ÉTAPE 2: Attendre que le popup overlay apparaisse (3-5s)
-          // ========================================
-          log("⏳ Attente du popup overlay...");
-          await wait(4000);
+          // iframes
+          diag.iframes = document.querySelectorAll("iframe").length;
 
-          // ========================================
-          // ÉTAPE 3: Trouver le champ contenteditable dans le popup
-          // ========================================
-          log("🔍 Recherche du champ de saisie dans le popup...");
+          // textareas
+          const tas = document.querySelectorAll("textarea, input[type='text']");
+          diag.textareas = tas.length;
+          diag.textareaDetails = [...tas].map((el) => ({
+            tag: el.tagName,
+            visible: isVisible(el),
+            cls: safeCls(el).substring(0, 60),
+            placeholder: (el.getAttribute("placeholder") || "").substring(0, 40)
+          }));
+
+          log("📊 DIAGNOSTIC:", JSON.stringify(diag, null, 2));
+
+          // === RECHERCHE DU CHAMP ===
           let input = null;
 
-          // Sélecteurs ultra-larges basés sur les screenshots
           const inputSelectors = [
-            // Sélecteurs exacts des screenshots
-            "div.msg-form__contenteditable.t-14.t-black.t-normal[contenteditable='true']",
             "div.msg-form__contenteditable[contenteditable='true']",
-            "div[role='textbox'][contenteditable='true']",
-            // Sélecteurs génériques
-            ".msg-form__msg-content-container [contenteditable='true']",
-            ".msg-overlay-conversation-bubble [contenteditable='true']",
-            ".msg-form [contenteditable='true']",
+            ".msg-form__contenteditable",
+            ".msg-overlay-conversation-bubble div[contenteditable='true']",
+            ".msg-form div[contenteditable='true']",
+            "[contenteditable='true'][role='textbox']",
             "div[aria-label*='Rédigez'][contenteditable='true']",
             "div[aria-label*='message'][contenteditable='true']",
             "div[aria-label*='Write'][contenteditable='true']",
-            "div[data-placeholder*='message'][contenteditable='true']"
+            "div[aria-label*='Écrivez'][contenteditable='true']",
+            ".msg-form__message-texteditor div[contenteditable='true']"
           ];
 
-          for (let attempt = 0; attempt < 25; attempt++) {
-            // Essayer chaque sélecteur spécifique
+          for (let attempt = 0; attempt < 20; attempt++) {
+            // Stratégie A: sélecteurs spécifiques
             for (const sel of inputSelectors) {
               try {
                 const el = document.querySelector(sel);
                 if (el && isVisible(el)) {
                   input = el;
-                  log("✅ Champ trouvé avec sélecteur:", sel);
+                  log("✅ [A] Trouvé:", sel);
                   break;
                 }
               } catch (e) {}
             }
             if (input) break;
 
-            // Fallback 1: chercher dans les éléments avec classe msg-*
+            // Stratégie B: contenteditable dans parent msg-*
             const allEditable = document.querySelectorAll(
               "[contenteditable='true']"
             );
             for (const el of allEditable) {
               if (!isVisible(el)) continue;
-              const parent = el.closest("[class*='msg-']");
-              if (parent) {
+              if (el.closest("[class*='msg-']")) {
                 input = el;
-                log(
-                  "✅ Champ trouvé via parent msg-*:",
-                  el.className.substring(0, 60)
-                );
+                log("✅ [B] parent msg-*");
                 break;
               }
             }
             if (input) break;
 
-            // Fallback 2: chercher dans artdeco-modal (popup LinkedIn)
+            // Stratégie C: dialog/modal/overlay
             for (const el of allEditable) {
               if (!isVisible(el)) continue;
-              const modal = el.closest(
-                ".artdeco-modal, [role='dialog'], .msg-overlay-bubble-extension"
-              );
-              if (modal) {
+              if (
+                el.closest(
+                  ".artdeco-modal, [role='dialog'], [class*='overlay']"
+                )
+              ) {
                 input = el;
-                log(
-                  "✅ Champ trouvé dans modal/dialog:",
-                  el.className.substring(0, 60)
-                );
+                log("✅ [C] modal/overlay");
                 break;
               }
             }
             if (input) break;
 
-            // Fallback 3: après 15 tentatives, prendre N'IMPORTE QUEL div contenteditable visible
-            if (attempt >= 15) {
+            // Stratégie D: getBoundingClientRect > 0
+            for (const el of allEditable) {
+              const rect = el.getBoundingClientRect();
+              if (rect.width > 50 && rect.height > 20 && el.tagName === "DIV") {
+                input = el;
+                log("✅ [D] rect", rect.width, rect.height);
+                break;
+              }
+            }
+            if (input) break;
+
+            // Stratégie E: n'importe quel div contenteditable avec rect > 0
+            if (attempt >= 10) {
               for (const el of allEditable) {
-                if (isVisible(el) && el.tagName === "DIV") {
-                  input = el;
-                  log(
-                    "⚠️ Champ trouvé via fallback ultime (premier div contenteditable visible):",
-                    el.className.substring(0, 60)
-                  );
-                  break;
+                if (el.tagName === "DIV") {
+                  const rect = el.getBoundingClientRect();
+                  if (rect.width > 0 && rect.height > 0) {
+                    input = el;
+                    log("⚠️ [E] fallback rect>0");
+                    break;
+                  }
                 }
               }
               if (input) break;
             }
 
-            log(`⏳ Recherche champ... tentative ${attempt + 1}/25`);
-            await wait(800);
+            log(`⏳ Tentative ${attempt + 1}/20 — CE: ${allEditable.length}`);
+            await wait(1000);
           }
 
           if (!input) {
-            // Debug: lister TOUS les contenteditable
-            const allCE = [
-              ...document.querySelectorAll("[contenteditable='true']")
-            ].map((el) => {
-              const vis = isVisible(el) ? "VISIBLE" : "HIDDEN";
-              const cls = (el.className || "no-class").substring(0, 80);
-              const aria = el.getAttribute("aria-label") || "";
-              return `[${vis}] class="${cls}" aria="${aria.substring(0, 40)}"`;
-            });
-            log(
-              "❌ AUCUN champ trouvé après 25 tentatives. ContentEditable sur la page:",
-              allCE
-            );
-            return {
-              success: false,
-              error: `Champ introuvable après 25 tentatives. URL: ${window.location.href.substring(0, 60)}. ContentEditable: ${allCE.join(" | ")}`
-            };
+            return { success: false, error: "Champ introuvable", diag, logs };
           }
 
-          // ========================================
-          // ÉTAPE 4: Écrire le message
-          // ========================================
+          // === ÉCRIRE LE MESSAGE ===
           log("✍️ Écriture du message...");
           input.focus();
           await wait(500);
-
-          // Vider
           input.innerHTML = "";
           input.dispatchEvent(new Event("input", { bubbles: true }));
           await wait(300);
-
-          // Écrire via execCommand
           document.execCommand("selectAll", false, null);
           document.execCommand("delete", false, null);
           document.execCommand("insertText", false, msgText);
-
-          // Événements pour LinkedIn
           input.dispatchEvent(new InputEvent("input", { bubbles: true }));
           input.dispatchEvent(new Event("change", { bubbles: true }));
           input.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true }));
           await wait(2000);
 
-          // Vérifier que le texte est bien écrit
           const written = (input.innerText || input.textContent || "").trim();
-          log("📝 Texte écrit:", written.substring(0, 60));
+          log("📝 Texte:", written.substring(0, 60));
           if (!written || written.length < 3) {
-            log("⚠️ Texte vide ou trop court, retry avec innerHTML...");
-            input.innerHTML = `<p>${msgText}</p>`;
+            input.innerHTML = "<p>" + msgText + "</p>";
             input.dispatchEvent(new InputEvent("input", { bubbles: true }));
             await wait(1500);
           }
 
-          // ========================================
-          // ÉTAPE 5: Trouver et cliquer le bouton Envoyer
-          // ========================================
-          log("🔍 Recherche bouton Envoyer...");
+          // === BOUTON ENVOYER ===
           let sendBtn = null;
-
-          for (let i = 0; i < 20; i++) {
-            // Sélecteur exact des screenshots
-            sendBtn = document.querySelector(
-              "button.msg-form__send-button[type='submit']"
-            );
-            if (sendBtn && isVisible(sendBtn)) break;
-
-            // Fallback: classe msg-form__send-button sans type
+          for (let i = 0; i < 15; i++) {
             sendBtn = document.querySelector("button.msg-form__send-button");
             if (sendBtn && isVisible(sendBtn)) break;
-
-            // Fallback: chercher par texte "Envoyer" / "Send"
-            for (const btn of document.querySelectorAll("button")) {
+            sendBtn = null;
+            for (const btn of document.querySelectorAll(
+              "button[type='submit'], button"
+            )) {
               if (!isVisible(btn)) continue;
               const txt = (btn.innerText || "").trim().toLowerCase();
-              const aria = (btn.getAttribute("aria-label") || "")
-                .trim()
-                .toLowerCase();
-              if (
-                txt === "envoyer" ||
-                txt === "send" ||
-                aria.includes("send") ||
-                aria.includes("envoyer")
-              ) {
+              if (txt === "envoyer" || txt === "send") {
                 sendBtn = btn;
                 break;
               }
             }
             if (sendBtn) break;
-
-            log(`⏳ Recherche bouton envoyer... tentative ${i + 1}/20`);
             await wait(500);
           }
 
           if (!sendBtn) {
-            const allBtns = [...document.querySelectorAll("button")]
-              .filter((b) => isVisible(b))
-              .map(
-                (b) =>
-                  `"${(b.innerText || "").trim().substring(0, 30)}" class="${(b.className || "").substring(0, 50)}"`
-              )
-              .slice(0, 15);
-            log("❌ Bouton Envoyer introuvable. Boutons visibles:", allBtns);
             return {
               success: false,
-              error:
-                "Bouton Envoyer introuvable. Boutons: " + allBtns.join(" | ")
+              error: "Bouton Envoyer introuvable",
+              logs
             };
           }
 
-          log("✅ Bouton Envoyer trouvé, envoi...");
+          log("✅ Envoi...");
           sendBtn.click();
-          sendBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
           await wait(2500);
 
-          log("🎉 MESSAGE ENVOYÉ avec succès!");
-          return { success: true };
+          log("🎉 MESSAGE ENVOYÉ!");
+          return { success: true, logs };
         } catch (e) {
-          log("💥 ERREUR:", e.message, e.stack);
-          return { success: false, error: e.message };
+          log("💥 ERREUR:", e.message);
+          return { success: false, error: e.message, logs };
         }
       },
       args: [messageText]
     });
 
-    const res = result?.[0]?.result;
-    console.log("[SEND MSG] Résultat final:", res);
+    const res = phase2?.[0]?.result;
+
+    // AFFICHER TOUS LES LOGS ET DIAGNOSTICS DANS LA CONSOLE BACKGROUND.JS
+    console.log("[SEND MSG] ====== RÉSULTAT PHASE 2 ======");
+    if (res?.logs) {
+      console.log("[SEND MSG] Logs de la page LinkedIn:");
+      res.logs.forEach((l) => console.log("  →", l));
+    }
+    if (res?.diag) {
+      console.log("[SEND MSG] 🔬 DIAGNOSTIC COMPLET:");
+      console.log("  URL:", res.diag.url);
+      console.log("  isMessaging:", res.diag.isMessaging);
+      console.log("  isProfile:", res.diag.isProfile);
+      console.log("  msg-overlay:", res.diag.msgOverlays);
+      if (res.diag.overlayDetails)
+        res.diag.overlayDetails.forEach((o) => console.log("    overlay:", o));
+      console.log("  msg-form:", res.diag.msgForms);
+      if (res.diag.formDetails)
+        res.diag.formDetails.forEach((f) => console.log("    form:", f));
+      console.log("  contenteditable total:", res.diag.ceTotal);
+      if (res.diag.ceDetails)
+        res.diag.ceDetails.forEach((c, i) => console.log(`    CE[${i}]:`, c));
+      console.log("  role=textbox:", res.diag.textboxes);
+      if (res.diag.textboxDetails)
+        res.diag.textboxDetails.forEach((t) => console.log("    textbox:", t));
+      console.log("  iframes:", res.diag.iframes);
+      console.log("  textarea/input:", res.diag.textareas);
+      if (res.diag.textareaDetails)
+        res.diag.textareaDetails.forEach((t) => console.log("    input:", t));
+    }
+    console.log("[SEND MSG] Succès:", res?.success, "Erreur:", res?.error);
+    console.log("[SEND MSG] ============================");
 
     if (res?.success) {
       await updateActionStatus(action.id, "completed", { sent: true });
@@ -863,13 +1119,16 @@ async function executeSendMessage(action) {
       );
     }
 
-    // Fermer l'onglet après 3s
+    // Fermer les onglets après 3s
     setTimeout(() => {
       if (tab?.id) chrome.tabs.remove(tab.id).catch(() => {});
+      if (newTab?.id && newTab.id !== tab.id)
+        chrome.tabs.remove(newTab.id).catch(() => {});
     }, 3000);
   } catch (error) {
     console.error("❌ executeSendMessage error:", error);
     if (tab?.id) chrome.tabs.remove(tab.id).catch(() => {});
+    if (newTab?.id) chrome.tabs.remove(newTab.id).catch(() => {});
     await updateActionStatus(action.id, "failed", null, error.message);
   }
 }
