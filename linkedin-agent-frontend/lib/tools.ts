@@ -167,7 +167,7 @@ function normalizeLinkedInUrl(url: string): string {
 // TOOL: Envoyer un message LinkedIn direct
 export const linkedinSendMessageTool = new DynamicStructuredTool({
   name: "linkedin_send_message",
-  description: "Envoyer un message direct à une connexion LinkedIn existante. L'action est mise en queue pour l'extension Chrome. Limite: 100 messages/jour.",
+  description: "Envoyer un message direct à une connexion LinkedIn existante. L'action est mise en queue pour l'extension Chrome. Limite: 50 messages/jour.",
   schema: z.object({
     linkedin_url: z.string().describe("URL du profil LinkedIn"),
     prospect_name: z.string().describe("Nom du prospect"),
@@ -178,6 +178,28 @@ export const linkedinSendMessageTool = new DynamicStructuredTool({
   func: async ({ linkedin_url, prospect_name, message, campaign_id, message_type }) => {
     try {
       const normalizedUrl = normalizeLinkedInUrl(linkedin_url);
+
+      // Anti-doublon: vérifier si une action identique existe déjà (pending_approval, approved, ou processing)
+      const duplicateCheck = await pool.query(
+        `SELECT id, status FROM linkedin_actions_queue
+         WHERE action_type = 'send_message'
+           AND target_url = $1
+           AND status IN ('pending_approval', 'approved', 'processing')
+           AND created_at >= NOW() - INTERVAL '1 hour'
+         LIMIT 1`,
+        [normalizedUrl]
+      );
+      if (duplicateCheck.rows.length > 0) {
+        const existing = duplicateCheck.rows[0];
+        return JSON.stringify({
+          success: true,
+          already_exists: true,
+          action_id: existing.id,
+          status: existing.status,
+          message: `⚠️ Un message pour ${prospect_name} est déjà en file (Action #${existing.id}, statut: ${existing.status}). Pas de doublon créé.`,
+        });
+      }
+
       // Vérifier les limites LinkedIn (quotidienne + horaire + délai)
       const rateLimit = await checkRateLimit("send_message");
       if (!rateLimit.allowed) {

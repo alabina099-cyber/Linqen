@@ -24,19 +24,19 @@ const POLL_INTERVAL_MS = 10000; // 10 secondes
 
 // Délais sécurisés par type d'action (en ms) - fourchette [min, max]
 const ACTION_DELAYS = {
-  send_connection: [90000, 120000], // 1m30 à 2min
-  send_message: [60000, 90000], // 1min à 1m30
-  visit_profile: [15000, 30000], // 15s à 30s
-  search: [30000, 45000], // 30s à 45s
+  send_connection: [120000, 180000], // 2min à 3min
+  send_message: [90000, 150000], // 1m30 à 2m30
+  visit_profile: [20000, 40000], // 20s à 40s
+  search: [45000, 70000], // 45s à 70s
   default: [10000, 20000] // 10s à 20s
 };
 
 // Limites journalières LinkedIn (conservatives)
 const DAILY_LIMITS = {
   send_connection: 20,
-  send_message: 50,
-  visit_profile: 80,
-  search: 30
+  send_message: 30,
+  visit_profile: 50,
+  search: 25
 };
 
 // Compteurs journaliers — réinitialisés à minuit

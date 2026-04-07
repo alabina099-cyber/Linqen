@@ -86,6 +86,9 @@ RAPPEL CRITIQUE:
 
         // Exécuter les tool calls
         let toolResults = "";
+        let actionCreated = false; // Flag pour éviter les doublons
+        const ACTION_TOOLS = ["linkedin_send_message", "linkedin_send_connection", "linkedin_visit_profile", "linkedin_search"];
+
         for (const toolCall of response.tool_calls) {
           const tool = TOOLS_MAP[toolCall.name];
           if (tool) {
@@ -100,6 +103,10 @@ RAPPEL CRITIQUE:
                 status: "success",
                 timestamp: new Date().toISOString(),
               });
+              // Marquer si une action LinkedIn a été créée
+              if (ACTION_TOOLS.includes(toolCall.name) && resultStr.includes('"success":true')) {
+                actionCreated = true;
+              }
             } catch (toolError) {
               const errMsg = toolError instanceof Error ? toolError.message : "Erreur";
               toolResults += `\n[Erreur ${toolCall.name}]: ${errMsg}`;
@@ -114,10 +121,22 @@ RAPPEL CRITIQUE:
           }
         }
 
+        // Si une action LinkedIn a été créée → STOP, pas besoin de continuer la boucle
+        if (actionCreated) {
+          currentMessages.push(new AIMessage(response.content?.toString() || ""));
+          currentMessages.push(new HumanMessage(
+            `Résultats des tools exécutés:${toolResults}\n\nL'action a été créée avec succès. NE RAPPELLE PAS le même tool. Donne ta réponse finale à l'utilisateur pour confirmer.`
+          ));
+          // Un dernier round pour la réponse finale uniquement
+          const finalResponse = await llm.invoke(currentMessages);
+          finalOutput = finalResponse.content?.toString() || "Action créée avec succès.";
+          break;
+        }
+
         // Ajouter la réponse de l'assistant + résultats des tools aux messages
         currentMessages.push(new AIMessage(response.content?.toString() || ""));
         currentMessages.push(new HumanMessage(
-          `Résultats des tools exécutés:${toolResults}\n\nContinue le workflow: si tu as encore des étapes à faire (vérifier les résultats, envoyer un message, etc.), appelle le prochain tool. Sinon, donne ta réponse finale à l'utilisateur.`
+          `Résultats des tools exécutés:${toolResults}\n\nContinue le workflow si nécessaire. NE RAPPELLE PAS un tool déjà appelé avec les mêmes arguments. Sinon, donne ta réponse finale.`
         ));
       }
 
