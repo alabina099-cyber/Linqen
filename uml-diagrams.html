@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>LinkedIn Agent - Diagrammes UML</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    @media print {
+      .page-break { page-break-before: always; }
+      body { margin: 0; padding: 10mm; }
+      h1, h2 { break-after: avoid; }
+    }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 30px;
+      color: #1a1a2e;
+      background: #fff;
+    }
+    .cover {
+      text-align: center;
+      padding: 120px 0 80px;
+      border-bottom: 3px solid #0077b5;
+      margin-bottom: 40px;
+    }
+    .cover h1 {
+      font-size: 36px;
+      color: #0077b5;
+      margin-bottom: 10px;
+    }
+    .cover h2 {
+      font-size: 22px;
+      color: #555;
+      font-weight: 400;
+    }
+    .cover .subtitle {
+      font-size: 16px;
+      color: #888;
+      margin-top: 30px;
+    }
+    .cover .logo {
+      font-size: 60px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      color: #0077b5;
+      font-size: 26px;
+      border-bottom: 2px solid #0077b5;
+      padding-bottom: 8px;
+      margin-top: 40px;
+    }
+    h2 {
+      color: #333;
+      font-size: 20px;
+      margin-top: 25px;
+    }
+    .description {
+      background: #f0f7ff;
+      border-left: 4px solid #0077b5;
+      padding: 12px 18px;
+      margin: 15px 0 25px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #333;
+    }
+    .diagram-container {
+      text-align: center;
+      margin: 20px 0 40px;
+      padding: 15px;
+      background: #fafbfc;
+      border: 1px solid #e1e4e8;
+      border-radius: 8px;
+    }
+    .mermaid {
+      display: flex;
+      justify-content: center;
+    }
+    .mermaid svg {
+      max-width: 100%;
+    }
+    .toc {
+      background: #f8f9fa;
+      padding: 20px 30px;
+      border-radius: 8px;
+      margin: 30px 0;
+    }
+    .toc h2 { margin-top: 0; }
+    .toc ol { line-height: 2; font-size: 15px; }
+    .toc a { color: #0077b5; text-decoration: none; }
+    .actors-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+    }
+    .actors-table th, .actors-table td {
+      border: 1px solid #ddd;
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 14px;
+    }
+    .actors-table th {
+      background: #0077b5;
+      color: white;
+    }
+    .actors-table tr:nth-child(even) { background: #f5f8ff; }
+    footer {
+      text-align: center;
+      margin-top: 50px;
+      padding-top: 20px;
+      border-top: 1px solid #ddd;
+      color: #888;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ==================== PAGE DE COUVERTURE ==================== -->
+<div class="cover">
+  <div class="logo">🤖🔗</div>
+  <h1>LinkedIn Agent - Dossier de Conception UML</h1>
+  <h2>Système d'Automatisation de Prospection LinkedIn avec Agent IA</h2>
+  <div class="subtitle">
+    Diagrammes UML : Use Cases, Séquence, Classes<br>
+    Avril 2026
+  </div>
+</div>
+
+<!-- ==================== TABLE DES MATIERES ==================== -->
+<div class="toc">
+  <h2>Table des matières</h2>
+  <ol>
+    <li><a href="#actors">Acteurs du système</a></li>
+    <li><a href="#uc-global">Diagramme de Use Case Global</a></li>
+    <li><a href="#uc-refined1">Use Case Raffiné 1 : Prospection Autonome</a></li>
+    <li><a href="#uc-refined2">Use Case Raffiné 2 : Gestion des Campagnes &amp; Messages</a></li>
+    <li><a href="#seq">Diagramme de Séquence : Workflow de Prospection Autonome</a></li>
+    <li><a href="#class">Diagramme de Classes</a></li>
+  </ol>
+</div>
+
+<!-- ==================== ACTEURS ==================== -->
+<div class="page-break"></div>
+<h1 id="actors">1. Acteurs du Système</h1>
+<div class="description">
+  Le système LinkedIn Agent met en relation quatre acteurs principaux pour automatiser la prospection sur LinkedIn tout en respectant les limites de la plateforme.
+</div>
+<table class="actors-table">
+  <tr><th>Acteur</th><th>Type</th><th>Description</th></tr>
+  <tr><td><strong>Utilisateur</strong></td><td>Principal</td><td>Le professionnel qui configure les campagnes, approuve les actions et consulte les résultats de prospection.</td></tr>
+  <tr><td><strong>Agent IA</strong></td><td>Système</td><td>Agent conversationnel basé sur OpenAI (LangChain). Analyse les demandes, utilise des outils (tools) pour rechercher, analyser et contacter les prospects.</td></tr>
+  <tr><td><strong>Extension Chrome</strong></td><td>Système</td><td>Extension navigateur qui exécute les actions LinkedIn (recherche, visite de profil, envoi de messages/connexions) en simulant le comportement humain.</td></tr>
+  <tr><td><strong>LinkedIn</strong></td><td>Externe</td><td>Plateforme sociale professionnelle. Source des données de prospects et canal de communication.</td></tr>
+</table>
+
+<!-- ==================== USE CASE GLOBAL ==================== -->
+<div class="page-break"></div>
+<h1 id="uc-global">2. Diagramme de Use Case Global</h1>
+<div class="description">
+  Ce diagramme présente l'ensemble des fonctionnalités du système LinkedIn Agent, organisées par domaine fonctionnel : prospection, messagerie, campagnes, et administration.
+</div>
+<div class="diagram-container">
+  <pre class="mermaid">
+graph TB
+    subgraph Acteurs
+        U["🧑 Utilisateur"]
+        AI["🤖 Agent IA"]
+        EXT["🌐 Extension Chrome"]
+        LI["💼 LinkedIn"]
+    end
+
+    subgraph UC_Prospection["🔍 Prospection"]
+        UC1["Rechercher des prospects<br/>dans le réseau LinkedIn"]
+        UC2["Visiter un profil LinkedIn"]
+        UC3["Analyser et scorer<br/>un prospect"]
+        UC4["Sauvegarder un prospect<br/>en base de données"]
+        UC5["Consulter la liste<br/>des prospects"]
+        UC14["Importer des prospects<br/>en masse (bulk)"]
+    end
+
+    subgraph UC_Messagerie["✉️ Messagerie"]
+        UC6["Envoyer un message<br/>personnalisé"]
+        UC7["Envoyer une demande<br/>de connexion"]
+        UC8["Envoyer des messages<br/>en masse (bulk)"]
+        UC9["Planifier un follow-up"]
+        UC10["Générer un message<br/>personnalisé (IA)"]
+    end
+
+    subgraph UC_Campagnes["📊 Campagnes"]
+        UC11["Créer une campagne"]
+        UC12["Suivre les statistiques<br/>d'une campagne"]
+        UC13["Gérer les templates<br/>de messages"]
+    end
+
+    subgraph UC_Admin["⚙️ Administration"]
+        UC15["Approuver / Rejeter<br/>les actions en attente"]
+        UC16["Consulter les limites<br/>LinkedIn (rate limits)"]
+        UC17["Configurer le compte<br/>LinkedIn"]
+        UC18["Consulter les<br/>notifications"]
+    end
+
+    U --> UC1
+    U --> UC5
+    U --> UC6
+    U --> UC7
+    U --> UC11
+    U --> UC12
+    U --> UC13
+    U --> UC15
+    U --> UC16
+    U --> UC17
+    U --> UC18
+
+    AI --> UC1
+    AI --> UC2
+    AI --> UC3
+    AI --> UC4
+    AI --> UC6
+    AI --> UC8
+    AI --> UC9
+    AI --> UC10
+    AI --> UC14
+
+    EXT --> UC1
+    EXT --> UC2
+    EXT --> UC6
+    EXT --> UC7
+    EXT --> UC14
+
+    UC1 -.->|"«uses»"| LI
+    UC2 -.->|"«uses»"| LI
+    UC6 -.->|"«uses»"| LI
+    UC7 -.->|"«uses»"| LI
+
+    UC8 -.->|"«extend»"| UC6
+    UC10 -.->|"«include»"| UC6
+    UC3 -.->|"«include»"| UC4
+
+    style UC_Prospection fill:#e8f4fd,stroke:#0077b5
+    style UC_Messagerie fill:#fff3e0,stroke:#f57c00
+    style UC_Campagnes fill:#e8f5e9,stroke:#388e3c
+    style UC_Admin fill:#f3e5f5,stroke:#7b1fa2
+  </pre>
+</div>
+
+<!-- ==================== USE CASE RAFFINE 1 ==================== -->
+<div class="page-break"></div>
+<h1 id="uc-refined1">3. Use Case Raffiné 1 : Prospection Autonome</h1>
+<div class="description">
+  <strong>Scénario principal :</strong> L'utilisateur demande à l'Agent IA de trouver et contacter des prospects dans son réseau LinkedIn, sans fournir de noms ni d'URLs. L'agent effectue la recherche, récupère les résultats, et envoie des messages personnalisés en masse.<br><br>
+  <strong>Acteurs :</strong> Utilisateur, Agent IA, Extension Chrome, LinkedIn<br>
+  <strong>Précondition :</strong> L'utilisateur est connecté à LinkedIn via l'extension Chrome.<br>
+  <strong>Postcondition :</strong> Les prospects trouvés sont sauvegardés en BDD et les messages sont en attente d'approbation.
+</div>
+<div class="diagram-container">
+  <pre class="mermaid">
+graph TB
+    U["🧑 Utilisateur"]
+    AI["🤖 Agent IA"]
+    EXT["🌐 Extension Chrome"]
+    LI["💼 LinkedIn"]
+
+    UC_MAIN["<strong>Prospection Autonome</strong><br/>Rechercher et contacter<br/>des prospects dans le réseau"]
+
+    UC_S1["1. Formuler la demande<br/>en langage naturel"]
+    UC_S2["2. Rechercher dans le réseau<br/>LinkedIn (network=F)"]
+    UC_S3["3. Approuver l'action<br/>de recherche"]
+    UC_S4["4. Exécuter la recherche<br/>sur LinkedIn"]
+    UC_S5["5. Scraper les résultats<br/>de recherche"]
+    UC_S6["6. Sauvegarder les prospects<br/>via API bulk"]
+    UC_S7["7. Récupérer les résultats<br/>(get_search_results)"]
+    UC_S8["8. Envoyer messages en masse<br/>(bulk_send_messages)"]
+    UC_S9["9. Approuver les messages<br/>individuellement"]
+    UC_S10["10. Exécuter l'envoi<br/>des messages"]
+
+    UC_CHECK["Vérifier les limites<br/>LinkedIn (rate limit)"]
+    UC_TEMPLATE["Personnaliser le message<br/>avec variables {name} {role}"]
+
+    U --> UC_S1
+    U --> UC_S3
+    U --> UC_S9
+    AI --> UC_S2
+    AI --> UC_S7
+    AI --> UC_S8
+    EXT --> UC_S4
+    EXT --> UC_S5
+    EXT --> UC_S6
+    EXT --> UC_S10
+
+    UC_S4 -.->|"«uses»"| LI
+    UC_S10 -.->|"«uses»"| LI
+
+    UC_S2 -.->|"«include»"| UC_CHECK
+    UC_S8 -.->|"«include»"| UC_CHECK
+    UC_S8 -.->|"«include»"| UC_TEMPLATE
+
+    UC_S1 --> UC_MAIN
+    UC_MAIN --> UC_S2
+    UC_S2 --> UC_S3
+    UC_S3 --> UC_S4
+    UC_S4 --> UC_S5
+    UC_S5 --> UC_S6
+    UC_S6 --> UC_S7
+    UC_S7 --> UC_S8
+    UC_S8 --> UC_S9
+    UC_S9 --> UC_S10
+
+    style UC_MAIN fill:#0077b5,stroke:#005a8c,color:#fff
+    style UC_CHECK fill:#fff3e0,stroke:#f57c00
+    style UC_TEMPLATE fill:#fff3e0,stroke:#f57c00
+  </pre>
+</div>
+
+<!-- ==================== USE CASE RAFFINE 2 ==================== -->
+<div class="page-break"></div>
+<h1 id="uc-refined2">4. Use Case Raffiné 2 : Gestion des Campagnes &amp; Envoi de Messages</h1>
+<div class="description">
+  <strong>Scénario principal :</strong> L'utilisateur crée une campagne de prospection, configure les templates de messages, et l'agent IA gère l'envoi de messages personnalisés aux prospects ciblés avec suivi de performance.<br><br>
+  <strong>Acteurs :</strong> Utilisateur, Agent IA<br>
+  <strong>Précondition :</strong> Des prospects existent en base de données.<br>
+  <strong>Postcondition :</strong> La campagne est active avec des statistiques de suivi.
+</div>
+<div class="diagram-container">
+  <pre class="mermaid">
+graph TB
+    U["🧑 Utilisateur"]
+    AI["🤖 Agent IA"]
+
+    UC_MAIN2["<strong>Gestion de Campagne<br/>& Envoi de Messages</strong>"]
+
+    UC_C1["Créer une campagne<br/>(nom, cible, objectif)"]
+    UC_C2["Configurer les templates<br/>(invitation, follow-up)"]
+    UC_C3["Sélectionner les prospects<br/>cibles (filtres BDD)"]
+    UC_C4["Générer des messages<br/>personnalisés (IA)"]
+    UC_C5["Envoyer un message<br/>à un prospect"]
+    UC_C6["Envoyer une demande<br/>de connexion"]
+    UC_C7["Planifier un follow-up<br/>automatique"]
+    UC_C8["Suivre les statistiques<br/>(contacted, replied, converted)"]
+    UC_C9["Mettre à jour le statut<br/>de la campagne"]
+
+    UC_RATE["Vérifier rate limits"]
+    UC_DEDUP["Vérifier les doublons<br/>(anti-doublon)"]
+    UC_APPROVE["Approuver les actions<br/>en file d'attente"]
+
+    U --> UC_C1
+    U --> UC_C2
+    U --> UC_C8
+    U --> UC_APPROVE
+    AI --> UC_C3
+    AI --> UC_C4
+    AI --> UC_C5
+    AI --> UC_C6
+    AI --> UC_C7
+    AI --> UC_C9
+
+    UC_C1 --> UC_MAIN2
+    UC_MAIN2 --> UC_C2
+    UC_C2 --> UC_C3
+    UC_C3 --> UC_C4
+    UC_C4 --> UC_C5
+    UC_C5 --> UC_C7
+    UC_C7 --> UC_C8
+
+    UC_C5 -.->|"«include»"| UC_RATE
+    UC_C5 -.->|"«include»"| UC_DEDUP
+    UC_C6 -.->|"«include»"| UC_RATE
+    UC_C5 -.->|"«include»"| UC_APPROVE
+
+    UC_C6 -.->|"«extend»"| UC_C5
+
+    style UC_MAIN2 fill:#388e3c,stroke:#2e7d32,color:#fff
+    style UC_RATE fill:#fff3e0,stroke:#f57c00
+    style UC_DEDUP fill:#fff3e0,stroke:#f57c00
+    style UC_APPROVE fill:#f3e5f5,stroke:#7b1fa2
+  </pre>
+</div>
+
+<!-- ==================== DIAGRAMME DE SEQUENCE ==================== -->
+<div class="page-break"></div>
+<h1 id="seq">5. Diagramme de Séquence : Workflow de Prospection Autonome</h1>
+<div class="description">
+  Ce diagramme montre le flux complet d'une prospection autonome : de la demande utilisateur en langage naturel jusqu'à l'envoi des messages, en passant par la recherche LinkedIn, le scraping des résultats, et l'approbation des actions.
+</div>
+<div class="diagram-container">
+  <pre class="mermaid">
+sequenceDiagram
+    actor U as Utilisateur
+    participant F as Frontend<br/>(Next.js)
+    participant AG as Agent IA<br/>(LangChain + OpenAI)
+    participant DB as Base de Données<br/>(PostgreSQL / Neon)
+    participant EXT as Extension Chrome<br/>(background.js)
+    participant CS as Content Script<br/>(content.js)
+    participant LI as LinkedIn
+
+    Note over U,LI: Phase 1 — Demande et Recherche
+    U->>F: "Cherche les ingénieurs IA dans mon réseau<br/>et envoie un message de proposition"
+    F->>AG: chat(message, context)
+    AG->>AG: Analyse la demande (LLM)
+    AG->>DB: checkRateLimit("search")
+    DB-->>AG: {allowed: true}
+    AG->>DB: INSERT linkedin_actions_queue<br/>(type=search, url=linkedin.com/search?network=F&keywords=...)
+    DB-->>AG: {id: 52, status: pending_approval}
+    AG-->>F: "Recherche créée (#52).<br/>Veuillez l'approuver."
+    F-->>U: Affiche l'action en attente
+
+    Note over U,LI: Phase 2 — Approbation et Exécution
+    U->>F: Clique "Approuver"
+    F->>DB: UPDATE status = 'approved' WHERE id=52
+    EXT->>DB: pollAndExecuteActions()<br/>GET /api/linkedin-actions?status=approved
+    DB-->>EXT: [{id:52, type:search, url:...}]
+    EXT->>EXT: executeSearch(action)
+    EXT->>LI: chrome.tabs.create(searchUrl)
+    LI-->>EXT: Page de résultats chargée
+    EXT->>CS: sendMessage(SCRAPE_SEARCH_RESULTS)
+    CS->>LI: querySelectorAll (scraping DOM)
+    LI-->>CS: Données des profils
+    CS-->>EXT: {type: SEARCH_RESULTS, data: [...profiles]}
+
+    Note over U,LI: Phase 3 — Sauvegarde des Prospects
+    EXT->>F: POST /api/prospects/bulk<br/>[{name, role, location, linkedin_url}, ...]
+    F->>DB: UPSERT prospects (ON CONFLICT linkedin_url)
+    DB-->>F: {imported: 8}
+    EXT->>DB: UPDATE linkedin_actions_queue<br/>SET status='completed', result={profiles}
+    EXT->>EXT: Fermer l'onglet LinkedIn
+
+    Note over U,LI: Phase 4 — Récupération et Envoi en Masse
+    U->>F: "Continue" / L'agent reprend
+    F->>AG: chat("continue")
+    AG->>DB: get_search_results()<br/>SELECT FROM prospects WHERE notes LIKE '%search%'
+    DB-->>AG: [{name:"Alice", role:"ML Engineer"}, ...]
+    AG->>AG: bulk_send_messages()<br/>Personnalise {name}, {role}, {company}
+    AG->>DB: INSERT linkedin_actions_queue × N<br/>(type=send_message, status=pending_approval)
+    DB-->>AG: {queued: 8 messages}
+    AG-->>F: "8 messages créés. Approuvez-les."
+    F-->>U: Affiche les 8 messages en attente
+
+    Note over U,LI: Phase 5 — Approbation et Envoi des Messages
+    U->>F: Approuve les messages
+    F->>DB: UPDATE status = 'approved'
+    EXT->>DB: poll (GET approved)
+    loop Pour chaque message
+        EXT->>LI: Ouvrir profil prospect
+        EXT->>CS: SEND_MESSAGE
+        CS->>LI: Clic "Message" → Saisie → Envoi
+        LI-->>CS: Message envoyé
+        CS-->>EXT: ACTION_COMPLETED
+        EXT->>DB: UPDATE status='completed'
+        EXT->>EXT: delay(30-90s) anti-ban
+    end
+    EXT-->>U: Tous les messages envoyés
+  </pre>
+</div>
+
+<!-- ==================== DIAGRAMME DE CLASSES ==================== -->
+<div class="page-break"></div>
+<h1 id="class">6. Diagramme de Classes</h1>
+<div class="description">
+  Ce diagramme représente les principales classes et entités du système : les modèles de données (tables PostgreSQL), les services métier (Agent, RateLimiter, Tools), et les composants de l'interface et de l'extension Chrome.
+</div>
+<div class="diagram-container">
+  <pre class="mermaid">
+classDiagram
+    direction TB
+
+    class Prospect {
+        +int id
+        +string linkedin_url
+        +string name
+        +string role
+        +string company
+        +string industry
+        +string location
+        +string company_size
+        +string email
+        +string phone
+        +int score
+        +string status
+        +string notes
+        +datetime created_at
+        +datetime updated_at
+    }
+
+    class Campaign {
+        +int id
+        +string name
+        +string status
+        +string target
+        +string description
+        +string industry
+        +string location
+        +string target_role
+        +string template_invitation
+        +string template_followup
+        +string objective
+        +int daily_limit
+        +int contacted
+        +int replied
+        +int converted
+        +datetime created_at
+    }
+
+    class Message {
+        +int id
+        +int campaign_id
+        +int prospect_id
+        +string recipient_name
+        +string recipient_role
+        +string message_text
+        +string message_type
+        +string status
+        +datetime created_at
+    }
+
+    class LinkedInAction {
+        +int id
+        +string action_type
+        +string target_url
+        +string target_name
+        +json payload
+        +string status
+        +json result
+        +string error_message
+        +int campaign_id
+        +int prospect_id
+        +datetime created_at
+        +datetime executed_at
+    }
+
+    class User {
+        +int id
+        +string name
+        +string email
+        +string company
+        +string role
+        +bool linkedin_connected
+        +json settings
+    }
+
+    class Template {
+        +int id
+        +string name
+        +string tag
+        +string text
+        +int usage_count
+        +int conversion_rate
+    }
+
+    class ScheduledFollowup {
+        +int id
+        +int prospect_id
+        +int campaign_id
+        +string message_text
+        +datetime scheduled_for
+        +string status
+    }
+
+    class Notification {
+        +int id
+        +int user_id
+        +string type
+        +string title
+        +string message
+        +bool read
+        +json data
+    }
+
+    class AgentChatHistory {
+        +int id
+        +int user_id
+        +string role
+        +string content
+        +json context
+        +string conversation_id
+    }
+
+    class AgentToolStep {
+        +int id
+        +string conversation_id
+        +string tool_name
+        +json args
+        +string result
+        +string status
+    }
+
+    class LinkedInAgent {
+        -ChatOpenAI model
+        -BaseTool[] tools
+        -BaseMessage[] history
+        +chat(message, context) string
+        +addToHistory(role, content)
+        +clearHistory()
+    }
+
+    class RateLimiter {
+        +checkRateLimit(actionType) RateLimitResult
+        +getRateLimitStatus() object
+        +formatRateLimitStatus(status) string
+    }
+
+    class ToolsService {
+        +linkedinSearchTool
+        +linkedinVisitProfileTool
+        +linkedinSendMessageTool
+        +linkedinSendConnectionTool
+        +bulkSendMessagesTool
+        +getSearchResultsTool
+        +analyzeProspectTool
+        +generateMessageTool
+        +searchProspectsDbTool
+        +saveProspectTool
+        +getCampaignStatsTool
+        +scheduleFollowupTool
+        +createCampaignTool
+        +getRateLimitsTool
+    }
+
+    class ChromeExtension {
+        -string API_BASE_URL
+        -bool isProcessing
+        -int activeActionTabId
+        +pollAndExecuteActions()
+        +executeSearch(action)
+        +executeVisitProfile(action)
+        +executeSendMessage(action)
+        +executeSendConnection(action)
+        +handleSearchResults(data, actionId)
+        +handleProfileData(data, actionId)
+        +updateActionStatus(id, status, result, error)
+    }
+
+    class ContentScript {
+        +scrapeProfile(actionId)
+        +scrapeSearchResults(actionId, payload)
+        +sendMessage(actionId, messageText)
+        +sendConnection(actionId, note)
+        +waitForSelector(selector, timeout)
+    }
+
+    Campaign "1" --> "*" Message : contient
+    Campaign "1" --> "*" LinkedInAction : lance
+    Campaign "1" --> "*" ScheduledFollowup : planifie
+    Prospect "1" --> "*" Message : reçoit
+    Prospect "1" --> "*" LinkedInAction : cible
+    Prospect "1" --> "*" ScheduledFollowup : programmé pour
+    User "1" --> "*" Notification : reçoit
+    User "1" --> "*" AgentChatHistory : conversation
+    AgentChatHistory "1" --> "*" AgentToolStep : étapes tools
+
+    LinkedInAgent --> ToolsService : utilise
+    LinkedInAgent --> RateLimiter : vérifie limites
+    ToolsService --> LinkedInAction : crée actions
+    ToolsService --> Prospect : CRUD
+    ToolsService --> Campaign : CRUD
+    ToolsService --> Message : crée
+
+    ChromeExtension --> LinkedInAction : poll et exécute
+    ChromeExtension --> ContentScript : injecte et communique
+    ChromeExtension --> Prospect : import bulk
+    ContentScript --> ChromeExtension : retourne résultats
+  </pre>
+</div>
+
+<!-- ==================== FOOTER ==================== -->
+<footer>
+  LinkedIn Agent — Dossier de Conception UML — Avril 2026<br>
+  Généré automatiquement à partir de l'analyse du code source
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'default',
+    securityLevel: 'loose',
+    flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' },
+    sequence: { useMaxWidth: true, actorMargin: 60, messageFontSize: 12, noteFontSize: 11 }
+  });
+</script>
+</body>
+</html>

@@ -10,18 +10,20 @@ import { checkRateLimit, getRateLimitStatus, formatRateLimitStatus } from "./rat
 // TOOL: Rechercher des profils sur LinkedIn
 export const linkedinSearchTool = new DynamicStructuredTool({
   name: "linkedin_search",
-  description: "Rechercher des profils sur LinkedIn selon des critères. L'action est mise en queue pour l'extension Chrome.",
+  description: "Rechercher des profils sur LinkedIn selon des critères et optionnellement préparer un message à envoyer aux profils trouvés. Utiliser network='F' pour chercher dans les connexions 1er degré. Quand l'utilisateur veut aussi envoyer un message, inclure message_template pour que les messages soient automatiquement créés (en pending_approval) dès que la recherche est terminée.",
   schema: z.object({
-    keywords: z.string().describe("Mots-clés de recherche (ex: 'CEO SaaS Paris')"),
-    role: z.string().optional().describe("Poste ciblé (ex: CEO, CTO, Directeur Commercial)"),
+    keywords: z.string().describe("Mots-clés de recherche (ex: 'ingénieur intelligence artificielle', 'CEO SaaS Paris')"),
+    role: z.string().optional().describe("Poste ciblé (ex: CEO, CTO, Directeur Commercial, Ingénieur IA)"),
     location: z.string().optional().describe("Localisation (ex: Paris, France)"),
     industry: z.string().optional().describe("Secteur (ex: Technology, Finance)"),
     company_size: z.string().optional().describe("Taille entreprise (ex: 11-50, 51-200)"),
+    network: z.enum(["F", "S", "O"]).optional().describe("Filtre réseau: F=1er degré (mes connexions), S=2e degré, O=3e degré+. UTILISER 'F' pour chercher dans mon réseau."),
     limit: z.number().default(10).describe("Nombre max de profils à récupérer"),
+    message_template: z.string().optional().describe("Message à envoyer aux profils trouvés. Peut contenir {name}, {role}, {company}. Si fourni, des actions send_message seront automatiquement créées en pending_approval dès que la recherche est terminée."),
   }),
-  func: async ({ keywords, role, location, industry, company_size, limit }) => {
+  func: async ({ keywords, role, location, industry, company_size, network, limit, message_template }) => {
     try {
-      const searchUrl = buildLinkedInSearchUrl({ keywords, role, location, industry, company_size });
+      const searchUrl = buildLinkedInSearchUrl({ keywords, role, location, industry, company_size, network });
 
       // Vérifier les limites LinkedIn
       const rateLimit = await checkRateLimit("search");
@@ -37,11 +39,19 @@ export const linkedinSearchTool = new DynamicStructuredTool({
         });
       }
       
+      // Si message_template est fourni → action search_and_message (tout en un)
+      // Sinon → action search classique
+      const actionType = message_template ? 'search_and_message' : 'search';
+      
       const result = await pool.query(
         `INSERT INTO linkedin_actions_queue (action_type, target_url, payload, status, created_at)
-         VALUES ('search', $1, $2, 'pending_approval', NOW()) RETURNING id`,
-        [searchUrl, JSON.stringify({ keywords, role, location, industry, company_size, limit })]
+         VALUES ($1, $2, $3, 'pending_approval', NOW()) RETURNING id`,
+        [actionType, searchUrl, JSON.stringify({ keywords, role, location, industry, company_size, network, limit, save_as_prospects: true, message_template: message_template || null })]
       );
+
+      const actionLabel = message_template 
+        ? `Rechercher "${keywords}" et envoyer un message aux profils trouvés`
+        : `Rechercher "${keywords}"`;
 
       return JSON.stringify({
         success: true,
@@ -49,7 +59,8 @@ export const linkedinSearchTool = new DynamicStructuredTool({
         search_url: searchUrl,
         status: "pending_approval",
         requires_approval: true,
-        message: `✅ Recherche LinkedIn créée et en attente de votre approbation. Action #${result.rows[0].id} : Rechercher "${keywords}". Allez dans l'onglet "Approbations" pour approuver.`,
+        message: `✅ Action créée en attente d'approbation. Action #${result.rows[0].id} : ${actionLabel}${network === 'F' ? ' (dans mon réseau 1er degré)' : ''}. Approuvez dans l'onglet "Approbations" — une seule approbation suffit, tout le reste est automatique.`,
+        search_action_id: result.rows[0].id,
         daily_remaining: rateLimit.remainingToday,
         daily_used: rateLimit.dailyUsed + 1,
         daily_max: rateLimit.dailyMax,
@@ -700,13 +711,32 @@ function buildLinkedInSearchUrl(params: {
   location?: string;
   industry?: string;
   company_size?: string;
+  network?: string;
 }): string {
   const base = "https://www.linkedin.com/search/results/people/";
   const searchParams = new URLSearchParams();
   
-  if (params.keywords) searchParams.set("keywords", params.keywords);
-  if (params.role) searchParams.set("title", params.role);
-  if (params.location) searchParams.set("geoUrn", params.location);
+  // Combiner keywords + role dans les mots-clés (plus flexible que le filtre title= qui est trop restrictif)
+  const keywordParts: string[] = [];
+  if (params.keywords) keywordParts.push(params.keywords);
+  if (params.role && params.role !== params.keywords) keywordParts.push(params.role);
+  if (keywordParts.length > 0) searchParams.set("keywords", keywordParts.join(" "));
+  
+  // Note: geoUrn nécessite un ID LinkedIn numérique, pas un nom de ville
+  // On l'ajoute dans les keywords si c'est un texte libre
+  if (params.location) {
+    // Si c'est un texte (pas un URN), l'ajouter aux keywords
+    if (/^\d+$/.test(params.location)) {
+      searchParams.set("geoUrn", params.location);
+    } else {
+      // Ajouter la localisation dans les keywords pour filtrage souple
+      const currentKw = searchParams.get("keywords") || "";
+      searchParams.set("keywords", `${currentKw} ${params.location}`.trim());
+    }
+  }
+  
+  // Filtre réseau: F=1er degré, S=2e degré, O=3e degré+
+  if (params.network) searchParams.set("network", JSON.stringify([params.network]));
   
   return `${base}?${searchParams.toString()}`;
 }
@@ -822,6 +852,203 @@ export const getConnectionResultsTool = new DynamicStructuredTool({
 });
 
 // =============================================
+// CATÉGORIE 5: WORKFLOW AUTONOME
+// =============================================
+
+// TOOL: Récupérer les résultats d'une recherche LinkedIn terminée
+export const getSearchResultsTool = new DynamicStructuredTool({
+  name: "get_search_results",
+  description: "Récupérer les résultats d'une recherche LinkedIn terminée. Retourne les prospects trouvés et sauvegardés en DB. Utiliser après qu'une action de recherche a été exécutée par l'extension.",
+  schema: z.object({
+    search_action_id: z.number().optional().describe("ID de l'action de recherche. Si non fourni, retourne les résultats de la dernière recherche."),
+  }),
+  func: async ({ search_action_id }) => {
+    try {
+      let actionResult;
+      if (search_action_id) {
+        actionResult = await pool.query(
+          `SELECT id, status, result, created_at FROM linkedin_actions_queue WHERE id = $1 AND action_type = 'search'`,
+          [search_action_id]
+        );
+      } else {
+        actionResult = await pool.query(
+          `SELECT id, status, result, created_at FROM linkedin_actions_queue WHERE action_type = 'search' ORDER BY created_at DESC LIMIT 1`
+        );
+      }
+
+      if (actionResult.rows.length === 0) {
+        return JSON.stringify({ success: false, error: "Aucune recherche trouvée." });
+      }
+
+      const action = actionResult.rows[0];
+      if (action.status !== "completed") {
+        return JSON.stringify({
+          success: false,
+          status: action.status,
+          message: `La recherche #${action.id} n'est pas encore terminée (statut: ${action.status}). Attendez que l'utilisateur approuve et que l'extension exécute la recherche.`,
+        });
+      }
+
+      const result = typeof action.result === "string" ? JSON.parse(action.result) : action.result;
+      const profiles = result?.profiles || [];
+      const savedCount = result?.saved_to_db || 0;
+
+      // Aussi récupérer les prospects récents de la DB qui correspondent
+      const recentProspects = await pool.query(
+        `SELECT id, name, role, company, location, linkedin_url, score, status
+         FROM prospects
+         WHERE notes LIKE $1
+         ORDER BY created_at DESC LIMIT 50`,
+        [`%action #${action.id}%`]
+      );
+
+      return JSON.stringify({
+        success: true,
+        search_action_id: action.id,
+        profiles_found: profiles.length,
+        saved_to_db: savedCount,
+        prospects: recentProspects.rows.length > 0 ? recentProspects.rows : profiles,
+        message: `Recherche #${action.id} terminée: ${profiles.length} profils trouvés, ${savedCount} sauvegardés comme prospects.`,
+      });
+    } catch (error) {
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+    }
+  },
+});
+
+// TOOL: Envoyer des messages en masse à des prospects (crée les actions en pending_approval)
+export const bulkSendMessagesTool = new DynamicStructuredTool({
+  name: "bulk_send_messages",
+  description: "Envoyer un message personnalisé à plusieurs prospects en une seule commande. Crée une action send_message par prospect, toutes en pending_approval. Le message_template peut contenir {name}, {role}, {company} qui seront remplacés par les données du prospect.",
+  schema: z.object({
+    prospect_filter: z.object({
+      role: z.string().optional().describe("Filtrer par poste (ex: 'ingénieur IA')"),
+      location: z.string().optional().describe("Filtrer par localisation"),
+      status: z.string().optional().describe("Filtrer par statut (default: 'new')"),
+      limit: z.number().default(10).describe("Nombre max de prospects à contacter"),
+    }).describe("Critères pour sélectionner les prospects de la DB"),
+    message_template: z.string().describe("Template du message. Variables: {name}, {role}, {company}. Ex: 'Bonjour {name}, j'ai vu que vous êtes {role} chez {company}...'"),
+    campaign_id: z.number().optional().describe("ID de la campagne associée"),
+  }),
+  func: async ({ prospect_filter, message_template, campaign_id }) => {
+    try {
+      // Vérifier les limites avant de créer en masse
+      const rateLimit = await checkRateLimit("send_message");
+      if (!rateLimit.allowed) {
+        return JSON.stringify({
+          success: false,
+          rate_limited: true,
+          error: rateLimit.reason,
+        });
+      }
+
+      // Chercher les prospects correspondant aux filtres
+      let sql = `SELECT id, name, role, company, location, linkedin_url FROM prospects WHERE linkedin_url IS NOT NULL`;
+      const params: any[] = [];
+      let idx = 1;
+
+      if (prospect_filter.status) {
+        sql += ` AND status = $${idx}`;
+        params.push(prospect_filter.status);
+        idx++;
+      } else {
+        sql += ` AND status = 'new'`;
+      }
+
+      if (prospect_filter.role) {
+        sql += ` AND role ILIKE $${idx}`;
+        params.push(`%${prospect_filter.role}%`);
+        idx++;
+      }
+
+      if (prospect_filter.location) {
+        sql += ` AND location ILIKE $${idx}`;
+        params.push(`%${prospect_filter.location}%`);
+        idx++;
+      }
+
+      sql += ` ORDER BY score DESC, created_at DESC LIMIT $${idx}`;
+      params.push(prospect_filter.limit);
+
+      const prospectResult = await pool.query(sql, params);
+
+      if (prospectResult.rows.length === 0) {
+        return JSON.stringify({
+          success: false,
+          error: "Aucun prospect trouvé avec ces critères. Lancez d'abord une recherche LinkedIn avec linkedin_search.",
+        });
+      }
+
+      // Vérifier combien on peut encore envoyer aujourd'hui
+      const maxToSend = Math.min(prospectResult.rows.length, rateLimit.remainingToday + 1);
+      const prospectsToMessage = prospectResult.rows.slice(0, maxToSend);
+
+      const createdActions: any[] = [];
+      const skipped: string[] = [];
+
+      for (const prospect of prospectsToMessage) {
+        // Personnaliser le message
+        const personalizedMessage = message_template
+          .replace(/\{name\}/g, prospect.name?.split(" ")[0] || "")
+          .replace(/\{role\}/g, prospect.role || "professionnel")
+          .replace(/\{company\}/g, prospect.company || "votre entreprise");
+
+        // Vérifier anti-doublon
+        const dupCheck = await pool.query(
+          `SELECT id FROM linkedin_actions_queue
+           WHERE action_type = 'send_message' AND target_url = $1
+             AND status IN ('pending_approval', 'approved', 'processing')
+             AND created_at >= NOW() - INTERVAL '24 hours'
+           LIMIT 1`,
+          [prospect.linkedin_url]
+        );
+
+        if (dupCheck.rows.length > 0) {
+          skipped.push(prospect.name);
+          continue;
+        }
+
+        // Créer l'action send_message
+        const actionResult = await pool.query(
+          `INSERT INTO linkedin_actions_queue (action_type, target_url, target_name, payload, status, campaign_id, prospect_id, created_at)
+           VALUES ('send_message', $1, $2, $3, 'pending_approval', $4, $5, NOW()) RETURNING id`,
+          [
+            prospect.linkedin_url,
+            prospect.name,
+            JSON.stringify({ message: personalizedMessage, message_type: "custom" }),
+            campaign_id || null,
+            prospect.id,
+          ]
+        );
+
+        createdActions.push({
+          action_id: actionResult.rows[0].id,
+          prospect_name: prospect.name,
+          message_preview: personalizedMessage.substring(0, 60) + "...",
+        });
+
+        // Mettre à jour le statut du prospect
+        await pool.query(
+          `UPDATE prospects SET status = 'contacted', updated_at = NOW() WHERE id = $1`,
+          [prospect.id]
+        );
+      }
+
+      return JSON.stringify({
+        success: true,
+        total_prospects_found: prospectResult.rows.length,
+        messages_created: createdActions.length,
+        skipped_duplicates: skipped.length,
+        actions: createdActions,
+        message: `✅ ${createdActions.length} message(s) créé(s) en attente d'approbation pour ${createdActions.length} prospect(s). ${skipped.length > 0 ? `${skipped.length} doublon(s) ignoré(s).` : ""} Allez dans l'onglet "Approbations" pour les approuver.`,
+      });
+    } catch (error) {
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+    }
+  },
+});
+
+// =============================================
 // EXPORT: Tous les tools
 // =============================================
 export const ALL_TOOLS = [
@@ -830,6 +1057,9 @@ export const ALL_TOOLS = [
   linkedinVisitProfileTool,
   linkedinSendConnectionTool,
   linkedinSendMessageTool,
+  // Workflow Autonome
+  getSearchResultsTool,
+  bulkSendMessagesTool,
   // Intelligence & IA
   analyzeProspectTool,
   generateMessageTool,
@@ -844,8 +1074,6 @@ export const ALL_TOOLS = [
   // Campagnes
   createCampaignTool,
   updateCampaignTool,
-  // NOTE: check_network_connections et get_connection_results supprimés
-  // car ils créaient des actions 'approved' qui s'exécutaient sans approbation
 ];
 
 export const TOOLS_MAP: Record<string, DynamicStructuredTool> = {};

@@ -1,4 +1,5 @@
-// Configuration
+// Configuration — v2.4 (2026-04-09)
+console.log("[Extension] background.js v2.4 chargé");
 const DEFAULT_API_BASE_URL = "http://localhost:3000/api";
 let API_BASE_URL = DEFAULT_API_BASE_URL;
 
@@ -28,6 +29,7 @@ const ACTION_DELAYS = {
   send_message: [90000, 150000], // 1m30 à 2m30
   visit_profile: [20000, 40000], // 20s à 40s
   search: [45000, 70000], // 45s à 70s
+  search_and_message: [45000, 70000], // même délai que search (les délais internes sont gérés dans la fonction)
   default: [10000, 20000] // 10s à 20s
 };
 
@@ -36,7 +38,8 @@ const DAILY_LIMITS = {
   send_connection: 20,
   send_message: 30,
   visit_profile: 50,
-  search: 25
+  search: 25,
+  search_and_message: 15
 };
 
 // Compteurs journaliers — réinitialisés à minuit
@@ -81,6 +84,7 @@ function incrementCounter(actionType) {
 let isProcessing = false;
 let isConnected = false;
 let activeActionTabId = null; // onglet ouvert pour l'action en cours
+let searchAndMessageActionIds = new Set(); // IDs des actions search_and_message en cours (le listener global ne doit PAS les traiter)
 
 // Initialiser l'alarme de polling
 chrome.alarms.create("pollActions", { periodInMinutes: 0.2 }); // Toutes les 12 secondes
@@ -109,14 +113,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Données de profil envoyées par le content script après visite
     handleProfileData(message.data, message.actionId).then(() => {
       sendResponse({ success: true });
+      // Fermer l'onglet après scraping du profil
+      if (activeActionTabId) {
+        setTimeout(() => {
+          chrome.tabs.remove(activeActionTabId).catch(() => {});
+          activeActionTabId = null;
+        }, 1500);
+      }
     });
     return true;
   }
 
   if (message.type === "SEARCH_RESULTS") {
-    // Résultats de recherche envoyés par le content script
+    // Si c'est une action search_and_message, le listener local dans executeSearchAndMessage gère déjà
+    if (searchAndMessageActionIds.has(message.actionId)) {
+      console.log(
+        "[Extension] SEARCH_RESULTS pour search_and_message #" +
+          message.actionId +
+          " — ignoré par listener global (géré localement)"
+      );
+      return false;
+    }
+    // Résultats de recherche envoyés par le content script (action search classique)
     handleSearchResults(message.data, message.actionId).then(() => {
       sendResponse({ success: true });
+      // Fermer l'onglet après scraping des résultats de recherche
+      if (activeActionTabId) {
+        setTimeout(() => {
+          chrome.tabs.remove(activeActionTabId).catch(() => {});
+          activeActionTabId = null;
+        }, 2000);
+      }
     });
     return true;
   }
@@ -138,6 +165,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "ACTION_FAILED") {
+    // Si c'est une action search_and_message, le listener local gère déjà
+    if (searchAndMessageActionIds.has(message.actionId)) {
+      console.log(
+        "[Extension] ACTION_FAILED pour search_and_message #" +
+          message.actionId +
+          " — ignoré par listener global"
+      );
+      return false;
+    }
     updateActionStatus(message.actionId, "failed", null, message.error).then(
       () => {
         sendResponse({ success: true });
@@ -190,22 +226,11 @@ async function pollAndExecuteActions() {
 
     for (const action of data.actions) {
       try {
-        if (
-          action.action_type !== "check_connection" &&
-          isLimitReached(action.action_type)
-        ) {
-          await updateActionStatus(
-            action.id,
-            "failed",
-            null,
-            `Limite journalière atteinte pour "${action.action_type}".`
-          );
-          continue;
-        }
+        // Note: le rate limiting est géré côté backend (rate-limiter.ts)
+        // L'extension se contente d'exécuter les actions approuvées et d'appliquer des délais anti-ban
         await executeAction(action);
-        // check_connection est silencieux — pas de délai ni de compteur
+        // check_connection est silencieux — pas de délai
         if (action.action_type !== "check_connection") {
-          incrementCounter(action.action_type);
           const waitMs = getRandomDelay(action.action_type);
           console.log(
             `[LinkedIn Guard] Attente de ${Math.round(waitMs / 1000)}s avant la prochaine action...`
@@ -260,6 +285,9 @@ async function executeAction(action) {
     case "send_message":
       await executeSendMessage(action);
       break;
+    case "search_and_message":
+      await executeSearchAndMessage(action);
+      break;
     case "check_connection":
       await executeCheckConnection(action);
       break;
@@ -304,15 +332,47 @@ async function executeSearch(action) {
   let tab;
   try {
     tab = await openLinkedInTab(action.target_url);
+    await delay(2000); // attente supplémentaire pour le rendu des résultats de recherche
     await ensureContentScript(tab.id);
-    chrome.tabs.sendMessage(tab.id, {
-      type: "SCRAPE_SEARCH_RESULTS",
-      actionId: action.id,
-      payload: action.payload
+
+    // Envoyer le message et attendre la réponse
+    const response = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(
+        () =>
+          reject(
+            new Error("Timeout: content script n'a pas répondu après 15s")
+          ),
+        15000
+      );
+      chrome.tabs.sendMessage(
+        tab.id,
+        {
+          type: "SCRAPE_SEARCH_RESULTS",
+          actionId: action.id,
+          payload: action.payload
+        },
+        (resp) => {
+          clearTimeout(timeout);
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(resp);
+          }
+        }
+      );
     });
+
+    console.log("[Extension] Search message envoyé, réponse:", response);
+    // Le résultat arrivera via le message SEARCH_RESULTS ou ACTION_FAILED
   } catch (error) {
+    console.error("[Extension] executeSearch erreur:", error);
     if (tab) chrome.tabs.remove(tab.id).catch(() => {});
-    await updateActionStatus(action.id, "failed", null, error.message);
+    await updateActionStatus(
+      action.id,
+      "failed",
+      null,
+      error.message || "Erreur lors de la recherche"
+    );
   }
 }
 
@@ -530,6 +590,585 @@ async function executeSendConnection(action) {
   } catch (error) {
     if (tab) chrome.tabs.remove(tab.id).catch(() => {});
     await updateActionStatus(action.id, "failed", null, error.message);
+  }
+}
+
+// =============================================
+// SEARCH AND MESSAGE — UNE SEULE ACTION POUR TOUT
+// Recherche les profils, puis envoie un message à chacun
+// L'action est 'completed' seulement si au moins un message est envoyé
+// =============================================
+async function executeSearchAndMessage(action) {
+  let searchTab;
+  // Enregistrer l'ID pour que le listener global SEARCH_RESULTS ne traite PAS cette action
+  searchAndMessageActionIds.add(action.id);
+  try {
+    const payload =
+      typeof action.payload === "string"
+        ? JSON.parse(action.payload)
+        : action.payload;
+    const messageTemplate = payload.message_template || "";
+
+    if (!messageTemplate) {
+      await updateActionStatus(
+        action.id,
+        "failed",
+        null,
+        "Pas de message_template dans le payload"
+      );
+      return;
+    }
+
+    console.log("[SEARCH&MSG] === DÉBUT === Action #" + action.id);
+    console.log("[SEARCH&MSG] URL:", action.target_url);
+    console.log("[SEARCH&MSG] Template:", messageTemplate.substring(0, 80));
+
+    // =============================================
+    // PHASE 1: RECHERCHE — ouvrir la page et scraper les profils
+    // =============================================
+    searchTab = await openLinkedInTab(action.target_url);
+    await delay(2000);
+    await ensureContentScript(searchTab.id);
+
+    // Attendre les résultats de recherche via le content script
+    const profiles = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error("Timeout: scraping recherche après 30s")),
+        30000
+      );
+
+      // Écouter le message SEARCH_RESULTS du content script
+      function searchListener(message, sender, sendResponse) {
+        if (
+          message.type === "SEARCH_RESULTS" &&
+          message.actionId === action.id
+        ) {
+          clearTimeout(timeout);
+          chrome.runtime.onMessage.removeListener(searchListener);
+          sendResponse({ success: true });
+          resolve(message.data || []);
+          return true;
+        }
+        if (
+          message.type === "ACTION_FAILED" &&
+          message.actionId === action.id
+        ) {
+          clearTimeout(timeout);
+          chrome.runtime.onMessage.removeListener(searchListener);
+          sendResponse({ success: true });
+          reject(new Error(message.error || "Erreur scraping recherche"));
+          return true;
+        }
+      }
+      chrome.runtime.onMessage.addListener(searchListener);
+
+      // Déclencher le scraping
+      chrome.tabs.sendMessage(
+        searchTab.id,
+        {
+          type: "SCRAPE_SEARCH_RESULTS",
+          actionId: action.id,
+          payload: action.payload
+        },
+        (resp) => {
+          if (chrome.runtime.lastError) {
+            clearTimeout(timeout);
+            chrome.runtime.onMessage.removeListener(searchListener);
+            reject(new Error(chrome.runtime.lastError.message));
+          }
+        }
+      );
+    });
+
+    // Fermer l'onglet de recherche
+    if (searchTab?.id) {
+      chrome.tabs.remove(searchTab.id).catch(() => {});
+      searchTab = null;
+    }
+
+    console.log("[SEARCH&MSG] Profils trouvés:", profiles.length);
+
+    if (!profiles || profiles.length === 0) {
+      await updateActionStatus(
+        action.id,
+        "failed",
+        { profiles: [] },
+        "Aucun profil trouvé dans la recherche"
+      );
+      return;
+    }
+
+    // Sauvegarder les prospects en DB
+    try {
+      await fetch(`${API_BASE_URL}/prospects/bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prospects: profiles,
+          source: "linkedin_search",
+          search_action_id: action.id
+        })
+      });
+    } catch (e) {
+      console.log(
+        "[SEARCH&MSG] Erreur sauvegarde prospects (non bloquante):",
+        e.message
+      );
+    }
+
+    // =============================================
+    // PHASE 2: ENVOYER UN MESSAGE À CHAQUE PROFIL
+    // =============================================
+    // Marquer l'action comme "en cours" pendant l'envoi des messages
+    await updateActionStatus(action.id, "processing", null, null);
+
+    let messagesSent = 0;
+    let messagesFailed = 0;
+    const results = [];
+
+    for (let i = 0; i < profiles.length; i++) {
+      const profile = profiles[i];
+      if (!profile.linkedin_url) {
+        console.log(
+          `[SEARCH&MSG] Profil ${i + 1}/${profiles.length}: pas de linkedin_url, ignoré`
+        );
+        messagesFailed++;
+        results.push({
+          name: profile.name,
+          status: "skipped",
+          reason: "no_url"
+        });
+        continue;
+      }
+
+      // Personnaliser le message — nettoyage des valeurs pour éviter les descriptions longues
+      const cleanName = (profile.name || "Bonjour").split(/[•·|]/)[0].trim(); // Garde seulement le prénom/nom avant tout séparateur
+      const cleanRole = (profile.role || "").split(/[|•·\n]/)[0].trim(); // Garde seulement le premier titre avant | ou •
+      const cleanCompany = (profile.company || "").split(/[|•·\n]/)[0].trim();
+
+      const personalizedMessage = messageTemplate
+        .replace(/\{name\}/g, cleanName)
+        .replace(/\{role\}/g, cleanRole)
+        .replace(/\{company\}/g, cleanCompany);
+
+      console.log(
+        `[SEARCH&MSG] Profil ${i + 1}/${profiles.length}: ${profile.name} — ${profile.linkedin_url}`
+      );
+      console.log(
+        `[SEARCH&MSG] Message: ${personalizedMessage.substring(0, 60)}...`
+      );
+
+      // Délai anti-ban entre les messages (sauf le premier)
+      if (i > 0) {
+        const msgDelay = getRandomDelay("send_message");
+        console.log(
+          `[SEARCH&MSG] Attente ${Math.round(msgDelay / 1000)}s avant prochain message...`
+        );
+        await delay(msgDelay);
+      }
+
+      // Envoyer le message en utilisant executeSendMessage en interne
+      try {
+        const sendResult = await sendMessageToProfile(
+          profile.linkedin_url,
+          personalizedMessage
+        );
+        if (sendResult.success) {
+          messagesSent++;
+          results.push({ name: profile.name, status: "sent" });
+          console.log(`[SEARCH&MSG] ✅ Message envoyé à ${profile.name}`);
+        } else {
+          messagesFailed++;
+          results.push({
+            name: profile.name,
+            status: "failed",
+            error: sendResult.error
+          });
+          console.log(
+            `[SEARCH&MSG] ❌ Échec pour ${profile.name}: ${sendResult.error}`
+          );
+        }
+      } catch (e) {
+        messagesFailed++;
+        results.push({
+          name: profile.name,
+          status: "failed",
+          error: e.message
+        });
+        console.log(
+          `[SEARCH&MSG] ❌ Exception pour ${profile.name}: ${e.message}`
+        );
+      }
+    }
+
+    // =============================================
+    // RÉSULTAT FINAL: completed si au moins 1 message envoyé
+    // =============================================
+    console.log(
+      `[SEARCH&MSG] === FIN === Envoyés: ${messagesSent}, Échoués: ${messagesFailed}`
+    );
+
+    if (messagesSent > 0) {
+      await updateActionStatus(action.id, "completed", {
+        profiles_found: profiles.length,
+        messages_sent: messagesSent,
+        messages_failed: messagesFailed,
+        details: results
+      });
+    } else {
+      await updateActionStatus(
+        action.id,
+        "failed",
+        {
+          profiles_found: profiles.length,
+          messages_sent: 0,
+          messages_failed: messagesFailed,
+          details: results
+        },
+        `Aucun message envoyé (${profiles.length} profils trouvés, ${messagesFailed} échecs)`
+      );
+    }
+  } catch (error) {
+    console.error("[SEARCH&MSG] Erreur globale:", error);
+    if (searchTab?.id) chrome.tabs.remove(searchTab.id).catch(() => {});
+    await updateActionStatus(
+      action.id,
+      "failed",
+      null,
+      error.message || "Erreur recherche et message"
+    );
+  } finally {
+    // Toujours nettoyer le Set pour éviter les fuites mémoire
+    searchAndMessageActionIds.delete(action.id);
+  }
+}
+
+// Envoyer un message à un profil (sous-fonction réutilisable)
+// Retourne { success: true/false, error?: string }
+async function sendMessageToProfile(profileUrl, messageText) {
+  let tab;
+  let newTab = null;
+
+  try {
+    tab = await openLinkedInTab(profileUrl);
+    console.log("[SEND_TO_PROFILE] Profil ouvert, tab", tab.id);
+
+    // PHASE 1: Cliquer sur le bouton Message
+    const tabsBefore = (await chrome.tabs.query({})).map((t) => t.id);
+
+    const phase1 = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: async () => {
+        function wait(ms) {
+          return new Promise((r) => setTimeout(r, ms));
+        }
+        function isVisible(el) {
+          return el && el.offsetParent !== null;
+        }
+
+        for (let i = 0; i < 15; i++) {
+          const h1 = document.querySelector("h1");
+          if (h1 && h1.textContent.trim().length > 0) break;
+          await wait(1000);
+        }
+        await wait(2000);
+
+        const clickables = document.querySelectorAll(
+          'button, a[role="button"], a[href*="messaging"], a'
+        );
+        let messageBtn = null;
+        for (const el of clickables) {
+          if (!isVisible(el)) continue;
+          const txt = (el.innerText || "").trim().toLowerCase();
+          const aria = (el.getAttribute("aria-label") || "")
+            .trim()
+            .toLowerCase();
+          if (
+            txt === "message" ||
+            txt === "envoyer un message" ||
+            aria === "message" ||
+            aria.startsWith("envoyer un message") ||
+            aria.startsWith("send a message")
+          ) {
+            messageBtn = el;
+            break;
+          }
+        }
+        if (!messageBtn) {
+          for (const el of clickables) {
+            if (!isVisible(el)) continue;
+            const txt = (el.innerText || "").trim().toLowerCase();
+            const aria = (el.getAttribute("aria-label") || "")
+              .trim()
+              .toLowerCase();
+            const combined = txt + " " + aria;
+            if (
+              combined.includes("message") &&
+              !combined.includes("demande") &&
+              !combined.includes("signaler") &&
+              !combined.includes("request")
+            ) {
+              messageBtn = el;
+              break;
+            }
+          }
+        }
+
+        if (!messageBtn)
+          return {
+            success: false,
+            error: "Bouton Message non trouvé sur le profil"
+          };
+
+        if (messageBtn.tagName === "A" && messageBtn.href) {
+          window.location.href = messageBtn.href;
+          return { success: true, method: "href_navigation" };
+        }
+
+        const rect = messageBtn.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        const evtOpts = {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          clientX: x,
+          clientY: y,
+          button: 0
+        };
+        messageBtn.dispatchEvent(new PointerEvent("pointerdown", evtOpts));
+        messageBtn.dispatchEvent(new MouseEvent("mousedown", evtOpts));
+        await wait(100);
+        messageBtn.dispatchEvent(new PointerEvent("pointerup", evtOpts));
+        messageBtn.dispatchEvent(new MouseEvent("mouseup", evtOpts));
+        await wait(50);
+        messageBtn.dispatchEvent(new MouseEvent("click", evtOpts));
+        messageBtn.click();
+        await wait(3000);
+
+        const overlaysNow = document.querySelectorAll(
+          "[class*='msg-overlay']"
+        ).length;
+        const ceNow = document.querySelectorAll(
+          "[contenteditable='true']"
+        ).length;
+        if (overlaysNow === 0 && ceNow === 0) {
+          const nearbyLinks =
+            messageBtn
+              .closest("section, div")
+              ?.querySelectorAll("a[href*='messaging']") || [];
+          for (const link of nearbyLinks) {
+            if (link.href) {
+              window.location.href = link.href;
+              return { success: true, method: "nearby_link" };
+            }
+          }
+        }
+        return { success: true, method: "mouse_events" };
+      }
+    });
+
+    const p1 = phase1?.[0]?.result;
+    if (!p1?.success) {
+      if (tab?.id) chrome.tabs.remove(tab.id).catch(() => {});
+      return {
+        success: false,
+        error: p1?.error || "Bouton Message non trouvé"
+      };
+    }
+
+    // Attente détection navigation
+    await new Promise((r) => setTimeout(r, 8000));
+    const tabsAfter = await chrome.tabs.query({});
+    const newTabs = tabsAfter.filter(
+      (t) => !tabsBefore.includes(t.id) && t.id !== tab.id
+    );
+    let targetTabId = tab.id;
+    const messagingTab = newTabs.find(
+      (t) => t.url && t.url.includes("/messaging")
+    );
+    if (messagingTab) {
+      targetTabId = messagingTab.id;
+      newTab = messagingTab;
+    } else {
+      const updatedTab = await chrome.tabs.get(tab.id);
+      if (updatedTab.url?.includes("/messaging")) {
+        // Tab original a navigué vers messaging
+      }
+    }
+
+    // Attendre chargement
+    try {
+      const targetTabInfo = await chrome.tabs.get(targetTabId);
+      if (targetTabInfo.status !== "complete") {
+        await new Promise((resolve) => {
+          const timeout = setTimeout(resolve, 10000);
+          function listener(updatedId, changeInfo) {
+            if (updatedId === targetTabId && changeInfo.status === "complete") {
+              clearTimeout(timeout);
+              chrome.tabs.onUpdated.removeListener(listener);
+              resolve();
+            }
+          }
+          chrome.tabs.onUpdated.addListener(listener);
+        });
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    } catch (e) {}
+
+    // PHASE 2: Écrire et envoyer le message
+    const phase2 = await chrome.scripting.executeScript({
+      target: { tabId: targetTabId },
+      func: async (msgText) => {
+        function wait(ms) {
+          return new Promise((r) => setTimeout(r, ms));
+        }
+        function isVisible(el) {
+          return el && el.offsetParent !== null;
+        }
+
+        try {
+          await wait(2000);
+          let input = null;
+          const inputSelectors = [
+            "div.msg-form__contenteditable[contenteditable='true']",
+            ".msg-form__contenteditable",
+            ".msg-overlay-conversation-bubble div[contenteditable='true']",
+            ".msg-form div[contenteditable='true']",
+            "[contenteditable='true'][role='textbox']",
+            "div[aria-label*='Rédigez'][contenteditable='true']",
+            "div[aria-label*='message'][contenteditable='true']",
+            "div[aria-label*='Write'][contenteditable='true']",
+            "div[aria-label*='Écrivez'][contenteditable='true']",
+            ".msg-form__message-texteditor div[contenteditable='true']"
+          ];
+
+          for (let attempt = 0; attempt < 20; attempt++) {
+            for (const sel of inputSelectors) {
+              try {
+                const el = document.querySelector(sel);
+                if (el && isVisible(el)) {
+                  input = el;
+                  break;
+                }
+              } catch (e) {}
+            }
+            if (input) break;
+            const allEditable = document.querySelectorAll(
+              "[contenteditable='true']"
+            );
+            for (const el of allEditable) {
+              if (!isVisible(el)) continue;
+              if (el.closest("[class*='msg-']")) {
+                input = el;
+                break;
+              }
+            }
+            if (input) break;
+            for (const el of allEditable) {
+              if (!isVisible(el)) continue;
+              if (
+                el.closest(
+                  ".artdeco-modal, [role='dialog'], [class*='overlay']"
+                )
+              ) {
+                input = el;
+                break;
+              }
+            }
+            if (input) break;
+            for (const el of allEditable) {
+              const rect = el.getBoundingClientRect();
+              if (rect.width > 50 && rect.height > 20 && el.tagName === "DIV") {
+                input = el;
+                break;
+              }
+            }
+            if (input) break;
+            if (attempt >= 10) {
+              for (const el of allEditable) {
+                if (el.tagName === "DIV") {
+                  const rect = el.getBoundingClientRect();
+                  if (rect.width > 0 && rect.height > 0) {
+                    input = el;
+                    break;
+                  }
+                }
+              }
+              if (input) break;
+            }
+            await wait(1000);
+          }
+
+          if (!input)
+            return { success: false, error: "Champ message introuvable" };
+
+          input.focus();
+          await wait(500);
+          input.innerHTML = "";
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          await wait(300);
+          document.execCommand("selectAll", false, null);
+          document.execCommand("delete", false, null);
+          document.execCommand("insertText", false, msgText);
+          input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+          input.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true }));
+          await wait(2000);
+
+          const written = (input.innerText || input.textContent || "").trim();
+          if (!written || written.length < 3) {
+            input.innerHTML = "<p>" + msgText + "</p>";
+            input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+            await wait(1500);
+          }
+
+          let sendBtn = null;
+          for (let i = 0; i < 15; i++) {
+            sendBtn = document.querySelector("button.msg-form__send-button");
+            if (sendBtn && isVisible(sendBtn)) break;
+            sendBtn = null;
+            for (const btn of document.querySelectorAll(
+              "button[type='submit'], button"
+            )) {
+              if (!isVisible(btn)) continue;
+              const txt = (btn.innerText || "").trim().toLowerCase();
+              if (txt === "envoyer" || txt === "send") {
+                sendBtn = btn;
+                break;
+              }
+            }
+            if (sendBtn) break;
+            await wait(500);
+          }
+
+          if (!sendBtn)
+            return { success: false, error: "Bouton Envoyer introuvable" };
+
+          sendBtn.click();
+          await wait(2500);
+          return { success: true };
+        } catch (e) {
+          return { success: false, error: e.message };
+        }
+      },
+      args: [messageText]
+    });
+
+    const res = phase2?.[0]?.result;
+
+    // Fermer les onglets
+    setTimeout(() => {
+      if (tab?.id) chrome.tabs.remove(tab.id).catch(() => {});
+      if (newTab?.id && newTab.id !== tab.id)
+        chrome.tabs.remove(newTab.id).catch(() => {});
+    }, 2000);
+
+    return res || { success: false, error: "Pas de résultat phase 2" };
+  } catch (error) {
+    if (tab?.id) chrome.tabs.remove(tab.id).catch(() => {});
+    if (newTab?.id) chrome.tabs.remove(newTab.id).catch(() => {});
+    return { success: false, error: error.message };
   }
 }
 
@@ -1163,7 +1802,40 @@ async function handleProfileData(profileData, actionId) {
 
 // Gérer les résultats de recherche reçus du content script
 async function handleSearchResults(searchResults, actionId) {
-  await updateActionStatus(actionId, "completed", { profiles: searchResults });
+  // Sauvegarder les profils comme prospects dans la DB
+  if (searchResults && searchResults.length > 0) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/prospects/bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prospects: searchResults,
+          source: "linkedin_search",
+          search_action_id: actionId
+        })
+      });
+      const data = await response.json();
+      console.log(
+        `[Extension] ${data.saved_count || 0} prospects sauvegardés en DB depuis la recherche #${actionId}`
+      );
+      await updateActionStatus(actionId, "completed", {
+        profiles: searchResults,
+        saved_to_db: data.saved_count || 0,
+        skipped: data.skipped_count || 0
+      });
+    } catch (err) {
+      console.error("[Extension] Erreur sauvegarde prospects:", err);
+      await updateActionStatus(actionId, "completed", {
+        profiles: searchResults,
+        save_error: err.message
+      });
+    }
+  } else {
+    await updateActionStatus(actionId, "completed", {
+      profiles: [],
+      message: "Aucun résultat trouvé"
+    });
+  }
 }
 
 // Attendre que l'onglet soit complètement chargé

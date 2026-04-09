@@ -60,11 +60,17 @@ export class LinkedInAgent {
 
 RAPPEL CRITIQUE:
 - TOUTES les actions passent par la file d'approbation. AUCUNE action ne s'exécute directement.
-- Quand on te demande d'envoyer un message → appelle linkedin_send_message DIRECTEMENT (pas de check_network_connections).
+- Quand on te demande d'envoyer un message à UN prospect connu → appelle linkedin_send_message DIRECTEMENT.
 - Quand on te demande d'envoyer une connexion → appelle linkedin_send_connection DIRECTEMENT.
+- Quand on te demande de chercher dans le réseau et contacter des gens → WORKFLOW B (UNE SEULE ACTION):
+  Appelle linkedin_search(network='F', message_template='...') avec un message personnalisé.
+  Le message_template peut contenir {name}, {role}, {company} qui seront remplacés automatiquement.
+  Ça crée UNE SEULE action "Recherche + Message". L'utilisateur approuve UNE SEULE FOIS.
+  L'extension fait tout: recherche → profils → envoie les messages. Completed seulement si message envoyé.
+- IMPORTANT: Quand l'utilisateur veut chercher ET envoyer un message, TOUJOURS inclure message_template dans linkedin_search. Rédige toi-même le message personnalisé.
+- IMPORTANT: Après linkedin_search, NE PAS appeler get_search_results ou bulk_send_messages. Tout est automatique.
 - Ne JAMAIS afficher un message à copier-coller. TOUJOURS utiliser le tool pour créer l'action.
-- Si l'URL LinkedIn du prospect manque, DEMANDE-LA d'abord.
-- N'appelle PAS check_network_connections ni get_connection_results. Ces tools ne sont plus utilisés.
+- Si l'utilisateur ne fournit PAS de nom/URL → utiliser linkedin_search pour trouver les prospects, PAS demander le nom/URL.
 - Réponds toujours en français, de manière claire et structurée.`),
         ...this.history,
         new HumanMessage(input),
@@ -87,7 +93,8 @@ RAPPEL CRITIQUE:
         // Exécuter les tool calls
         let toolResults = "";
         let actionCreated = false; // Flag pour éviter les doublons
-        const ACTION_TOOLS = ["linkedin_send_message", "linkedin_send_connection", "linkedin_visit_profile", "linkedin_search"];
+        // Tools qui stoppent la boucle: recherche (attend approbation) + envoi
+        const STOP_LOOP_TOOLS = ["linkedin_search", "linkedin_send_message", "linkedin_send_connection", "bulk_send_messages"];
 
         for (const toolCall of response.tool_calls) {
           const tool = TOOLS_MAP[toolCall.name];
@@ -104,7 +111,7 @@ RAPPEL CRITIQUE:
                 timestamp: new Date().toISOString(),
               });
               // Marquer si une action LinkedIn a été créée
-              if (ACTION_TOOLS.includes(toolCall.name) && resultStr.includes('"success":true')) {
+              if (STOP_LOOP_TOOLS.includes(toolCall.name) && resultStr.includes('"success":true')) {
                 actionCreated = true;
               }
             } catch (toolError) {

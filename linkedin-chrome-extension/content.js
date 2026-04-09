@@ -125,45 +125,148 @@
   // =============================================
   async function scrapeSearchResults(actionId, payload) {
     try {
-      await waitForSelector(".reusable-search__result-container", 8000);
+      // LinkedIn change souvent ses classes CSS — essayer plusieurs sélecteurs
+      const CARD_SELECTORS = [
+        ".reusable-search__result-container",
+        "li.reusable-search__result-container",
+        "ul.reusable-search__entity-result-list > li",
+        "[data-chameleon-result-urn]",
+        ".entity-result",
+        ".search-result__wrapper",
+        ".search-results-container li.list-style-none"
+      ];
 
+      let resultCards = null;
+      let usedSelector = "";
+
+      // D'abord vérifier instantanément si un sélecteur matche déjà
+      for (const selector of CARD_SELECTORS) {
+        const els = document.querySelectorAll(selector);
+        if (els && els.length > 0) {
+          resultCards = els;
+          usedSelector = selector;
+          console.log(
+            `[LinkedIn Agent] Sélecteur trouvé immédiatement: "${selector}" → ${els.length} éléments`
+          );
+          break;
+        }
+      }
+
+      // Si rien trouvé, attendre un peu et réessayer (timeout court: 1.5s par sélecteur)
+      if (!resultCards || resultCards.length === 0) {
+        for (const selector of CARD_SELECTORS) {
+          try {
+            await waitForSelector(selector, 1500);
+            resultCards = document.querySelectorAll(selector);
+            if (resultCards && resultCards.length > 0) {
+              usedSelector = selector;
+              console.log(
+                `[LinkedIn Agent] Sélecteur trouvé après attente: "${selector}" → ${resultCards.length} éléments`
+              );
+              break;
+            }
+          } catch (e) {
+            // Continuer au suivant silencieusement
+          }
+        }
+      }
+
+      // Fallback ultime: chercher tous les liens profil dans la page
+      if (!resultCards || resultCards.length === 0) {
+        console.log(
+          "[LinkedIn Agent] Aucun sélecteur standard trouvé, fallback par liens profil..."
+        );
+        await delay(3000);
+        const allLinks = document.querySelectorAll('a[href*="/in/"]');
+        const profiles = [];
+        const seenUrls = new Set();
+
+        for (const link of allLinks) {
+          const href = link.href.split("?")[0];
+          if (seenUrls.has(href) || !href.includes("/in/")) continue;
+          seenUrls.add(href);
+
+          // Remonter pour trouver le conteneur parent
+          const container =
+            link.closest("li") ||
+            link.closest("[class*='result']") ||
+            link.parentElement?.parentElement;
+          if (!container) continue;
+
+          const nameEl = link.querySelector('span[aria-hidden="true"]') || link;
+          const name = nameEl ? nameEl.textContent.trim() : "";
+          if (!name || name === "Utilisateur LinkedIn" || name.length < 2)
+            continue;
+
+          // Chercher le rôle/titre dans les éléments proches
+          const roleEl =
+            container.querySelector(".entity-result__primary-subtitle") ||
+            container.querySelector("[class*='subtitle']") ||
+            container.querySelector(".t-14.t-normal");
+          const role = roleEl ? roleEl.textContent.trim() : "";
+
+          const locEl =
+            container.querySelector(".entity-result__secondary-subtitle") ||
+            container.querySelector("[class*='secondary']");
+          const location = locEl ? locEl.textContent.trim() : "";
+
+          profiles.push({ name, role, location, linkedin_url: href });
+        }
+
+        console.log(
+          `[LinkedIn Agent] Fallback: ${profiles.length} profils trouvés par liens`
+        );
+        chrome.runtime.sendMessage({
+          type: "SEARCH_RESULTS",
+          actionId,
+          data: profiles
+        });
+        return;
+      }
+
+      // Parsing normal avec le sélecteur qui a fonctionné
       const parsedPayload =
         typeof payload === "string" ? JSON.parse(payload) : payload;
       const limit = parsedPayload?.limit || 10;
-
-      const resultCards = document.querySelectorAll(
-        ".reusable-search__result-container"
-      );
       const profiles = [];
 
       for (let i = 0; i < Math.min(resultCards.length, limit); i++) {
         const card = resultCards[i];
 
+        // Nom: essayer plusieurs sélecteurs
         const nameEl =
           card.querySelector(
             '.entity-result__title-text a span[aria-hidden="true"]'
           ) ||
           card.querySelector(
             '.entity-result__title-text .t-bold span[aria-hidden="true"]'
-          );
+          ) ||
+          card.querySelector('a[href*="/in/"] span[aria-hidden="true"]') ||
+          card.querySelector('span.t-bold > span[aria-hidden="true"]');
         const name = nameEl ? nameEl.textContent.trim() : "";
 
-        const subtitleEl = card.querySelector(
-          ".entity-result__primary-subtitle"
-        );
+        // Rôle/titre
+        const subtitleEl =
+          card.querySelector(".entity-result__primary-subtitle") ||
+          card.querySelector("[class*='primary-subtitle']") ||
+          card.querySelector(".t-14.t-normal:not(.t-black--light)");
         const subtitle = subtitleEl ? subtitleEl.textContent.trim() : "";
 
-        const secondaryEl = card.querySelector(
-          ".entity-result__secondary-subtitle"
-        );
+        // Localisation
+        const secondaryEl =
+          card.querySelector(".entity-result__secondary-subtitle") ||
+          card.querySelector("[class*='secondary-subtitle']") ||
+          card.querySelector(".t-14.t-normal.t-black--light");
         const location = secondaryEl ? secondaryEl.textContent.trim() : "";
 
+        // URL LinkedIn
         const linkEl =
           card.querySelector(".entity-result__title-text a") ||
+          card.querySelector('a[href*="/in/"]') ||
           card.querySelector("a.app-aware-link");
         const linkedinUrl = linkEl ? linkEl.href.split("?")[0] : "";
 
-        if (name && name !== "Utilisateur LinkedIn") {
+        if (name && name !== "Utilisateur LinkedIn" && name.length >= 2) {
           profiles.push({
             name,
             role: subtitle,
@@ -174,7 +277,7 @@
       }
 
       console.log(
-        `[LinkedIn Agent] Search results: ${profiles.length} profiles found`
+        `[LinkedIn Agent] Search results: ${profiles.length} profiles found (sélecteur: ${usedSelector})`
       );
 
       chrome.runtime.sendMessage({

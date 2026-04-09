@@ -64,27 +64,33 @@ export async function checkRateLimit(actionType: ActionType): Promise<RateLimitR
   const config = RATE_LIMITS[actionType];
 
   try {
-    // Compter uniquement les actions TERMINÉES (completed) = messages réellement envoyés
+    // Compter uniquement les actions TERMINÉES (completed) avec executed_at aujourd'hui
+    // executed_at = moment réel d'exécution (pas created_at qui est la date de mise en queue)
     const dailyResult = await pool.query(
       `SELECT COUNT(*) as count
        FROM linkedin_actions_queue
        WHERE action_type = $1
          AND status = 'completed'
-         AND created_at >= CURRENT_DATE`,
+         AND executed_at IS NOT NULL
+         AND executed_at >= CURRENT_DATE`,
       [actionType]
     );
     const dailyUsed = parseInt(dailyResult.rows[0].count);
 
-    // Compter les actions terminées de la dernière heure
+    // Compter les actions terminées de la dernière heure (basé sur executed_at)
     const hourlyResult = await pool.query(
       `SELECT COUNT(*) as count
        FROM linkedin_actions_queue
        WHERE action_type = $1
          AND status = 'completed'
-         AND created_at >= NOW() - INTERVAL '1 hour'`,
+         AND executed_at IS NOT NULL
+         AND executed_at >= NOW() - INTERVAL '1 hour'`,
       [actionType]
     );
     const hourlyUsed = parseInt(hourlyResult.rows[0].count);
+
+    // DEBUG: Log les valeurs du rate limiter
+    console.log(`[RATE LIMITER] ${actionType}: daily=${dailyUsed}/${config.maxPerDay}, hourly=${hourlyUsed}/${config.maxPerHour}`);
 
     // Vérifier la limite quotidienne
     if (dailyUsed >= config.maxPerDay) {
@@ -102,15 +108,16 @@ export async function checkRateLimit(actionType: ActionType): Promise<RateLimitR
     // Vérifier la limite horaire
     if (hourlyUsed >= config.maxPerHour) {
       const oldestInWindow = await pool.query(
-        `SELECT created_at FROM linkedin_actions_queue
+        `SELECT executed_at FROM linkedin_actions_queue
          WHERE action_type = $1
-           AND status NOT IN ('failed', 'rejected')
-           AND created_at >= NOW() - INTERVAL '1 hour'
-         ORDER BY created_at ASC LIMIT 1`,
+           AND status = 'completed'
+           AND executed_at IS NOT NULL
+           AND executed_at >= NOW() - INTERVAL '1 hour'
+         ORDER BY executed_at ASC LIMIT 1`,
         [actionType]
       );
       const nextAllowed = oldestInWindow.rows.length > 0
-        ? new Date(new Date(oldestInWindow.rows[0].created_at).getTime() + 3600000).toLocaleTimeString("fr-FR")
+        ? new Date(new Date(oldestInWindow.rows[0].executed_at).getTime() + 3600000).toLocaleTimeString("fr-FR")
         : "dans ~1 heure";
 
       return {
@@ -126,21 +133,25 @@ export async function checkRateLimit(actionType: ActionType): Promise<RateLimitR
     }
 
     // Vérifier le délai minimum depuis la dernière action terminée du même type
-    const lastActionResult = await pool.query(
-      `SELECT created_at FROM linkedin_actions_queue
+    // IMPORTANT: Comparaison entièrement en SQL pour éviter le décalage timezone JS/DB
+    const delaySeconds = Math.ceil(config.delayBetweenMs / 1000);
+    const recentActionResult = await pool.query(
+      `SELECT EXTRACT(EPOCH FROM (NOW() - executed_at)) as elapsed_seconds
+       FROM linkedin_actions_queue
        WHERE action_type = $1
          AND status = 'completed'
-       ORDER BY created_at DESC LIMIT 1`,
+         AND executed_at IS NOT NULL
+       ORDER BY executed_at DESC LIMIT 1`,
       [actionType]
     );
 
-    if (lastActionResult.rows.length > 0) {
-      const lastActionTime = new Date(lastActionResult.rows[0].created_at).getTime();
-      const elapsed = Date.now() - lastActionTime;
-      const waitRemaining = config.delayBetweenMs - elapsed;
+    if (recentActionResult.rows.length > 0) {
+      const elapsedSeconds = parseFloat(recentActionResult.rows[0].elapsed_seconds);
+      const waitRemaining = delaySeconds - elapsedSeconds;
+      console.log(`[RATE LIMITER] ${actionType}: delay check — elapsed=${Math.round(elapsedSeconds)}s, required=${delaySeconds}s, remaining=${Math.round(waitRemaining)}s`);
 
       if (waitRemaining > 0) {
-        const secondsLeft = Math.ceil(waitRemaining / 1000);
+        const secondsLeft = Math.ceil(waitRemaining);
         return {
           allowed: false,
           reason: `⏱️ Délai minimum non respecté pour les ${config.label}. Attendez encore ${secondsLeft} seconde(s) pour éviter une détection LinkedIn.`,

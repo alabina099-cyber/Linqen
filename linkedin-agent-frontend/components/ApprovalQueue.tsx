@@ -15,6 +15,8 @@ import {
   RefreshCw,
   ExternalLink,
   Square,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,6 +46,7 @@ export default function ApprovalQueue() {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [selectedStatus, setSelectedStatus] = useState<string | null>("pending_approval");
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const [expandedMessageId, setExpandedMessageId] = useState<number | null>(null);
 
   // --- API helpers ---
 
@@ -159,6 +162,8 @@ export default function ApprovalQueue() {
     switch (type) {
       case "search":
         return <Search className="w-5 h-5 text-blue-600" />;
+      case "search_and_message":
+        return <MessageSquare className="w-5 h-5 text-purple-600" />;
       case "visit_profile":
         return <User className="w-5 h-5 text-amber-600" />;
       case "send_connection":
@@ -175,6 +180,7 @@ export default function ApprovalQueue() {
   const getActionLabel = (type: string) => {
     const labels: Record<string, string> = {
       search: "Recherche LinkedIn",
+      search_and_message: "Envoyer un message",
       visit_profile: "Visiter profil",
       send_connection: "Demande de connexion",
       send_message: "Envoyer message",
@@ -187,6 +193,8 @@ export default function ApprovalQueue() {
     switch (type) {
       case "search":
         return "bg-blue-100 text-blue-700 border-blue-200";
+      case "search_and_message":
+        return "bg-purple-100 text-purple-700 border-purple-200";
       case "visit_profile":
         return "bg-yellow-100 text-yellow-700 border-yellow-200";
       case "send_connection":
@@ -229,6 +237,10 @@ export default function ApprovalQueue() {
     }
     if (action.action_type === "search" && payload?.keywords) {
       return `Mots-clés : "${payload.keywords}"`;
+    }
+    if (action.action_type === "search_and_message" && payload?.message_template) {
+      const text = payload.message_template as string;
+      return `"${text.substring(0, 120)}${text.length > 120 ? "..." : ""}"`;
     }
     return "";
   };
@@ -468,7 +480,7 @@ export default function ApprovalQueue() {
           <CardContent className="p-3 flex items-center justify-between">
             <div>
               <p className="text-xs text-purple-700 font-medium">
-                Total actions aujourd&apos;hui
+                Total actions
               </p>
               <p className="text-xl font-bold text-purple-800">
                 {totalToday}
@@ -603,12 +615,37 @@ export default function ApprovalQueue() {
                           rel="noopener noreferrer"
                           className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1"
                         >
-                          {action.target_url.substring(0, 60)}...
+                          {action.action_type === "search_and_message"
+                            ? "Voir la liste des prospects"
+                            : `${action.target_url.substring(0, 60)}...`}
                           <ExternalLink className="w-3 h-3" />
                         </a>
                       )}
 
-                      {formatPayload(action) && (
+                      {action.action_type === "search_and_message" && (() => {
+                        const p = typeof action.payload === "string" ? (() => { try { return JSON.parse(action.payload); } catch { return null; } })() : action.payload;
+                        const msg = p?.message_template as string | undefined;
+                        if (!msg) return null;
+                        const isExpanded = expandedMessageId === action.id;
+                        return (
+                          <div className="mt-2">
+                            <div className={`text-xs text-gray-700 bg-purple-50 border border-purple-100 rounded-lg p-3 leading-relaxed ${
+                              isExpanded ? "" : "line-clamp-2"
+                            }`}>
+                              {msg}
+                            </div>
+                            <button
+                              onClick={() => setExpandedMessageId(isExpanded ? null : action.id)}
+                              className="mt-1 flex items-center gap-1 text-[11px] text-purple-600 hover:text-purple-800 font-medium"
+                            >
+                              {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                              {isExpanded ? "Réduire" : "Voir le message complet"}
+                            </button>
+                          </div>
+                        );
+                      })()}
+
+                      {action.action_type !== "search_and_message" && formatPayload(action) && (
                         <p className="text-xs text-gray-600 mt-2 bg-gray-50 p-2 rounded">
                           {formatPayload(action)}
                         </p>
