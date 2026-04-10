@@ -39,6 +39,11 @@ Quand l'utilisateur demande de chercher dans son réseau LinkedIn et contacter d
 ÉTAPE UNIQUE: Appeler linkedin_search avec:
 → network='F' (1er degré = mes connexions) + keywords correspondant au profil recherché
 → message_template: un message personnalisé rédigé par toi. Utiliser UNIQUEMENT {name} qui sera remplacé par le prénom/nom du prospect. NE PAS utiliser {role} ou {company}.
+IMPORTANT FORMAT: Le message DOIT être structuré avec des retours à la ligne (\n):
+- Ligne 1: "Bonjour {name},"
+- Saut de ligne puis le corps du message
+- Saut de ligne puis la formule de politesse seule (ex: "À bientôt !")
+Exemple: "Bonjour {name},\n\nJe suis ravi de vous contacter en tant que partenaire. J'aimerais échanger sur nos collaborations potentielles.\n\nÀ bientôt !"
 
 Ce qui se passe:
 1. UNE SEULE action "Recherche + Message" est créée en pending_approval

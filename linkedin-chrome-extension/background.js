@@ -1,5 +1,5 @@
-// Configuration — v2.4 (2026-04-09)
-console.log("[Extension] background.js v2.4 chargé");
+// Configuration — v2.7 (2026-04-10)
+console.log("[Extension] background.js v2.7 chargé");
 const DEFAULT_API_BASE_URL = "http://localhost:3000/api";
 let API_BASE_URL = DEFAULT_API_BASE_URL;
 
@@ -777,6 +777,41 @@ async function executeSearchAndMessage(action) {
           messagesSent++;
           results.push({ name: profile.name, status: "sent" });
           console.log(`[SEARCH&MSG] ✅ Message envoyé à ${profile.name}`);
+
+          // Sauvegarder le message dans la table messages pour l'onglet Messages
+          try {
+            const msgPayload = {
+              recipient_name: cleanName,
+              message_text: personalizedMessage,
+              message_type: "connection",
+              status: "sent"
+            };
+            if (cleanRole) msgPayload.recipient_role = cleanRole;
+            if (cleanCompany) msgPayload.recipient_company = cleanCompany;
+
+            console.log(
+              `[SEARCH&MSG] 💾 Sauvegarde message vers ${API_BASE_URL}/messages...`
+            );
+            const saveRes = await fetch(`${API_BASE_URL}/messages`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(msgPayload)
+            });
+            const saveData = await saveRes.json();
+            if (saveRes.ok && saveData.success) {
+              console.log(
+                `[SEARCH&MSG] 💾 Message sauvegardé en DB pour ${cleanName} (id: ${saveData.message?.id})`
+              );
+            } else {
+              console.log(
+                `[SEARCH&MSG] ⚠️ Erreur sauvegarde: ${saveRes.status} — ${JSON.stringify(saveData)}`
+              );
+            }
+          } catch (dbErr) {
+            console.log(
+              `[SEARCH&MSG] ⚠️ Erreur sauvegarde message (non bloquante): ${dbErr.message}`
+            );
+          }
         } else {
           messagesFailed++;
           results.push({
@@ -1110,7 +1145,28 @@ async function sendMessageToProfile(profileUrl, messageText) {
           await wait(300);
           document.execCommand("selectAll", false, null);
           document.execCommand("delete", false, null);
-          document.execCommand("insertText", false, msgText);
+
+          // Insérer le texte ligne par ligne pour gérer les \n
+          const lines = msgText.split("\n");
+          for (let li = 0; li < lines.length; li++) {
+            if (li > 0) {
+              // Simuler Shift+Enter pour un retour à la ligne dans LinkedIn
+              input.dispatchEvent(
+                new KeyboardEvent("keydown", {
+                  key: "Enter",
+                  code: "Enter",
+                  keyCode: 13,
+                  which: 13,
+                  shiftKey: true,
+                  bubbles: true
+                })
+              );
+              document.execCommand("insertLineBreak");
+            }
+            if (lines[li].length > 0) {
+              document.execCommand("insertText", false, lines[li]);
+            }
+          }
           input.dispatchEvent(new InputEvent("input", { bubbles: true }));
           input.dispatchEvent(new Event("change", { bubbles: true }));
           input.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true }));
@@ -1118,7 +1174,10 @@ async function sendMessageToProfile(profileUrl, messageText) {
 
           const written = (input.innerText || input.textContent || "").trim();
           if (!written || written.length < 3) {
-            input.innerHTML = "<p>" + msgText + "</p>";
+            input.innerHTML = msgText
+              .split("\n")
+              .map((l) => "<p>" + (l || "<br>") + "</p>")
+              .join("");
             input.dispatchEvent(new InputEvent("input", { bubbles: true }));
             await wait(1500);
           }
@@ -1658,7 +1717,27 @@ async function executeSendMessage(action) {
           await wait(300);
           document.execCommand("selectAll", false, null);
           document.execCommand("delete", false, null);
-          document.execCommand("insertText", false, msgText);
+
+          // Insérer le texte ligne par ligne pour gérer les \n
+          const lines = msgText.split("\n");
+          for (let li = 0; li < lines.length; li++) {
+            if (li > 0) {
+              input.dispatchEvent(
+                new KeyboardEvent("keydown", {
+                  key: "Enter",
+                  code: "Enter",
+                  keyCode: 13,
+                  which: 13,
+                  shiftKey: true,
+                  bubbles: true
+                })
+              );
+              document.execCommand("insertLineBreak");
+            }
+            if (lines[li].length > 0) {
+              document.execCommand("insertText", false, lines[li]);
+            }
+          }
           input.dispatchEvent(new InputEvent("input", { bubbles: true }));
           input.dispatchEvent(new Event("change", { bubbles: true }));
           input.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true }));
@@ -1667,7 +1746,10 @@ async function executeSendMessage(action) {
           const written = (input.innerText || input.textContent || "").trim();
           log("📝 Texte:", written.substring(0, 60));
           if (!written || written.length < 3) {
-            input.innerHTML = "<p>" + msgText + "</p>";
+            input.innerHTML = msgText
+              .split("\n")
+              .map((l) => "<p>" + (l || "<br>") + "</p>")
+              .join("");
             input.dispatchEvent(new InputEvent("input", { bubbles: true }));
             await wait(1500);
           }

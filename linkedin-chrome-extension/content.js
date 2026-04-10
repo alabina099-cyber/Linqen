@@ -469,8 +469,26 @@
       // Vider d'abord le champ
       messageInput.innerHTML = "";
       await delay(200);
-      // Insérer le texte via execCommand pour déclencher les événements React
-      document.execCommand("insertText", false, messageText);
+      // Insérer le texte ligne par ligne pour gérer les retours à la ligne
+      const lines = messageText.split("\n");
+      for (let li = 0; li < lines.length; li++) {
+        if (li > 0) {
+          messageInput.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
+              shiftKey: true,
+              bubbles: true
+            })
+          );
+          document.execCommand("insertLineBreak");
+        }
+        if (lines[li].length > 0) {
+          document.execCommand("insertText", false, lines[li]);
+        }
+      }
       messageInput.dispatchEvent(new Event("input", { bubbles: true }));
       messageInput.dispatchEvent(new Event("change", { bubbles: true }));
       await delay(800);

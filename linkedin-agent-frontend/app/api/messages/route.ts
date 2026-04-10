@@ -7,8 +7,8 @@ const messageSchema = z.object({
   prospect_id: z.number().optional(),
   campaign_id: z.number().optional(),
   recipient_name: z.string().min(1, "Nom requis"),
-  recipient_role: z.string().optional(),
-  recipient_company: z.string().optional(),
+  recipient_role: z.string().nullable().optional(),
+  recipient_company: z.string().nullable().optional(),
   message_text: z.string().min(1, "Message requis"),
   message_type: z.enum(["connection", "followup", "response", "template"]).default("connection"),
   status: z.enum(["pending", "sent", "delivered", "read", "replied", "clicked", "converted", "bounced", "failed"]).default("pending"),
@@ -91,9 +91,24 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// Auto-migration: ajouter les colonnes manquantes à la table messages
+let migrationDone = false;
+async function ensureMessageColumns() {
+  if (migrationDone) return;
+  try {
+    await query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_type VARCHAR(50) DEFAULT 'connection'`);
+    await query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS recipient_company VARCHAR(255)`);
+    migrationDone = true;
+  } catch (e) {
+    console.error("Migration messages columns error:", e);
+  }
+}
+
 // POST /api/messages - Créer un message
 export async function POST(request: NextRequest) {
   try {
+    await ensureMessageColumns();
+
     const body = await request.json();
     const validated = messageSchema.parse(body);
 
@@ -138,8 +153,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    const errMsg = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: "Erreur lors de la création du message" },
+      { error: "Erreur lors de la création du message", details: errMsg },
       { status: 500 }
     );
   }
