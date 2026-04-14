@@ -205,6 +205,7 @@ export async function GET() {
 function getActionTitle(actionType: string) {
   const titles: Record<string, string> = {
     search: "Recherche LinkedIn",
+    search_and_message: "Recherche et Envoi de message",
     visit_profile: "Analyse de profil",
     send_connection: "Demande de connexion",
     send_message: "Envoi de message",
@@ -217,11 +218,12 @@ function getActionTitle(actionType: string) {
 function getStatusLabel(status: string) {
   const labels: Record<string, string> = {
     pending: "En attente",
-    pending_approval: "En attente d'approbation",
+    pending_approval: "En attente",
     approved: "Approuvée",
-    processing: "En cours d'exécution",
+    processing: "En cours",
     completed: "Terminée",
     failed: "Échouée",
+    stopped: "Arrêtée",
     rejected: "Rejetée",
     scheduled: "Planifiée",
     sent: "Envoyée",
@@ -238,27 +240,7 @@ function getPriority(status: string) {
 }
 
 function buildActionDescription(row: any) {
-  if (row.status === "pending_approval") {
-    return `Action créée par l'agent et en attente de votre validation avant exécution automatique par l'extension.`;
-  }
-
-  if (row.status === "approved") {
-    return `Action approuvée. L'extension Chrome peut la récupérer et l'exécuter automatiquement.`;
-  }
-
-  if (row.status === "completed") {
-    return `Action exécutée avec succès et synchronisée avec les autres modules du projet.`;
-  }
-
-  if (row.status === "failed") {
-    return `L'action a échoué pendant l'exécution. Vérifiez le détail pour comprendre le blocage.`;
-  }
-
-  if (row.status === "rejected") {
-    return `Action rejetée manuellement. Elle ne sera pas exécutée par l'extension.`;
-  }
-
-  return `Action générée par l'agent LinkedIn.`;
+  return null;
 }
 
 function buildActionDetail(row: any) {
@@ -266,16 +248,17 @@ function buildActionDetail(row: any) {
   const result = normalizeJson(row.result);
   const details: string[] = [];
 
-  if (row.target_name) details.push(`Cible: ${row.target_name}`);
   if (payload?.keywords) details.push(`Recherche: ${payload.keywords}`);
+  if (payload?.limit) details.push(`Limite: ${payload.limit}`);
+  if (row.target_name) details.push(`Cible: ${row.target_name}`);
   if (payload?.note) details.push(`Note: ${payload.note}`);
   if (payload?.message) details.push(`Message: ${payload.message}`);
-  if (payload?.message_type) details.push(`Type: ${payload.message_type}`);
-  if (payload?.limit) details.push(`Limite: ${payload.limit}`);
-  if (result?.profile?.company) details.push(`Entreprise détectée: ${result.profile.company}`);
-  if (row.error_message) details.push(`Erreur: ${row.error_message}`);
+  if (payload?.message_template) details.push(`Message: ${payload.message_template}`);
+  if (result?.profile?.company) details.push(`Entreprise: ${result.profile.company}`);
+  if (result?.messages_sent !== undefined) details.push(`Messages envoyés: ${result.messages_sent}`);
+  if (result?.profiles_found !== undefined) details.push(`Profils trouvés: ${result.profiles_found}`);
 
-  return details.join(" • ") || "Aucun détail complémentaire disponible.";
+  return details.join("\n") || null;
 }
 
 function buildCampaignDescription(row: any) {

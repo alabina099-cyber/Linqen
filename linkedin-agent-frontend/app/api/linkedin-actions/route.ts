@@ -17,6 +17,21 @@ export async function OPTIONS() {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+    const actionId = searchParams.get('id');
+
+    // Si un id est fourni, récupérer cette action spécifique
+    if (actionId) {
+      const result = await query(
+        `SELECT * FROM linkedin_actions_queue WHERE id = $1`,
+        [parseInt(actionId)]
+      );
+      return NextResponse.json({
+        success: true,
+        actions: result.rows,
+        count: result.rows.length,
+      });
+    }
+
     // L'extension Chrome ne récupère que les actions "approved" (approuvées par l'utilisateur)
     const status = searchParams.get('status') || 'approved';
     const limit = parseInt(searchParams.get('limit') || '10');
@@ -98,6 +113,17 @@ export async function PATCH(request: NextRequest) {
         { success: false, error: 'id et status sont requis' },
         { status: 400 }
       );
+    }
+
+    // Vérifier que l'action n'a pas été arrêtée par l'utilisateur
+    // Si le statut actuel est 'stopped', ne pas laisser l'extension écraser avec completed/failed
+    const currentAction = await query(`SELECT status FROM linkedin_actions_queue WHERE id = $1`, [id]);
+    if (currentAction.rows.length > 0 && currentAction.rows[0].status === 'stopped' && status !== 'stopped') {
+      return NextResponse.json({
+        success: true,
+        action: currentAction.rows[0],
+        message: 'Action arrêtée par l\'utilisateur, statut non modifié'
+      });
     }
 
     // Mettre à jour l'action

@@ -214,9 +214,29 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// DELETE /api/agent/chat — Clear in-memory agent history (new conversation)
-export async function DELETE() {
+// DELETE /api/agent/chat — Delete a conversation permanently or clear in-memory history
+export async function DELETE(request: NextRequest) {
+  await ensureSchema();
   try {
+    const { searchParams } = new URL(request.url);
+    const convId = searchParams.get("conversationId");
+
+    if (convId) {
+      // Permanently delete conversation from database
+      await query(`DELETE FROM agent_chat_history WHERE conversation_id = $1`, [convId]);
+      await query(`DELETE FROM agent_tool_steps WHERE conversation_id = $1`, [convId]);
+
+      // If deleting the current in-memory conversation, clear agent history too
+      const agent = getLinkedInAgent();
+      agent.clearHistory();
+
+      return NextResponse.json({
+        success: true,
+        message: "Conversation supprimée définitivement",
+      });
+    }
+
+    // No conversationId: just clear in-memory history (new conversation)
     const agent = getLinkedInAgent();
     agent.clearHistory();
 
@@ -225,9 +245,9 @@ export async function DELETE() {
       message: "Nouvelle conversation créée",
     });
   } catch (error) {
-    console.error("Clear History Error:", error);
+    console.error("Delete conversation error:", error);
     return NextResponse.json(
-      { error: "Erreur lors de la création de la nouvelle conversation" },
+      { error: "Erreur lors de la suppression de la conversation" },
       { status: 500 }
     );
   }

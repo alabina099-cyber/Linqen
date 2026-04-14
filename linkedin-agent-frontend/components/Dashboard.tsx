@@ -9,12 +9,10 @@ import StatsCards from "./StatsCards";
 import PerformanceCharts from "./PerformanceCharts";
 import ProspectsPipeline from "./ProspectsPipeline";
 import RecentActivity from "./RecentActivity";
-import Messages from "./Messages";
 import Campaigns from "./Campaigns";
 import Settings from "./Settings";
 import AgentChat from "./AgentChat";
 import ApprovalQueue from "./ApprovalQueue";
-import LinkedInAccount from "./LinkedInAccount";
 
 function DashboardHeader() {
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -83,7 +81,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const hash = window.location.hash.replace("#", "");
-    const validTabs = ["dashboard", "prospects", "campaigns", "messages", "approval", "linkedin-account", "agent", "settings"];
+    const validTabs = ["dashboard", "prospects", "campaigns", "approval", "agent", "settings"];
     if (hash && validTabs.includes(hash)) {
       setActiveTab(hash);
     }
@@ -132,11 +130,6 @@ export default function Dashboard() {
             </motion.div>
           )}
 
-          {activeTab === "messages" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <Messages />
-            </motion.div>
-          )}
 
           {activeTab === "settings" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -150,11 +143,6 @@ export default function Dashboard() {
             </motion.div>
           )}
 
-          {activeTab === "linkedin-account" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <LinkedInAccount />
-            </motion.div>
-          )}
 
           {activeTab === "agent" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full w-full p-3 sm:p-4 lg:p-6">

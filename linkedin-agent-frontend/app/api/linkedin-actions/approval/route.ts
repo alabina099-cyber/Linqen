@@ -89,7 +89,10 @@ export async function POST(request: NextRequest) {
         newStatus = 'rejected';
         break;
       case 'stop':
-        newStatus = 'failed';
+        newStatus = 'stopped';
+        break;
+      case 'continue':
+        newStatus = 'approved';
         break;
       case 'retry':
         newStatus = 'pending_approval';
@@ -128,9 +131,17 @@ export async function POST(request: NextRequest) {
         }
         break;
       case 'stop':
-        if (actionData.status !== 'approved') {
+        if (!['approved', 'processing'].includes(actionData.status)) {
           return NextResponse.json(
-            { success: false, error: `Seules les actions approuvées peuvent être arrêtées (statut actuel: ${actionData.status})` },
+            { success: false, error: `Seules les actions approuvées ou en cours peuvent être arrêtées (statut actuel: ${actionData.status})` },
+            { status: 400 }
+          );
+        }
+        break;
+      case 'continue':
+        if (actionData.status !== 'stopped') {
+          return NextResponse.json(
+            { success: false, error: `Seules les actions arrêtées peuvent être reprises (statut actuel: ${actionData.status})` },
             { status: 400 }
           );
         }
@@ -146,9 +157,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Mettre à jour le statut
+    const shouldClearError = action === 'retry' || action === 'approve' || action === 'continue';
     const updateResult = await query(
       `UPDATE linkedin_actions_queue 
-       SET status = $1, result = COALESCE(result, '{}') || $2::jsonb
+       SET status = $1, 
+           result = COALESCE(result, '{}') || $2::jsonb,
+           error_message = ${shouldClearError ? 'NULL' : 'error_message'},
+           executed_at = ${action === 'retry' ? 'NULL' : 'executed_at'}
        WHERE id = $3
        RETURNING *`,
       [newStatus, JSON.stringify({ 

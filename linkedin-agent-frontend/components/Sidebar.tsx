@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LayoutDashboard, Users, Target, MessageSquare, Settings, Activity, Menu, X, Bot, Clock, Linkedin } from "lucide-react";
+import { LayoutDashboard, Users, Target, Settings, Activity, Menu, X, Bot, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -27,9 +27,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "prospects", label: "Prospects", icon: Users },
     { id: "campaigns", label: "Campagnes", icon: Target },
-    { id: "messages", label: "Messages", icon: MessageSquare },
     { id: "approval", label: "Approbations", icon: Clock },
-    { id: "linkedin-account", label: "Compte LinkedIn", icon: Linkedin },
     { id: "agent", label: "Agent IA", icon: Bot },
     { id: "settings", label: "Paramètres", icon: Settings },
   ];

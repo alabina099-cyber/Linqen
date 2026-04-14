@@ -623,97 +623,114 @@ async function executeSearchAndMessage(action) {
     console.log("[SEARCH&MSG] URL:", action.target_url);
     console.log("[SEARCH&MSG] Template:", messageTemplate.substring(0, 80));
 
-    // =============================================
-    // PHASE 1: RECHERCHE — ouvrir la page et scraper les profils
-    // =============================================
-    searchTab = await openLinkedInTab(action.target_url);
-    await delay(2000);
-    await ensureContentScript(searchTab.id);
+    // Vérifier si c'est une reprise après stop (profiles_data sauvegardés dans le résultat)
+    const prevResult =
+      typeof action.result === "string"
+        ? JSON.parse(action.result || "{}")
+        : action.result || {};
+    const isResume =
+      prevResult.profiles_data && prevResult.profiles_data.length > 0;
+    let profiles;
 
-    // Attendre les résultats de recherche via le content script
-    const profiles = await new Promise((resolve, reject) => {
-      const timeout = setTimeout(
-        () => reject(new Error("Timeout: scraping recherche après 30s")),
-        30000
+    if (isResume) {
+      // === REPRISE APRÈS STOP : utiliser les profils sauvegardés ===
+      console.log(
+        `[SEARCH&MSG] 🔄 Reprise après stop — ${prevResult.profiles_data.length} profils sauvegardés, ${(prevResult.sent_profiles || []).length} déjà contactés`
       );
+      profiles = prevResult.profiles_data;
+    } else {
+      // =============================================
+      // PHASE 1: RECHERCHE — ouvrir la page et scraper les profils
+      // =============================================
+      searchTab = await openLinkedInTab(action.target_url);
+      await delay(2000);
+      await ensureContentScript(searchTab.id);
 
-      // Écouter le message SEARCH_RESULTS du content script
-      function searchListener(message, sender, sendResponse) {
-        if (
-          message.type === "SEARCH_RESULTS" &&
-          message.actionId === action.id
-        ) {
-          clearTimeout(timeout);
-          chrome.runtime.onMessage.removeListener(searchListener);
-          sendResponse({ success: true });
-          resolve(message.data || []);
-          return true;
-        }
-        if (
-          message.type === "ACTION_FAILED" &&
-          message.actionId === action.id
-        ) {
-          clearTimeout(timeout);
-          chrome.runtime.onMessage.removeListener(searchListener);
-          sendResponse({ success: true });
-          reject(new Error(message.error || "Erreur scraping recherche"));
-          return true;
-        }
-      }
-      chrome.runtime.onMessage.addListener(searchListener);
+      // Attendre les résultats de recherche via le content script
+      profiles = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(
+          () => reject(new Error("Timeout: scraping recherche après 30s")),
+          30000
+        );
 
-      // Déclencher le scraping
-      chrome.tabs.sendMessage(
-        searchTab.id,
-        {
-          type: "SCRAPE_SEARCH_RESULTS",
-          actionId: action.id,
-          payload: action.payload
-        },
-        (resp) => {
-          if (chrome.runtime.lastError) {
+        // Écouter le message SEARCH_RESULTS du content script
+        function searchListener(message, sender, sendResponse) {
+          if (
+            message.type === "SEARCH_RESULTS" &&
+            message.actionId === action.id
+          ) {
             clearTimeout(timeout);
             chrome.runtime.onMessage.removeListener(searchListener);
-            reject(new Error(chrome.runtime.lastError.message));
+            sendResponse({ success: true });
+            resolve(message.data || []);
+            return true;
+          }
+          if (
+            message.type === "ACTION_FAILED" &&
+            message.actionId === action.id
+          ) {
+            clearTimeout(timeout);
+            chrome.runtime.onMessage.removeListener(searchListener);
+            sendResponse({ success: true });
+            reject(new Error(message.error || "Erreur scraping recherche"));
+            return true;
           }
         }
-      );
-    });
+        chrome.runtime.onMessage.addListener(searchListener);
 
-    // Fermer l'onglet de recherche
-    if (searchTab?.id) {
-      chrome.tabs.remove(searchTab.id).catch(() => {});
-      searchTab = null;
-    }
-
-    console.log("[SEARCH&MSG] Profils trouvés:", profiles.length);
-
-    if (!profiles || profiles.length === 0) {
-      await updateActionStatus(
-        action.id,
-        "failed",
-        { profiles: [] },
-        "Aucun profil trouvé dans la recherche"
-      );
-      return;
-    }
-
-    // Sauvegarder les prospects en DB
-    try {
-      await fetch(`${API_BASE_URL}/prospects/bulk`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prospects: profiles,
-          source: "linkedin_search",
-          search_action_id: action.id
-        })
+        // Déclencher le scraping
+        chrome.tabs.sendMessage(
+          searchTab.id,
+          {
+            type: "SCRAPE_SEARCH_RESULTS",
+            actionId: action.id,
+            payload: action.payload
+          },
+          (resp) => {
+            if (chrome.runtime.lastError) {
+              clearTimeout(timeout);
+              chrome.runtime.onMessage.removeListener(searchListener);
+              reject(new Error(chrome.runtime.lastError.message));
+            }
+          }
+        );
       });
-    } catch (e) {
-      console.log(
-        "[SEARCH&MSG] Erreur sauvegarde prospects (non bloquante):",
-        e.message
-      );
+
+      // Fermer l'onglet de recherche
+      if (searchTab?.id) {
+        chrome.tabs.remove(searchTab.id).catch(() => {});
+        searchTab = null;
+      }
+
+      console.log("[SEARCH&MSG] Profils trouvés:", profiles.length);
+
+      if (!profiles || profiles.length === 0) {
+        await updateActionStatus(
+          action.id,
+          "failed",
+          { profiles: [] },
+          "Aucun profil trouvé dans la recherche"
+        );
+        return;
+      }
+
+      // Sauvegarder les prospects en DB
+      try {
+        await fetch(`${API_BASE_URL}/prospects/bulk`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prospects: profiles,
+            source: "linkedin_search",
+            search_action_id: action.id
+          })
+        });
+      } catch (e) {
+        console.log(
+          "[SEARCH&MSG] Erreur sauvegarde prospects (non bloquante):",
+          e.message
+        );
+      }
     }
 
     // =============================================
@@ -726,7 +743,51 @@ async function executeSearchAndMessage(action) {
     let messagesFailed = 0;
     const results = [];
 
+    // Récupérer les profils déjà contactés (en cas de reprise après stop)
+    const existingResult =
+      typeof action.result === "string"
+        ? JSON.parse(action.result || "{}")
+        : action.result || {};
+    const alreadySentProfiles = new Set(
+      (existingResult.sent_profiles || []).map((p) => p.toLowerCase())
+    );
+
     for (let i = 0; i < profiles.length; i++) {
+      // === VÉRIFIER SI L'UTILISATEUR A CLIQUÉ STOP ===
+      const wasStopped = await checkIfActionStopped(action.id);
+      if (wasStopped) {
+        console.log(
+          `[SEARCH&MSG] ⏸️ Action #${action.id} arrêtée par l'utilisateur au profil ${i + 1}/${profiles.length}`
+        );
+        // Sauvegarder la progression pour pouvoir reprendre
+        const sentProfileNames = results
+          .filter((r) => r.status === "sent")
+          .map((r) => r.name);
+        // Ajouter les profils déjà envoyés précédemment
+        const allSentProfiles = [
+          ...new Set([
+            ...Array.from(alreadySentProfiles),
+            ...sentProfileNames.map((n) => n.toLowerCase())
+          ])
+        ];
+        await updateActionStatus(action.id, "stopped", {
+          profiles_found: profiles.length,
+          messages_sent: messagesSent + (existingResult.messages_sent || 0),
+          messages_failed: messagesFailed,
+          stopped_at_index: i,
+          sent_profiles: allSentProfiles,
+          details: results,
+          profiles_data: profiles.map((p) => ({
+            name: p.name,
+            linkedin_url: p.linkedin_url,
+            role: p.role,
+            company: p.company
+          })),
+          message_template: messageTemplate
+        });
+        return;
+      }
+
       const profile = profiles[i];
       if (!profile.linkedin_url) {
         console.log(
@@ -738,6 +799,16 @@ async function executeSearchAndMessage(action) {
           status: "skipped",
           reason: "no_url"
         });
+        continue;
+      }
+
+      // Vérifier si ce profil a déjà reçu un message (reprise après stop)
+      if (alreadySentProfiles.has((profile.name || "").toLowerCase())) {
+        console.log(
+          `[SEARCH&MSG] Profil ${i + 1}/${profiles.length}: ${profile.name} — déjà contacté, ignoré`
+        );
+        results.push({ name: profile.name, status: "already_sent" });
+        messagesSent++;
         continue;
       }
 
@@ -1851,6 +1922,22 @@ async function executeSendMessage(action) {
     if (tab?.id) chrome.tabs.remove(tab.id).catch(() => {});
     if (newTab?.id) chrome.tabs.remove(newTab.id).catch(() => {});
     await updateActionStatus(action.id, "failed", null, error.message);
+  }
+}
+
+// Vérifier si une action a été arrêtée par l'utilisateur
+async function checkIfActionStopped(actionId) {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/linkedin-actions?id=${actionId}`
+    );
+    if (!response.ok) return false;
+    const data = await response.json();
+    const action = data.actions?.[0];
+    return action?.status === "stopped";
+  } catch (e) {
+    console.log("[STOP_CHECK] Erreur vérification stop:", e.message);
+    return false;
   }
 }
 
