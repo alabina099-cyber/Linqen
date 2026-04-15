@@ -176,11 +176,11 @@
         }
       }
 
-      // Si rien trouvé, attendre un peu et réessayer (timeout court: 1.5s par sélecteur)
+      // Si rien trouvé, attendre un peu et réessayer (timeout: 3s par sélecteur)
       if (!resultCards || resultCards.length === 0) {
         for (const selector of CARD_SELECTORS) {
           try {
-            await waitForSelector(selector, 1500);
+            await waitForSelector(selector, 3000);
             resultCards = document.querySelectorAll(selector);
             if (resultCards && resultCards.length > 0) {
               usedSelector = selector;

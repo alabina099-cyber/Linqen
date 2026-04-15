@@ -38,6 +38,7 @@ Quand l'utilisateur demande de chercher dans son réseau LinkedIn et contacter d
 
 ÉTAPE UNIQUE: Appeler linkedin_search avec:
 → network='F' (1er degré = mes connexions) + keywords correspondant au profil recherché
+→ RÈGLE KEYWORDS: Utiliser UNIQUEMENT le nom de l'école, entreprise ou secteur. NE JAMAIS ajouter des mots génériques comme "étudiant", "employé", "salarié", "membre", "alumni". Exemple: si l'utilisateur dit "étudiants de l'ESIEA" → keywords="ESIEA" (pas "étudiant ESIEA"). Si "employés de Google" → keywords="Google".
 → message_template: un message personnalisé rédigé par toi. Utiliser UNIQUEMENT {name} qui sera remplacé par le prénom/nom du prospect. NE PAS utiliser {role} ou {company}.
 IMPORTANT FORMAT: Le message DOIT être structuré avec des retours à la ligne (\n):
 - Ligne 1: "Bonjour {name},"
