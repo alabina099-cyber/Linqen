@@ -15,6 +15,8 @@ import {
   RefreshCw,
   ExternalLink,
   Square,
+  Play,
+  Loader2,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -71,6 +73,8 @@ export default function ApprovalQueue() {
           ));
         } else if (currentFilter === "rejected_failed") {
           setActions(all.filter((a: PendingAction) => a.status === "rejected" || a.status === "failed"));
+        } else if (currentFilter === "processing_stopped") {
+          setActions(all.filter((a: PendingAction) => a.status === "processing" || a.status === "stopped"));
         } else {
           setActions(all.filter((a: PendingAction) => a.status === currentFilter));
         }
@@ -106,7 +110,7 @@ export default function ApprovalQueue() {
 
   const updateAction = async (
     id: number,
-    action: "approve" | "reject" | "retry" | "stop"
+    action: "approve" | "reject" | "retry" | "stop" | "continue"
   ) => {
     setProcessingId(id);
     try {
@@ -123,12 +127,13 @@ export default function ApprovalQueue() {
         else if (action === "reject") targetStatus = "rejected_failed";
         else if (action === "retry") targetStatus = "pending_approval";
         else if (action === "stop") targetStatus = "rejected_failed";
+        else if (action === "continue") targetStatus = "approved";
 
         setSelectedStatus(targetStatus);
         await fetchActionsAndStats(targetStatus);
 
         // Démarrer un polling temporaire pour suivre l'action
-        if (action === "approve" || action === "retry") {
+        if (action === "approve" || action === "retry" || action === "continue") {
           startPolling(targetStatus);
         }
       }
@@ -265,6 +270,8 @@ export default function ApprovalQueue() {
         return <Badge className="bg-red-100 text-red-800 border-red-300 text-[10px]">Rejetée</Badge>;
       case "failed":
         return <Badge className="bg-red-100 text-red-800 border-red-300 text-[10px]">Échouée</Badge>;
+      case "stopped":
+        return <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-[10px]">Arrêtée</Badge>;
       default:
         return <Badge className="bg-gray-100 text-gray-800 text-[10px]">{status}</Badge>;
     }
@@ -282,7 +289,7 @@ export default function ApprovalQueue() {
               size="sm"
               onClick={() => approveAction(action.id)}
               disabled={isProcessing}
-              className="bg-green-600 hover:bg-green-700 h-8 px-2 text-xs"
+              className="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 h-8 px-2.5 text-xs font-medium shadow-none"
             >
               {isProcessing ? (
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -296,7 +303,7 @@ export default function ApprovalQueue() {
               variant="outline"
               onClick={() => rejectAction(action.id)}
               disabled={isProcessing}
-              className="border-red-200 text-red-600 hover:bg-red-50 h-8 px-2 text-xs"
+              className="bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 h-8 px-2.5 text-xs font-medium shadow-none"
             >
               <X className="w-3.5 h-3.5 mr-1" />
               Rejeter
@@ -305,23 +312,41 @@ export default function ApprovalQueue() {
         );
       
       case "approved":
+      case "processing":
         return (
           <Button
             size="sm"
             variant="outline"
             onClick={() => stopAction(action.id)}
             disabled={isProcessing}
-            className="border-orange-200 text-orange-600 hover:bg-orange-50 h-8 px-2 text-xs"
+            className="bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-700 h-8 px-2.5 text-xs font-medium shadow-none"
           >
             {isProcessing ? (
               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
             ) : (
               <Square className="w-3.5 h-3.5 mr-1" />
             )}
-            Arrêter
+            Stop
           </Button>
         );
       
+      case "stopped":
+        return (
+          <Button
+            size="sm"
+            onClick={() => updateAction(action.id, "continue")}
+            disabled={isProcessing}
+            className="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 h-8 px-2.5 text-xs font-medium shadow-none"
+          >
+            {isProcessing ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Play className="w-3.5 h-3.5 mr-1" />
+            )}
+            Continuer
+          </Button>
+        );
+
       case "rejected":
       case "failed":
         return (
@@ -330,7 +355,7 @@ export default function ApprovalQueue() {
             variant="outline"
             onClick={() => retryAction(action.id)}
             disabled={isProcessing}
-            className="border-purple-200 text-purple-700 hover:bg-purple-50 h-8 px-2 text-xs"
+            className="bg-violet-50 hover:bg-violet-100 border border-violet-200 text-violet-700 h-8 px-2.5 text-xs font-medium shadow-none"
           >
             {isProcessing ? (
               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -353,6 +378,7 @@ export default function ApprovalQueue() {
   const pendingCount = getCount("pending_approval");
   const approvedCount = getCount("approved");
   const completedCount = getCount("completed");
+  const processingCount = getCount("processing") + getCount("stopped");
   const rejectedCount = getCount("rejected") + getCount("failed");
 
   return (
@@ -389,7 +415,7 @@ export default function ApprovalQueue() {
       </motion.div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
         {/* En attente */}
         <Card 
           className={`border-yellow-200 bg-yellow-50 cursor-pointer transition-all hover:shadow-md ${
@@ -400,7 +426,7 @@ export default function ApprovalQueue() {
           <CardContent className="p-3 flex items-center justify-between">
             <div>
               <p className="text-xs text-yellow-700 font-medium">
-                En attente d&apos;approbation
+                En attente
               </p>
               <p className="text-xl font-bold text-yellow-800">
                 {pendingCount}
@@ -430,7 +456,27 @@ export default function ApprovalQueue() {
           </CardContent>
         </Card>
 
-        {/* Terminées = VERT avec icône checkbox */}
+        {/* En cours = ORANGE */}
+        <Card 
+          className={`border-orange-200 bg-orange-50 cursor-pointer transition-all hover:shadow-md ${
+            selectedStatus === "processing_stopped" ? "ring-2 ring-orange-400 shadow-md" : ""
+          }`}
+          onClick={() => filterByStatus("processing_stopped")}
+        >
+          <CardContent className="p-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-orange-700 font-medium">
+                En cours
+              </p>
+              <p className="text-xl font-bold text-orange-800">
+                {processingCount}
+              </p>
+            </div>
+            <Loader2 className="w-7 h-7 text-orange-500" />
+          </CardContent>
+        </Card>
+
+        {/* Terminées = VERT */}
         <Card 
           className={`border-green-200 bg-green-50 cursor-pointer transition-all hover:shadow-md ${
             selectedStatus === "completed" ? "ring-2 ring-green-400 shadow-md" : ""
@@ -440,7 +486,7 @@ export default function ApprovalQueue() {
           <CardContent className="p-3 flex items-center justify-between">
             <div>
               <p className="text-xs text-green-700 font-medium">
-                Actions terminées
+                Terminées
               </p>
               <p className="text-xl font-bold text-green-800">
                 {completedCount}
@@ -480,7 +526,7 @@ export default function ApprovalQueue() {
           <CardContent className="p-3 flex items-center justify-between">
             <div>
               <p className="text-xs text-purple-700 font-medium">
-                Total actions
+                Total
               </p>
               <p className="text-xl font-bold text-purple-800">
                 {totalToday}
@@ -497,6 +543,7 @@ export default function ApprovalQueue() {
           <CardTitle className="text-base flex items-center gap-2">
             {selectedStatus === "pending_approval" && "Actions en attente d'approbation"}
             {selectedStatus === "approved" && "Actions approuvées"}
+            {selectedStatus === "processing_stopped" && "Actions en cours"}
             {selectedStatus === "completed" && "Actions terminées"}
             {selectedStatus === "rejected_failed" && "Actions rejetées / échouées"}
             {selectedStatus === null && "Toutes les actions"}
@@ -514,6 +561,14 @@ export default function ApprovalQueue() {
                 className="bg-blue-100 text-blue-800"
               >
                 {approvedCount}
+              </Badge>
+            )}
+            {selectedStatus === "processing_stopped" && processingCount > 0 && (
+              <Badge
+                variant="secondary"
+                className="bg-orange-100 text-orange-800"
+              >
+                {processingCount}
               </Badge>
             )}
             {selectedStatus === "completed" && completedCount > 0 && (
@@ -558,11 +613,13 @@ export default function ApprovalQueue() {
                     ? "Aucune action en attente"
                     : selectedStatus === "approved"
                       ? "Aucune action approuvée"
-                      : selectedStatus === "completed"
-                        ? "Aucune action terminée"
-                        : selectedStatus === "rejected_failed"
-                          ? "Aucune action rejetée ou échouée"
-                          : "Aucune action dans cette catégorie"}
+                      : selectedStatus === "processing_stopped"
+                        ? "Aucune action en cours"
+                        : selectedStatus === "completed"
+                          ? "Aucune action terminée"
+                          : selectedStatus === "rejected_failed"
+                            ? "Aucune action rejetée ou échouée"
+                            : "Aucune action dans cette catégorie"}
               </p>
               <p className="text-xs mt-1">
                 {selectedStatus === null 

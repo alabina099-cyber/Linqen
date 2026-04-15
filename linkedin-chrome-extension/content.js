@@ -123,6 +123,30 @@
   // =============================================
   // SCRAPING: Résultats de recherche
   // =============================================
+  // Nettoyer un nom extrait de LinkedIn pour ne garder que prénom + nom
+  function cleanScrapedName(rawName) {
+    if (!rawName) return "";
+    // Supprimer tout après un séparateur courant (|, ·, •, -, —, –, «, », @, chez)
+    let name = rawName.split(/[|·•—–«»@\n]/)[0].trim();
+    // Supprimer les parenthèses et leur contenu
+    name = name.replace(/\(.*?\)/g, "").trim();
+    // Supprimer "chez ...", "at ...", "- ..." à la fin
+    name = name.replace(/\s+(chez|at|de|du|des|pour)\s+.*/i, "").trim();
+    // Supprimer les emojis
+    name = name
+      .replace(
+        /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu,
+        ""
+      )
+      .trim();
+    // Ne garder que les 3 premiers mots max (prénom + nom + particule éventuelle)
+    const words = name.split(/\s+/).filter((w) => w.length > 0);
+    if (words.length > 3) {
+      name = words.slice(0, 3).join(" ");
+    }
+    return name;
+  }
+
   async function scrapeSearchResults(actionId, payload) {
     try {
       // LinkedIn change souvent ses classes CSS — essayer plusieurs sélecteurs
@@ -210,7 +234,12 @@
             container.querySelector("[class*='secondary']");
           const location = locEl ? locEl.textContent.trim() : "";
 
-          profiles.push({ name, role, location, linkedin_url: href });
+          profiles.push({
+            name: cleanScrapedName(name),
+            role,
+            location,
+            linkedin_url: href
+          });
         }
 
         console.log(
@@ -266,9 +295,14 @@
           card.querySelector("a.app-aware-link");
         const linkedinUrl = linkEl ? linkEl.href.split("?")[0] : "";
 
-        if (name && name !== "Utilisateur LinkedIn" && name.length >= 2) {
+        const cleanName = cleanScrapedName(name);
+        if (
+          cleanName &&
+          cleanName !== "Utilisateur LinkedIn" &&
+          cleanName.length >= 2
+        ) {
           profiles.push({
-            name,
+            name: cleanName,
             role: subtitle,
             location,
             linkedin_url: linkedinUrl

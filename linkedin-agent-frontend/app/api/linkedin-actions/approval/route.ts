@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
          ('completed'), 
          ('rejected'), 
          ('failed'),
-         ('processing')
+         ('processing'),
+         ('stopped')
        ) AS s(status)
        LEFT JOIN linkedin_actions_queue a ON a.status = s.status
        GROUP BY s.status

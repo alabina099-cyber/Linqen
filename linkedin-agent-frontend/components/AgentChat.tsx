@@ -778,7 +778,7 @@ export default function AgentChat() {
                   ) : actionItems.length === 0 ? (
                     <div className="flex h-full items-center justify-center">
                       <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-5 py-6 text-center">
-                        <Rocket className="mx-auto mb-3 h-8 w-8 text-slate-300" />
+                        <ClipboardList className="mx-auto mb-3 h-8 w-8 text-slate-300" />
                         <p className="text-sm font-semibold text-slate-700">Aucune action agent pour le moment</p>
                         <p className="mt-1 text-xs text-slate-500">Dès que l'agent crée une campagne, recherche, connexion ou message, cela apparaîtra ici.</p>
                       </div>
