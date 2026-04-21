@@ -62,11 +62,11 @@ RAPPEL CRITIQUE:
 - TOUTES les actions passent par la file d'approbation. AUCUNE action ne s'exécute directement.
 - Quand on te demande d'envoyer un message à UN prospect connu → appelle linkedin_send_message DIRECTEMENT.
 - Quand on te demande d'envoyer une connexion → appelle linkedin_send_connection DIRECTEMENT.
-- Quand on te demande de chercher dans le réseau et contacter des gens → WORKFLOW B (UNE SEULE ACTION):
+- Quand on te demande de chercher dans le réseau et contacter des gens → WORKFLOW B:
   Appelle linkedin_search(network='F', message_template='...') avec un message personnalisé.
-  Le message_template peut contenir {name}, {role}, {company} qui seront remplacés automatiquement.
-  Ça crée UNE SEULE action "Recherche + Message". L'utilisateur approuve UNE SEULE FOIS.
-  L'extension fait tout: recherche → profils → envoie les messages. Completed seulement si message envoyé.
+  Le message_template peut contenir {name} qui sera remplacé automatiquement.
+  L'extension fait tout: recherche → profils → envoie les messages.
+- MULTI-CATÉGORIES: Si l'utilisateur mentionne PLUSIEURS groupes/catégories (ex: "étudiants ESIEA et employés Phinia"), tu DOIS faire UN appel linkedin_search SÉPARÉ pour CHAQUE catégorie. LinkedIn cherche en AND pas en OR. Appelle linkedin_search plusieurs fois dans la même réponse.
 - IMPORTANT: Quand l'utilisateur veut chercher ET envoyer un message, TOUJOURS inclure message_template dans linkedin_search. Rédige toi-même le message personnalisé.
 - IMPORTANT: Après linkedin_search, NE PAS appeler get_search_results ou bulk_send_messages. Tout est automatique.
 - Ne JAMAIS afficher un message à copier-coller. TOUJOURS utiliser le tool pour créer l'action.
@@ -90,10 +90,10 @@ RAPPEL CRITIQUE:
           break;
         }
 
-        // Exécuter les tool calls
+        // Exécuter les tool calls (TOUS les appels parallèles d'un même batch)
         let toolResults = "";
-        let actionCreated = false; // Flag pour éviter les doublons
-        // Tools qui stoppent la boucle: recherche (attend approbation) + envoi
+        let actionsCreatedCount = 0;
+        // Tools qui stoppent la boucle après exécution: recherche (attend approbation) + envoi
         const STOP_LOOP_TOOLS = ["linkedin_search", "linkedin_send_message", "linkedin_send_connection", "bulk_send_messages"];
 
         for (const toolCall of response.tool_calls) {
@@ -110,9 +110,9 @@ RAPPEL CRITIQUE:
                 status: "success",
                 timestamp: new Date().toISOString(),
               });
-              // Marquer si une action LinkedIn a été créée
+              // Compter les actions LinkedIn créées
               if (STOP_LOOP_TOOLS.includes(toolCall.name) && resultStr.includes('"success":true')) {
-                actionCreated = true;
+                actionsCreatedCount++;
               }
             } catch (toolError) {
               const errMsg = toolError instanceof Error ? toolError.message : "Erreur";
@@ -128,11 +128,12 @@ RAPPEL CRITIQUE:
           }
         }
 
-        // Si une action LinkedIn a été créée → STOP, pas besoin de continuer la boucle
-        if (actionCreated) {
+        // Si des actions LinkedIn ont été créées → STOP, pas besoin de continuer la boucle
+        if (actionsCreatedCount > 0) {
+          const plural = actionsCreatedCount > 1 ? `${actionsCreatedCount} actions ont été créées` : "L'action a été créée";
           currentMessages.push(new AIMessage(response.content?.toString() || ""));
           currentMessages.push(new HumanMessage(
-            `Résultats des tools exécutés:${toolResults}\n\nL'action a été créée avec succès. NE RAPPELLE PAS le même tool. Donne ta réponse finale à l'utilisateur pour confirmer.`
+            `Résultats des tools exécutés:${toolResults}\n\n${plural} avec succès. NE RAPPELLE PAS le même tool. Donne ta réponse finale à l'utilisateur pour confirmer les ${actionsCreatedCount} action(s) créée(s).`
           ));
           // Un dernier round pour la réponse finale uniquement
           const finalResponse = await llm.invoke(currentMessages);
