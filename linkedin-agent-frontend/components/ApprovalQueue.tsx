@@ -32,6 +32,8 @@ interface PendingAction {
   payload: any;
   status: string;
   created_at: string;
+  error_message?: string | null;
+  result?: any;
 }
 
 interface ActionStats {
@@ -88,18 +90,25 @@ export default function ApprovalQueue() {
   }, [selectedStatus]);
 
   const filterByStatus = (status: string | null) => {
+    // IMPORTANT: Arrêter le polling en cours pour éviter qu'il écrase le nouveau filtre
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
     setSelectedStatus(status);
     // Re-fetch avec le nouveau filtre pour avoir des données fraîches
     fetchActionsAndStats(status);
   };
 
   // Démarrer un auto-refresh temporaire (ex: après une approbation)
-  const startPolling = useCallback((targetStatus: string | null) => {
+  // Le polling utilise toujours le selectedStatus ACTUEL pour ne pas écraser le filtre utilisateur
+  const startPolling = useCallback(() => {
     if (pollingRef.current) clearInterval(pollingRef.current);
     let count = 0;
     pollingRef.current = setInterval(async () => {
       count++;
-      await fetchActionsAndStats(targetStatus);
+      // Utiliser undefined pour que fetchActionsAndStats utilise le selectedStatus actuel
+      await fetchActionsAndStats();
       if (count >= 6) {
         // Stop après 30s (6 x 5s)
         if (pollingRef.current) clearInterval(pollingRef.current);
@@ -126,15 +135,15 @@ export default function ApprovalQueue() {
         if (action === "approve") targetStatus = "approved";
         else if (action === "reject") targetStatus = "rejected_failed";
         else if (action === "retry") targetStatus = "pending_approval";
-        else if (action === "stop") targetStatus = "rejected_failed";
-        else if (action === "continue") targetStatus = "approved";
+        else if (action === "stop") targetStatus = "processing_stopped";
+        else if (action === "continue") targetStatus = "processing_stopped";
 
         setSelectedStatus(targetStatus);
         await fetchActionsAndStats(targetStatus);
 
         // Démarrer un polling temporaire pour suivre l'action
-        if (action === "approve" || action === "retry" || action === "continue") {
-          startPolling(targetStatus);
+        if (action === "approve" || action === "retry" || action === "continue" || action === "stop") {
+          startPolling();
         }
       }
     } catch (error) {
@@ -587,12 +596,12 @@ export default function ApprovalQueue() {
                 {rejectedCount}
               </Badge>
             )}
-            {selectedStatus === null && totalToday > 0 && (
+            {selectedStatus === null && actions.length > 0 && (
               <Badge
                 variant="secondary"
                 className="bg-purple-100 text-purple-800"
               >
-                {totalToday}
+                {actions.length}
               </Badge>
             )}
           </CardTitle>
@@ -705,6 +714,12 @@ export default function ApprovalQueue() {
                       {action.action_type !== "search_and_message" && formatPayload(action) && (
                         <p className="text-xs text-gray-600 mt-2 bg-gray-50 p-2 rounded">
                           {formatPayload(action)}
+                        </p>
+                      )}
+
+                      {action.error_message && (action.status === "failed" || action.status === "rejected") && (
+                        <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded p-2 mt-2">
+                          ❌ {action.error_message}
                         </p>
                       )}
 

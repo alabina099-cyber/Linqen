@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const limit = parseInt(searchParams.get('limit') || '500');
 
     // If no status specified, return all actions ordered chronologically
     let result;
@@ -74,9 +74,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!['approve', 'reject', 'stop', 'retry'].includes(action)) {
+    if (!['approve', 'reject', 'stop', 'continue', 'retry'].includes(action)) {
       return NextResponse.json(
-        { success: false, error: 'action doit être "approve", "reject", "stop" ou "retry"' },
+        { success: false, error: 'action doit être "approve", "reject", "stop", "continue" ou "retry"' },
         { status: 400 }
       );
     }
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
         newStatus = 'stopped';
         break;
       case 'continue':
-        newStatus = 'approved';
+        newStatus = 'processing';
         break;
       case 'retry':
         newStatus = 'pending_approval';
@@ -184,6 +184,9 @@ export async function POST(request: NextRequest) {
         break;
       case 'stop':
         message = `⏹️ Action #${id} arrêtée. L'exécution a été interrompue.`;
+        break;
+      case 'continue':
+        message = `▶️ Action #${id} reprise. L'exécution continue depuis le point d'arrêt.`;
         break;
       case 'retry':
         message = `🔄 Action #${id} remise en attente. Vous pouvez l'approuver à nouveau.`;

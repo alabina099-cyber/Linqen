@@ -1,5 +1,7 @@
-// Configuration — v2.7 (2026-04-10)
-console.log("[Extension] background.js v2.7 chargé");
+// Configuration — v2.9 (2026-04-21) — Stop pendant envoi message
+console.log(
+  "[Extension] ██████ background.js v2.9 chargé — STOP PENDANT ENVOI ██████"
+);
 const DEFAULT_API_BASE_URL = "http://localhost:3000/api";
 let API_BASE_URL = DEFAULT_API_BASE_URL;
 
@@ -89,9 +91,55 @@ let searchAndMessageActionIds = new Set(); // IDs des actions search_and_message
 // Initialiser l'alarme de polling
 chrome.alarms.create("pollActions", { periodInMinutes: 0.2 }); // Toutes les 12 secondes
 
+// Alarme pour détecter les actions bloquées en "processing" depuis trop longtemps
+chrome.alarms.create("recoverStaleActions", { periodInMinutes: 2 }); // Toutes les 2 minutes
+
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === "pollActions" && !isProcessing) {
-    await pollAndExecuteActions();
+  if (alarm.name === "pollActions") {
+    console.log(`[ALARM] pollActions déclenché — isProcessing=${isProcessing}`);
+    if (!isProcessing) {
+      await pollAndExecuteActions();
+    }
+  }
+
+  // Récupération des actions bloquées en "processing" depuis > 5 minutes
+  if (alarm.name === "recoverStaleActions") {
+    try {
+      const resp = await fetch(
+        `${API_BASE_URL}/linkedin-actions?status=processing&limit=10`
+      );
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const now = Date.now();
+      for (const action of data.actions || []) {
+        // Ne PAS récupérer les actions qui attendent d'être reprises (continue)
+        const result =
+          typeof action.result === "string"
+            ? JSON.parse(action.result || "{}")
+            : action.result || {};
+        if (result.last_action === "continue") {
+          continue; // En attente de reprise par le polling — ne pas toucher
+        }
+        // Ne pas récupérer les actions en cours d'exécution
+        if (searchAndMessageActionIds.has(action.id)) {
+          continue;
+        }
+        const updatedAt = action.executed_at || action.created_at;
+        const age = now - new Date(updatedAt).getTime();
+        // Si l'action est en "processing" depuis plus de 5 minutes, la marquer comme terminée
+        if (age > 5 * 60 * 1000) {
+          console.warn(
+            `[RECOVERY] Action #${action.id} bloquée en "processing" depuis ${Math.round(age / 60000)} min — forçage "completed"`
+          );
+          await updateActionStatus(action.id, "completed", {
+            recovered: true,
+            message: `Action récupérée automatiquement après ${Math.round(age / 60000)} min en processing`
+          });
+        }
+      }
+    } catch (e) {
+      // Silencieux — pas critique
+    }
   }
 });
 
@@ -197,39 +245,78 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-// Récupérer et exécuter les actions APPROUVÉES (statut = 'approved')
+// Récupérer et exécuter les actions APPROUVÉES + celles à REPRENDRE (continue)
 async function pollAndExecuteActions() {
   if (isProcessing) return;
+  console.log("[POLL] === Début du polling ===");
 
   try {
-    // IMPORTANT: Ne récupérer que les actions avec statut 'approved' (approuvées par l'utilisateur)
+    // 1) Récupérer les actions approuvées (nouvelles)
     const response = await fetch(
       `${API_BASE_URL}/linkedin-actions?status=approved&limit=5`
     );
 
     if (!response.ok) {
+      console.log(`[POLL] Erreur API: HTTP ${response.status}`);
       isConnected = false;
       return;
     }
 
     isConnected = true;
     const data = await response.json();
+    let actionsToExecute =
+      data.success && data.actions ? [...data.actions] : [];
+    console.log(
+      `[POLL] Actions approuvées trouvées: ${actionsToExecute.length}`
+    );
 
-    if (!data.success || !data.actions || data.actions.length === 0) {
-      // Aucune action approuvée en attente
+    // 2) Récupérer aussi les actions en "processing" qui doivent être reprises (après un Continue)
+    try {
+      const resumeResp = await fetch(
+        `${API_BASE_URL}/linkedin-actions?status=processing&limit=5`
+      );
+      if (resumeResp.ok) {
+        const resumeData = await resumeResp.json();
+        if (resumeData.success && resumeData.actions) {
+          for (const action of resumeData.actions) {
+            // Ne reprendre que les actions marquées "continue" ET pas déjà en cours d'exécution
+            const result =
+              typeof action.result === "string"
+                ? JSON.parse(action.result || "{}")
+                : action.result || {};
+            if (
+              result.last_action === "continue" &&
+              !searchAndMessageActionIds.has(action.id)
+            ) {
+              console.log(`[POLL] Action #${action.id} à reprendre (continue)`);
+              actionsToExecute.push(action);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Silencieux — pas critique
+    }
+
+    if (actionsToExecute.length === 0) {
       updateBadge(0);
       return;
     }
 
     isProcessing = true;
-    updateBadge(data.actions.length);
+    updateBadge(actionsToExecute.length);
 
-    for (const action of data.actions) {
+    for (const action of actionsToExecute) {
       try {
-        // Note: le rate limiting est géré côté backend (rate-limiter.ts)
-        // L'extension se contente d'exécuter les actions approuvées et d'appliquer des délais anti-ban
         await executeAction(action);
-        // check_connection est silencieux — pas de délai
+        // Vérifier si l'action a été arrêtée — si oui, pas de délai d'attente
+        const stoppedAfterExec = await checkIfActionStopped(action.id);
+        if (stoppedAfterExec) {
+          console.log(
+            `[LinkedIn Guard] Action #${action.id} arrêtée — pas de délai, sortie immédiate`
+          );
+          continue; // Passer à l'action suivante sans délai
+        }
         if (action.action_type !== "check_connection") {
           const waitMs = getRandomDelay(action.action_type);
           console.log(
@@ -239,7 +326,11 @@ async function pollAndExecuteActions() {
         }
       } catch (error) {
         console.error(`Error executing action ${action.id}:`, error);
-        await updateActionStatus(action.id, "failed", null, error.message);
+        // Ne pas écraser un statut "stopped" avec "failed"
+        const isStopped = await checkIfActionStopped(action.id);
+        if (!isStopped) {
+          await updateActionStatus(action.id, "failed", null, error.message);
+        }
       }
     }
 
@@ -269,8 +360,10 @@ async function executeAction(action) {
     action.target_url = normalizeLinkedInUrl(action.target_url);
   }
 
-  // Marquer l'action comme "processing"
-  await updateActionStatus(action.id, "processing");
+  // Marquer l'action comme "processing" — SAUF si c'est une reprise (déjà processing)
+  if (action.status !== "processing") {
+    await updateActionStatus(action.id, "processing");
+  }
 
   switch (action.action_type) {
     case "search":
@@ -603,6 +696,26 @@ async function executeSearchAndMessage(action) {
   // Enregistrer l'ID pour que le listener global SEARCH_RESULTS ne traite PAS cette action
   searchAndMessageActionIds.add(action.id);
   try {
+    console.log("[SEARCH&MSG] === DÉBUT === Action #" + action.id);
+    console.log(
+      "[SEARCH&MSG] Status:",
+      action.status,
+      "| Type:",
+      action.action_type
+    );
+    console.log("[SEARCH&MSG] URL:", action.target_url);
+    console.log("[SEARCH&MSG] Payload type:", typeof action.payload);
+
+    if (!action.payload) {
+      await updateActionStatus(
+        action.id,
+        "failed",
+        null,
+        "Payload manquant ou null dans l'action"
+      );
+      return;
+    }
+
     const payload =
       typeof action.payload === "string"
         ? JSON.parse(action.payload)
@@ -619,8 +732,6 @@ async function executeSearchAndMessage(action) {
       return;
     }
 
-    console.log("[SEARCH&MSG] === DÉBUT === Action #" + action.id);
-    console.log("[SEARCH&MSG] URL:", action.target_url);
     console.log("[SEARCH&MSG] Template:", messageTemplate.substring(0, 80));
 
     // Vérifier si c'est une reprise après stop (profiles_data sauvegardés dans le résultat)
@@ -643,6 +754,22 @@ async function executeSearchAndMessage(action) {
       // PHASE 1: RECHERCHE — ouvrir la page et scraper les profils
       // =============================================
       searchTab = await openLinkedInTab(action.target_url);
+
+      // Vérifier stop après l'ouverture du tab (l'utilisateur a peut-être cliqué Stop)
+      const stoppedDuringSearch = await checkIfActionStopped(action.id);
+      if (stoppedDuringSearch) {
+        console.log(
+          `[SEARCH&MSG] ⏸️ Action #${action.id} arrêtée pendant la phase de recherche`
+        );
+        if (searchTab?.id) chrome.tabs.remove(searchTab.id).catch(() => {});
+        await updateActionStatus(action.id, "stopped", {
+          profiles_found: 0,
+          messages_sent: 0,
+          message_template: messageTemplate
+        });
+        return;
+      }
+
       await delay(2000);
       await ensureContentScript(searchTab.id);
 
@@ -736,13 +863,6 @@ async function executeSearchAndMessage(action) {
     // =============================================
     // PHASE 2: ENVOYER UN MESSAGE À CHAQUE PROFIL
     // =============================================
-    // Marquer l'action comme "en cours" pendant l'envoi des messages
-    await updateActionStatus(action.id, "processing", null, null);
-
-    let messagesSent = 0;
-    let messagesFailed = 0;
-    const results = [];
-
     // Récupérer les profils déjà contactés (en cas de reprise après stop)
     const existingResult =
       typeof action.result === "string"
@@ -752,9 +872,56 @@ async function executeSearchAndMessage(action) {
       (existingResult.sent_profiles || []).map((p) => p.toLowerCase())
     );
 
+    let messagesSent = 0;
+    let messagesFailed = 0;
+    const results = [];
+
+    // Marquer l'action comme "en cours" — PRÉSERVER les données de reprise pour stop/continue illimité
+    const processingOk = await updateActionStatus(
+      action.id,
+      "processing",
+      {
+        profiles_data: profiles.map((p) => ({
+          name: p.name,
+          linkedin_url: p.linkedin_url,
+          role: p.role,
+          company: p.company
+        })),
+        sent_profiles: Array.from(alreadySentProfiles),
+        messages_sent: existingResult.messages_sent || 0,
+        message_template: messageTemplate
+      },
+      null
+    );
+
+    // Si l'update a échoué (action déjà stoppée par l'utilisateur pendant la phase recherche)
+    if (!processingOk) {
+      console.log(
+        `[SEARCH&MSG] ⏸️ Action #${action.id} déjà arrêtée avant la phase messages — sauvegarde et sortie`
+      );
+      await updateActionStatus(action.id, "stopped", {
+        profiles_found: profiles.length,
+        messages_sent: existingResult.messages_sent || 0,
+        messages_failed: 0,
+        sent_profiles: Array.from(alreadySentProfiles),
+        profiles_data: profiles.map((p) => ({
+          name: p.name,
+          linkedin_url: p.linkedin_url,
+          role: p.role,
+          company: p.company
+        })),
+        message_template: messageTemplate
+      });
+      return;
+    }
+
     for (let i = 0; i < profiles.length; i++) {
       // === VÉRIFIER SI L'UTILISATEUR A CLIQUÉ STOP ===
+      console.log(
+        `[STOP_CHECK] >>> Vérification stop AVANT profil ${i + 1}/${profiles.length} — Action #${action.id}`
+      );
       const wasStopped = await checkIfActionStopped(action.id);
+      console.log(`[STOP_CHECK] <<< Résultat: wasStopped=${wasStopped}`);
       if (wasStopped) {
         console.log(
           `[SEARCH&MSG] ⏸️ Action #${action.id} arrêtée par l'utilisateur au profil ${i + 1}/${profiles.length}`
@@ -808,7 +975,7 @@ async function executeSearchAndMessage(action) {
           `[SEARCH&MSG] Profil ${i + 1}/${profiles.length}: ${profile.name} — déjà contacté, ignoré`
         );
         results.push({ name: profile.name, status: "already_sent" });
-        messagesSent++;
+        // NE PAS incrémenter messagesSent — déjà compté dans existingResult.messages_sent
         continue;
       }
 
@@ -829,21 +996,95 @@ async function executeSearchAndMessage(action) {
         `[SEARCH&MSG] Message: ${personalizedMessage.substring(0, 60)}...`
       );
 
-      // Délai anti-ban entre les messages (sauf le premier)
+      // Délai anti-ban entre les messages (sauf le premier) — INTERRUPTIBLE
       if (i > 0) {
         const msgDelay = getRandomDelay("send_message");
         console.log(
-          `[SEARCH&MSG] Attente ${Math.round(msgDelay / 1000)}s avant prochain message...`
+          `[SEARCH&MSG] Attente ${Math.round(msgDelay / 1000)}s avant prochain message (interruptible)...`
         );
-        await delay(msgDelay);
+        const stoppedDuringDelay = await interruptibleDelay(
+          msgDelay,
+          action.id
+        );
+        if (stoppedDuringDelay) {
+          console.log(
+            `[SEARCH&MSG] ⏸️ Action #${action.id} arrêtée pendant le délai anti-ban au profil ${i + 1}/${profiles.length}`
+          );
+          const allSentProfiles = [
+            ...new Set([
+              ...Array.from(alreadySentProfiles),
+              ...results
+                .filter((r) => r.status === "sent")
+                .map((r) => r.name.toLowerCase())
+            ])
+          ];
+          await updateActionStatus(action.id, "stopped", {
+            profiles_found: profiles.length,
+            messages_sent: messagesSent + (existingResult.messages_sent || 0),
+            messages_failed: messagesFailed,
+            stopped_at_index: i,
+            sent_profiles: allSentProfiles,
+            details: results,
+            profiles_data: profiles.map((p) => ({
+              name: p.name,
+              linkedin_url: p.linkedin_url,
+              role: p.role,
+              company: p.company
+            })),
+            message_template: messageTemplate
+          });
+          return;
+        }
       }
 
       // Envoyer le message en utilisant executeSendMessage en interne
+      // Timeout de 120s max pour éviter que l'action reste bloquée en "processing"
       try {
-        const sendResult = await sendMessageToProfile(
-          profile.linkedin_url,
-          personalizedMessage
-        );
+        const sendResult = await Promise.race([
+          sendMessageToProfile(
+            profile.linkedin_url,
+            personalizedMessage,
+            action.id
+          ),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error("Timeout: envoi du message > 120s")),
+              120000
+            )
+          )
+        ]);
+
+        // === Si l'envoi a été interrompu par un STOP ===
+        if (sendResult.stopped) {
+          console.log(
+            `[SEARCH&MSG] ⏸️ Action #${action.id} arrêtée PENDANT l'envoi au profil ${i + 1}/${profiles.length}`
+          );
+          const allSentProfiles = [
+            ...new Set([
+              ...Array.from(alreadySentProfiles),
+              ...results
+                .filter((r) => r.status === "sent")
+                .map((r) => r.name.toLowerCase())
+            ])
+          ];
+          await updateActionStatus(action.id, "stopped", {
+            profiles_found: profiles.length,
+            messages_sent: messagesSent + (existingResult.messages_sent || 0),
+            messages_failed: messagesFailed,
+            stopped_at_index: i,
+            sent_profiles: allSentProfiles,
+            details: results,
+            profiles_data: profiles.map((p) => ({
+              name: p.name,
+              linkedin_url: p.linkedin_url,
+              role: p.role,
+              company: p.company
+            })),
+            message_template: messageTemplate
+          });
+          return;
+        }
+
         if (sendResult.success) {
           messagesSent++;
           results.push({ name: profile.name, status: "sent" });
@@ -905,6 +1146,38 @@ async function executeSearchAndMessage(action) {
           `[SEARCH&MSG] ❌ Exception pour ${profile.name}: ${e.message}`
         );
       }
+
+      // === VÉRIFIER STOP APRÈS CHAQUE ENVOI ===
+      const stoppedAfterSend = await checkIfActionStopped(action.id);
+      if (stoppedAfterSend) {
+        console.log(
+          `[SEARCH&MSG] ⏸️ Action #${action.id} arrêtée après envoi au profil ${i + 1}/${profiles.length}`
+        );
+        const allSentProfiles = [
+          ...new Set([
+            ...Array.from(alreadySentProfiles),
+            ...results
+              .filter((r) => r.status === "sent")
+              .map((r) => r.name.toLowerCase())
+          ])
+        ];
+        await updateActionStatus(action.id, "stopped", {
+          profiles_found: profiles.length,
+          messages_sent: messagesSent + (existingResult.messages_sent || 0),
+          messages_failed: messagesFailed,
+          stopped_at_index: i + 1,
+          sent_profiles: allSentProfiles,
+          details: results,
+          profiles_data: profiles.map((p) => ({
+            name: p.name,
+            linkedin_url: p.linkedin_url,
+            role: p.role,
+            company: p.company
+          })),
+          message_template: messageTemplate
+        });
+        return;
+      }
     }
 
     // =============================================
@@ -914,11 +1187,15 @@ async function executeSearchAndMessage(action) {
       `[SEARCH&MSG] === FIN === Envoyés: ${messagesSent}, Échoués: ${messagesFailed}`
     );
 
-    if (messagesSent > 0) {
+    // Compteurs cumulatifs (ajout des messages des cycles précédents)
+    const totalSent = messagesSent + (existingResult.messages_sent || 0);
+    const totalFailed = messagesFailed;
+
+    if (totalSent > 0) {
       await updateActionStatus(action.id, "completed", {
         profiles_found: profiles.length,
-        messages_sent: messagesSent,
-        messages_failed: messagesFailed,
+        messages_sent: totalSent,
+        messages_failed: totalFailed,
         details: results
       });
     } else {
@@ -928,10 +1205,18 @@ async function executeSearchAndMessage(action) {
         {
           profiles_found: profiles.length,
           messages_sent: 0,
-          messages_failed: messagesFailed,
-          details: results
+          messages_failed: totalFailed,
+          details: results,
+          // Préserver pour un éventuel retry
+          profiles_data: profiles.map((p) => ({
+            name: p.name,
+            linkedin_url: p.linkedin_url,
+            role: p.role,
+            company: p.company
+          })),
+          message_template: messageTemplate
         },
-        `Aucun message envoyé (${profiles.length} profils trouvés, ${messagesFailed} échecs)`
+        `Aucun message envoyé (${profiles.length} profils trouvés, ${totalFailed} échecs)`
       );
     }
   } catch (error) {
@@ -946,18 +1231,68 @@ async function executeSearchAndMessage(action) {
   } finally {
     // Toujours nettoyer le Set pour éviter les fuites mémoire
     searchAndMessageActionIds.delete(action.id);
+
+    // FILET DE SÉCURITÉ: vérifier que l'action n'est PAS restée en "processing"
+    try {
+      const checkResp = await fetch(
+        `${API_BASE_URL}/linkedin-actions?id=${action.id}`
+      );
+      if (checkResp.ok) {
+        const checkData = await checkResp.json();
+        const actionData = checkData.actions?.[0];
+        const currentStatus = actionData?.status;
+        if (currentStatus === "processing") {
+          // Ne PAS forcer completed si l'action attend d'être reprise (continue)
+          const resultData =
+            typeof actionData.result === "string"
+              ? JSON.parse(actionData.result || "{}")
+              : actionData.result || {};
+          if (resultData.last_action === "continue") {
+            console.log(
+              `[SEARCH&MSG] Action #${action.id} en attente de reprise — pas de forçage`
+            );
+          } else {
+            console.warn(
+              `[SEARCH&MSG] ⚠️ Action #${action.id} encore en "processing" dans finally — forçage "completed"`
+            );
+            await updateActionStatus(action.id, "completed", {
+              safety_net: true,
+              message: "Action finalisée par le filet de sécurité"
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[SEARCH&MSG] Erreur filet de sécurité:", e.message);
+    }
   }
 }
 
 // Envoyer un message à un profil (sous-fonction réutilisable)
 // Retourne { success: true/false, error?: string }
-async function sendMessageToProfile(profileUrl, messageText) {
+async function sendMessageToProfile(profileUrl, messageText, actionId = null) {
   let tab;
   let newTab = null;
 
   try {
     tab = await openLinkedInTab(profileUrl);
     console.log("[SEND_TO_PROFILE] Profil ouvert, tab", tab.id);
+
+    // === STOP CHECK: après ouverture du profil ===
+    if (actionId) {
+      const stopped = await checkIfActionStopped(actionId);
+      if (stopped) {
+        console.log(
+          `[SEND_TO_PROFILE] Stop détecté après ouverture tab — annulation`
+        );
+        if (tab?.id) chrome.tabs.remove(tab.id).catch(() => {});
+        return {
+          success: false,
+          stopped: true,
+          error: "Action arrêtée avant envoi"
+        };
+      }
+    }
 
     // PHASE 1: Cliquer sur le bouton Message
     const tabsBefore = (await chrome.tabs.query({})).map((t) => t.id);
@@ -1083,6 +1418,22 @@ async function sendMessageToProfile(profileUrl, messageText) {
       };
     }
 
+    // === STOP CHECK: après clic sur Message, avant navigation ===
+    if (actionId) {
+      const stopped = await checkIfActionStopped(actionId);
+      if (stopped) {
+        console.log(
+          `[SEND_TO_PROFILE] Stop détecté après clic Message — annulation`
+        );
+        if (tab?.id) chrome.tabs.remove(tab.id).catch(() => {});
+        return {
+          success: false,
+          stopped: true,
+          error: "Action arrêtée après clic Message"
+        };
+      }
+    }
+
     // Attente détection navigation
     await new Promise((r) => setTimeout(r, 8000));
     const tabsAfter = await chrome.tabs.query({});
@@ -1121,6 +1472,24 @@ async function sendMessageToProfile(profileUrl, messageText) {
         await new Promise((r) => setTimeout(r, 3000));
       }
     } catch (e) {}
+
+    // === STOP CHECK: avant la phase d'écriture du message ===
+    if (actionId) {
+      const stopped = await checkIfActionStopped(actionId);
+      if (stopped) {
+        console.log(
+          `[SEND_TO_PROFILE] Stop détecté avant écriture message — annulation`
+        );
+        if (tab?.id) chrome.tabs.remove(tab.id).catch(() => {});
+        if (newTab?.id && newTab.id !== tab.id)
+          chrome.tabs.remove(newTab.id).catch(() => {});
+        return {
+          success: false,
+          stopped: true,
+          error: "Action arrêtée avant écriture"
+        };
+      }
+    }
 
     // PHASE 2: Écrire et envoyer le message
     const phase2 = await chrome.scripting.executeScript({
@@ -1929,12 +2298,22 @@ async function executeSendMessage(action) {
 async function checkIfActionStopped(actionId) {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/linkedin-actions?id=${actionId}`
+      `${API_BASE_URL}/linkedin-actions?id=${actionId}&_t=${Date.now()}`,
+      { cache: "no-store" }
     );
-    if (!response.ok) return false;
+    if (!response.ok) {
+      console.log(`[STOP_CHECK] Action #${actionId}: HTTP ${response.status}`);
+      return false;
+    }
     const data = await response.json();
     const action = data.actions?.[0];
-    return action?.status === "stopped";
+    const isStopped = action?.status === "stopped";
+    if (isStopped) {
+      console.log(
+        `[STOP_CHECK] ✅ Action #${actionId} EST ARRÊTÉE — stop détecté !`
+      );
+    }
+    return isStopped;
   } catch (e) {
     console.log("[STOP_CHECK] Erreur vérification stop:", e.message);
     return false;
@@ -1942,6 +2321,7 @@ async function checkIfActionStopped(actionId) {
 }
 
 // Mettre à jour le statut d'une action via l'API
+// Retourne true si la mise à jour a réussi, false sinon
 async function updateActionStatus(
   actionId,
   status,
@@ -1949,7 +2329,7 @@ async function updateActionStatus(
   errorMessage = null
 ) {
   try {
-    await fetch(`${API_BASE_URL}/linkedin-actions`, {
+    const resp = await fetch(`${API_BASE_URL}/linkedin-actions`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1959,8 +2339,22 @@ async function updateActionStatus(
         error_message: errorMessage
       })
     });
+    if (resp.ok) {
+      const data = await resp.json();
+      // Vérifier si le statut a réellement été mis à jour
+      if (data.action?.status !== status) {
+        console.warn(
+          `[UPDATE] Action #${actionId}: statut demandé "${status}" mais DB a "${data.action?.status}" — probablement arrêtée par l'utilisateur`
+        );
+        return false;
+      }
+      return true;
+    }
+    console.warn(`[UPDATE] Action #${actionId}: réponse HTTP ${resp.status}`);
+    return false;
   } catch (error) {
     console.error("Failed to update action status:", error);
+    return false;
   }
 }
 
@@ -2094,4 +2488,25 @@ async function captureLinkedInCookie() {
 // Utilitaire de délai
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Délai interruptible — vérifie le stop toutes les 5s pendant l'attente
+// Retourne true si l'action a été arrêtée pendant le délai
+async function interruptibleDelay(ms, actionId) {
+  const checkInterval = 5000; // Vérifier toutes les 5 secondes
+  let elapsed = 0;
+  while (elapsed < ms) {
+    const waitTime = Math.min(checkInterval, ms - elapsed);
+    await delay(waitTime);
+    elapsed += waitTime;
+    // Vérifier si l'utilisateur a cliqué Stop
+    const wasStopped = await checkIfActionStopped(actionId);
+    if (wasStopped) {
+      console.log(
+        `[DELAY] Action #${actionId} arrêtée pendant le délai (après ${Math.round(elapsed / 1000)}s)`
+      );
+      return true; // Arrêtée !
+    }
+  }
+  return false; // Pas arrêtée
 }

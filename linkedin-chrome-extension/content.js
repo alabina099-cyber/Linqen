@@ -208,6 +208,35 @@
         for (const link of allLinks) {
           const href = link.href.split("?")[0];
           if (seenUrls.has(href) || !href.includes("/in/")) continue;
+
+          // EXCLURE les liens dans les sections "relations en commun" / "insights"
+          // Ces sections contiennent des profils qui ne sont PAS des résultats de recherche
+          const insightParent =
+            link.closest('[class*="insight"]') ||
+            link.closest('[class*="social-proof"]') ||
+            link.closest('[class*="mutual"]') ||
+            link.closest('[class*="shared-connection"]');
+          if (insightParent) {
+            console.log(
+              `[LinkedIn Agent] Fallback: lien exclu (relation en commun): ${href}`
+            );
+            continue;
+          }
+
+          // Vérifier aussi si le texte parent contient "relation que vous avez en commun"
+          const parentText =
+            (link.closest("div") || link.parentElement)?.textContent || "";
+          if (
+            parentText.includes("relation que vous avez en commun") ||
+            parentText.includes("mutual connection") ||
+            parentText.includes("shared connection")
+          ) {
+            console.log(
+              `[LinkedIn Agent] Fallback: lien exclu (texte relation en commun): ${href}`
+            );
+            continue;
+          }
+
           seenUrls.add(href);
 
           // Remonter pour trouver le conteneur parent
@@ -288,12 +317,17 @@
           card.querySelector(".t-14.t-normal.t-black--light");
         const location = secondaryEl ? secondaryEl.textContent.trim() : "";
 
-        // URL LinkedIn
+        // URL LinkedIn — UNIQUEMENT depuis le titre du résultat
+        // NE PAS utiliser de fallback générique 'a[href*="/in/"]' car cela
+        // capturerait les liens des relations en commun (ex: "Baha Saada est une relation...")
         const linkEl =
           card.querySelector(".entity-result__title-text a") ||
-          card.querySelector('a[href*="/in/"]') ||
-          card.querySelector("a.app-aware-link");
+          card.querySelector(".entity-result__title-text .t-bold a") ||
+          card.querySelector('.entity-result__title-line a[href*="/in/"]');
         const linkedinUrl = linkEl ? linkEl.href.split("?")[0] : "";
+
+        // Si pas de lien titre trouvé, ce n'est pas un vrai résultat → skip
+        if (!linkedinUrl) continue;
 
         const cleanName = cleanScrapedName(name);
         if (
