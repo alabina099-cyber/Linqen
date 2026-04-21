@@ -427,8 +427,8 @@ export default function ApprovalQueue() {
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
         {/* En attente */}
         <Card 
-          className={`border-yellow-200 bg-yellow-50 cursor-pointer transition-all hover:shadow-md ${
-            selectedStatus === "pending_approval" ? "ring-2 ring-yellow-400 shadow-md" : ""
+          className={`border-0 bg-gradient-to-br from-yellow-100 to-amber-100 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
+            selectedStatus === "pending_approval" ? "ring-2 ring-yellow-500 ring-offset-2 shadow-md" : "shadow-sm"
           }`}
           onClick={() => filterByStatus("pending_approval")}
         >
@@ -447,8 +447,8 @@ export default function ApprovalQueue() {
 
         {/* Approuvées = BLEU */}
         <Card 
-          className={`border-blue-200 bg-blue-50 cursor-pointer transition-all hover:shadow-md ${
-            selectedStatus === "approved" ? "ring-2 ring-blue-400 shadow-md" : ""
+          className={`border-0 bg-gradient-to-br from-blue-100 to-sky-100 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
+            selectedStatus === "approved" ? "ring-2 ring-blue-500 ring-offset-2 shadow-md" : "shadow-sm"
           }`}
           onClick={() => filterByStatus("approved")}
         >
@@ -467,8 +467,8 @@ export default function ApprovalQueue() {
 
         {/* En cours = ORANGE */}
         <Card 
-          className={`border-orange-200 bg-orange-50 cursor-pointer transition-all hover:shadow-md ${
-            selectedStatus === "processing_stopped" ? "ring-2 ring-orange-400 shadow-md" : ""
+          className={`border-0 bg-gradient-to-br from-orange-100 to-amber-100 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
+            selectedStatus === "processing_stopped" ? "ring-2 ring-orange-500 ring-offset-2 shadow-md" : "shadow-sm"
           }`}
           onClick={() => filterByStatus("processing_stopped")}
         >
@@ -487,8 +487,8 @@ export default function ApprovalQueue() {
 
         {/* Terminées = VERT */}
         <Card 
-          className={`border-green-200 bg-green-50 cursor-pointer transition-all hover:shadow-md ${
-            selectedStatus === "completed" ? "ring-2 ring-green-400 shadow-md" : ""
+          className={`border-0 bg-gradient-to-br from-green-100 to-emerald-100 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
+            selectedStatus === "completed" ? "ring-2 ring-green-500 ring-offset-2 shadow-md" : "shadow-sm"
           }`}
           onClick={() => filterByStatus("completed")}
         >
@@ -507,8 +507,8 @@ export default function ApprovalQueue() {
 
         {/* Rejetées / échouées = ROUGE */}
         <Card 
-          className={`border-red-200 bg-red-50 cursor-pointer transition-all hover:shadow-md ${
-            selectedStatus === "rejected_failed" ? "ring-2 ring-red-400 shadow-md" : ""
+          className={`border-0 bg-gradient-to-br from-red-100 to-rose-100 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
+            selectedStatus === "rejected_failed" ? "ring-2 ring-red-500 ring-offset-2 shadow-md" : "shadow-sm"
           }`}
           onClick={() => filterByStatus("rejected_failed")}
         >
@@ -527,8 +527,8 @@ export default function ApprovalQueue() {
 
         {/* Total = VIOLET */}
         <Card 
-          className={`border-purple-200 bg-purple-50 cursor-pointer transition-all hover:shadow-md ${
-            selectedStatus === null ? "ring-2 ring-purple-400 shadow-md" : ""
+          className={`border-0 bg-gradient-to-br from-purple-100 to-violet-100 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
+            selectedStatus === null ? "ring-2 ring-purple-500 ring-offset-2 shadow-md" : "shadow-sm"
           }`}
           onClick={() => filterByStatus(null)}
         >
@@ -547,7 +547,7 @@ export default function ApprovalQueue() {
       </div>
 
       {/* Liste des actions */}
-      <Card>
+      <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm">
         <CardHeader className="py-3">
           <CardTitle className="text-base flex items-center gap-2">
             {selectedStatus === "pending_approval" && "Actions en attente d'approbation"}
@@ -638,16 +638,18 @@ export default function ApprovalQueue() {
             </div>
           ) : (
             <div className="space-y-3">
-              {actions.map((action) => (
+              {actions.map((action, index) => (
                 <motion.div
                   key={action.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="border rounded-lg p-3 bg-white hover:shadow-md transition-shadow"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.04, duration: 0.3, ease: 'easeOut' }}
+                  whileHover={{ scale: 1.005, y: -2 }}
+                  className="border border-gray-200 rounded-xl p-4 bg-gradient-to-r from-white to-gray-100/60 hover:shadow-lg hover:border-purple-300 transition-all duration-300 cursor-default"
                 >
                   <div className="flex items-start gap-4">
                     <div
-                      className={`p-2 rounded-lg border ${getActionBadgeColor(
+                      className={`p-2.5 rounded-xl border-0 shadow-sm ${getActionBadgeColor(
                         action.action_type
                       )}`}
                     >
@@ -661,9 +663,9 @@ export default function ApprovalQueue() {
                         </h4>
                         <Badge
                           variant="outline"
-                          className="text-[10px] px-1.5 py-0.5"
+                          className="text-[10px] px-1.5 py-0.5 border-gray-200/60 text-gray-400 font-mono"
                         >
-                          #{action.id}
+                          {action.id}
                         </Badge>
                         {getStatusBadge(action.status)}
                       </div>
@@ -717,14 +719,9 @@ export default function ApprovalQueue() {
                         </p>
                       )}
 
-                      {action.error_message && (action.status === "failed" || action.status === "rejected") && (
-                        <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded p-2 mt-2">
-                          ❌ {action.error_message}
-                        </p>
-                      )}
 
-                      <p className="text-[11px] text-gray-400 mt-2">
-                        Créée le{" "}
+                      <p className="text-[11px] text-gray-300 mt-3 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
                         {new Date(
                           action.created_at
                         ).toLocaleString("fr-FR")}
@@ -743,7 +740,7 @@ export default function ApprovalQueue() {
       </Card>
 
       {/* Info */}
-      <Card className="bg-blue-50 border-blue-200">
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50/50 border-0 shadow-sm">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
