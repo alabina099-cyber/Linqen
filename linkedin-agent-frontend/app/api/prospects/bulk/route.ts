@@ -31,9 +31,10 @@ export async function POST(request: NextRequest) {
            ON CONFLICT (linkedin_url) DO UPDATE SET
              name = COALESCE(EXCLUDED.name, prospects.name),
              role = COALESCE(EXCLUDED.role, prospects.role),
+             company = COALESCE(EXCLUDED.company, prospects.company),
              location = COALESCE(EXCLUDED.location, prospects.location),
              updated_at = NOW()
-           RETURNING id, name, linkedin_url, status`,
+           RETURNING id, name, linkedin_url, role, company, status`,
           [
             p.linkedin_url,
             p.name,

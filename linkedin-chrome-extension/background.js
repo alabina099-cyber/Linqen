@@ -1,6 +1,6 @@
-// Configuration — v2.9 (2026-04-21) — Stop pendant envoi message
+// Configuration — v3.0 (2026-04-21) — Pipeline prospects + liaison messages
 console.log(
-  "[Extension] ██████ background.js v2.9 chargé — STOP PENDANT ENVOI ██████"
+  "[Extension] ██████ background.js v3.0 chargé — PIPELINE PROSPECTS ██████"
 );
 const DEFAULT_API_BASE_URL = "http://localhost:3000/api";
 let API_BASE_URL = DEFAULT_API_BASE_URL;
@@ -841,9 +841,10 @@ async function executeSearchAndMessage(action) {
         return;
       }
 
-      // Sauvegarder les prospects en DB
+      // Sauvegarder les prospects en DB et récupérer leurs IDs
+      const prospectIdMap = {}; // linkedin_url → prospect_id
       try {
-        await fetch(`${API_BASE_URL}/prospects/bulk`, {
+        const bulkRes = await fetch(`${API_BASE_URL}/prospects/bulk`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -852,6 +853,15 @@ async function executeSearchAndMessage(action) {
             search_action_id: action.id
           })
         });
+        const bulkData = await bulkRes.json();
+        if (bulkData.success && bulkData.prospects) {
+          for (const p of bulkData.prospects) {
+            if (p.linkedin_url) prospectIdMap[p.linkedin_url] = p.id;
+          }
+          console.log(
+            `[SEARCH&MSG] 💾 ${bulkData.saved_count} prospects sauvegardés en DB (IDs récupérés: ${Object.keys(prospectIdMap).length})`
+          );
+        }
       } catch (e) {
         console.log(
           "[SEARCH&MSG] Erreur sauvegarde prospects (non bloquante):",
@@ -1090,7 +1100,10 @@ async function executeSearchAndMessage(action) {
           results.push({ name: profile.name, status: "sent" });
           console.log(`[SEARCH&MSG] ✅ Message envoyé à ${profile.name}`);
 
-          // Sauvegarder le message dans la table messages pour l'onglet Messages
+          // Récupérer le prospect_id pour lier le message au prospect
+          const prospectId = prospectIdMap[profile.linkedin_url] || null;
+
+          // Sauvegarder le message dans la table messages (lié au prospect)
           try {
             const msgPayload = {
               recipient_name: cleanName,
@@ -1100,9 +1113,10 @@ async function executeSearchAndMessage(action) {
             };
             if (cleanRole) msgPayload.recipient_role = cleanRole;
             if (cleanCompany) msgPayload.recipient_company = cleanCompany;
+            if (prospectId) msgPayload.prospect_id = prospectId;
 
             console.log(
-              `[SEARCH&MSG] 💾 Sauvegarde message vers ${API_BASE_URL}/messages...`
+              `[SEARCH&MSG] 💾 Sauvegarde message vers ${API_BASE_URL}/messages... (prospect_id: ${prospectId})`
             );
             const saveRes = await fetch(`${API_BASE_URL}/messages`, {
               method: "POST",
@@ -1122,6 +1136,38 @@ async function executeSearchAndMessage(action) {
           } catch (dbErr) {
             console.log(
               `[SEARCH&MSG] ⚠️ Erreur sauvegarde message (non bloquante): ${dbErr.message}`
+            );
+          }
+
+          // Mettre à jour le statut du prospect → "contacted"
+          try {
+            const updatePayload = { status: "contacted" };
+            if (prospectId) {
+              updatePayload.prospect_id = prospectId;
+            } else if (profile.linkedin_url) {
+              updatePayload.linkedin_url = profile.linkedin_url;
+            }
+            const updateRes = await fetch(
+              `${API_BASE_URL}/prospects/update-status`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updatePayload)
+              }
+            );
+            const updateData = await updateRes.json();
+            if (updateRes.ok && updateData.success) {
+              console.log(
+                `[SEARCH&MSG] 📊 Prospect ${cleanName} → statut "contacted"`
+              );
+            } else {
+              console.log(
+                `[SEARCH&MSG] ⚠️ Erreur màj statut prospect: ${JSON.stringify(updateData)}`
+              );
+            }
+          } catch (statusErr) {
+            console.log(
+              `[SEARCH&MSG] ⚠️ Erreur màj statut prospect (non bloquante): ${statusErr.message}`
             );
           }
         } else {

@@ -122,30 +122,36 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    async function fetchProspects() {
-      try {
-        const response = await fetch('/api/prospects?limit=50');
-        const data = await response.json();
+  const fetchProspects = async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
+      const response = await fetch('/api/prospects?limit=100');
+      const data = await response.json();
+      
+      if (data.success) {
+        const prospects = data.prospects.map((p: any) => ({
+          ...p,
+          avatar: getInitials(p.name)
+        }));
         
-        if (data.success) {
-          // Organiser les prospects par statut
-          const prospects = data.prospects.map((p: any) => ({
-            ...p,
-            avatar: getInitials(p.name)
-          }));
-          
-          setAllProspects(prospects);
-          organizeProspects(prospects);
-        }
-      } catch (error) {
-        console.error('Error fetching prospects:', error);
-      } finally {
-        setLoading(false);
+        setAllProspects(prospects);
+        organizeProspects(prospects);
       }
+    } catch (error) {
+      console.error('Error fetching prospects:', error);
+    } finally {
+      if (!silent) setLoading(false);
     }
+  };
 
+  useEffect(() => {
     fetchProspects();
+  }, [displayLimit]);
+
+  // Auto-refresh toutes les 10 secondes pour suivre les mises à jour de l'extension
+  useEffect(() => {
+    const interval = setInterval(() => fetchProspects(true), 10000);
+    return () => clearInterval(interval);
   }, [displayLimit]);
 
   // Function to organize prospects into stages - ALWAYS returns all 5 stages
@@ -356,8 +362,11 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
   };
 
   const totalProspects = pipelineData.reduce((acc, stage) => acc + stage.count, 0);
+  const totalContacted = pipelineData.find(s => s.id === 'contacted')?.count || 0;
+  const totalResponded = pipelineData.find(s => s.id === 'responded')?.count || 0;
   const totalConverted = pipelineData.find(s => s.id === 'converted')?.count || 0;
   const globalConversionRate = totalProspects > 0 ? Math.round((totalConverted / totalProspects) * 100) : 0;
+  const responseRate = totalContacted > 0 ? Math.round((totalResponded / totalContacted) * 100) : 0;
 
   return (
     <div className={fullView ? "w-full" : ""}>
