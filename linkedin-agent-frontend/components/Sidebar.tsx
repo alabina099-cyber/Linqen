@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { LayoutDashboard, Users, Target, Settings, Activity, Menu, X, Bot, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface SidebarProps {
   activeTab: string;
@@ -12,6 +13,7 @@ interface SidebarProps {
 export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const { t } = useSettings();
 
   useEffect(() => {
     const checkMobile = () => {
@@ -24,12 +26,12 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   }, []);
 
   const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "dashboard", label: t("Tableau de bord", "Dashboard"), icon: LayoutDashboard },
     { id: "prospects", label: "Prospects", icon: Users },
-    { id: "campaigns", label: "Campagnes", icon: Target },
-    { id: "approval", label: "Approbations", icon: Clock },
-    { id: "agent", label: "Agent IA", icon: Bot },
-    { id: "settings", label: "Paramètres", icon: Settings },
+    { id: "campaigns", label: t("Campagnes", "Campaigns"), icon: Target },
+    { id: "approval", label: t("Approbations", "Approvals"), icon: Clock },
+    { id: "agent", label: t("Agent IA", "AI Agent"), icon: Bot },
+    { id: "settings", label: t("Paramètres", "Settings"), icon: Settings },
   ];
 
   const handleTabClick = (tabId: string) => {
@@ -84,7 +86,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             </div>
             <div>
               <h1 className="text-xl font-bold text-gray-900">LinkedIn Agent</h1>
-              <p className="text-xs text-gray-500">Prospection Autonome</p>
+              <p className="text-xs text-gray-500">{t("Prospection Autonome", "Autonomous Prospecting")}</p>
             </div>
           </div>
         </div>
@@ -121,7 +123,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
           <div className="bg-blue-50 rounded-lg p-4">
             <p className="text-xs font-semibold text-blue-900 mb-1">Version Beta</p>
             <p className="text-xs text-blue-700">
-              Interface de visualisation du projet LinkedIn Agent
+              {t("Interface de visualisation du projet LinkedIn Agent", "LinkedIn Agent project visualization interface")}
             </p>
           </div>
         </div>

@@ -1,6 +1,6 @@
-// Configuration — v3.0 (2026-04-21) — Pipeline prospects + liaison messages
+// Configuration — v3.1 (2026-04-22) — Détection automatique réponses inbox
 console.log(
-  "[Extension] ██████ background.js v3.0 chargé — PIPELINE PROSPECTS ██████"
+  "[Extension] ██████ background.js v3.1 chargé — INBOX REPLY DETECTION ██████"
 );
 const DEFAULT_API_BASE_URL = "http://localhost:3000/api";
 let API_BASE_URL = DEFAULT_API_BASE_URL;
@@ -94,6 +94,21 @@ chrome.alarms.create("pollActions", { periodInMinutes: 0.2 }); // Toutes les 12 
 // Alarme pour détecter les actions bloquées en "processing" depuis trop longtemps
 chrome.alarms.create("recoverStaleActions", { periodInMinutes: 2 }); // Toutes les 2 minutes
 
+// Alarme pour vérifier les réponses dans la messagerie LinkedIn
+chrome.alarms.create("checkInboxReplies", {
+  delayInMinutes: 0.5,
+  periodInMinutes: 5
+}); // 1ère fois après 30s, puis toutes les 5 min
+let isCheckingInbox = false;
+
+// Vérification immédiate au démarrage (après 10s pour laisser LinkedIn se charger)
+setTimeout(() => {
+  if (!isCheckingInbox && !isProcessing) {
+    console.log("[INBOX] 🚀 Vérification initiale au démarrage...");
+    checkInboxForReplies();
+  }
+}, 10000);
+
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === "pollActions") {
     console.log(`[ALARM] pollActions déclenché — isProcessing=${isProcessing}`);
@@ -141,7 +156,213 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       // Silencieux — pas critique
     }
   }
+
+  // Vérifier les réponses dans la messagerie LinkedIn
+  if (alarm.name === "checkInboxReplies") {
+    if (!isCheckingInbox && !isProcessing) {
+      await checkInboxForReplies();
+    }
+  }
 });
+
+// =============================================
+// VÉRIFICATION INBOX — Détecter les réponses automatiquement
+// =============================================
+async function checkInboxForReplies() {
+  isCheckingInbox = true;
+  console.log(
+    "[INBOX] 📬 Vérification des réponses dans la messagerie LinkedIn..."
+  );
+
+  let inboxTab = null;
+  try {
+    // D'abord récupérer les prospects en statut "contacted" depuis l'API
+    const prospectsRes = await fetch(
+      `${API_BASE_URL}/prospects?status=contacted&limit=100`
+    );
+    const prospectsData = await prospectsRes.json();
+
+    if (
+      !prospectsData.success ||
+      !prospectsData.prospects ||
+      prospectsData.prospects.length === 0
+    ) {
+      console.log(
+        "[INBOX] Aucun prospect en statut 'contacted' — rien à vérifier"
+      );
+      isCheckingInbox = false;
+      return;
+    }
+
+    const contactedProspects = prospectsData.prospects;
+    console.log(
+      `[INBOX] ${contactedProspects.length} prospects contactés à surveiller:`,
+      contactedProspects.map((p) => p.name).join(", ")
+    );
+
+    // Ouvrir la messagerie LinkedIn dans un onglet en arrière-plan
+    inboxTab = await new Promise((resolve, reject) => {
+      chrome.tabs.create(
+        { url: "https://www.linkedin.com/messaging/", active: false },
+        (tab) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(tab);
+          }
+        }
+      );
+    });
+
+    // Attendre le chargement de la page
+    await new Promise((resolve) => {
+      function onUpdated(tabId, changeInfo) {
+        if (tabId === inboxTab.id && changeInfo.status === "complete") {
+          chrome.tabs.onUpdated.removeListener(onUpdated);
+          resolve();
+        }
+      }
+      chrome.tabs.onUpdated.addListener(onUpdated);
+      setTimeout(() => {
+        chrome.tabs.onUpdated.removeListener(onUpdated);
+        resolve();
+      }, 15000);
+    });
+
+    await delay(3000); // Attendre le rendu JS
+
+    // Injecter le content script si nécessaire
+    await ensureContentScript(inboxTab.id);
+    await delay(1000);
+
+    // Demander au content script de scraper l'inbox
+    const replies = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        chrome.runtime.onMessage.removeListener(inboxListener);
+        resolve([]);
+      }, 15000);
+
+      function inboxListener(message, sender) {
+        if (
+          message.type === "INBOX_REPLIES" &&
+          sender.tab?.id === inboxTab.id
+        ) {
+          clearTimeout(timeout);
+          chrome.runtime.onMessage.removeListener(inboxListener);
+          resolve(message.data || []);
+          return true;
+        }
+      }
+      chrome.runtime.onMessage.addListener(inboxListener);
+
+      chrome.tabs.sendMessage(
+        inboxTab.id,
+        {
+          type: "SCRAPE_INBOX",
+          contactedProspects: contactedProspects.map((p) => ({
+            id: p.id,
+            name: p.name,
+            linkedin_url: p.linkedin_url
+          }))
+        },
+        (resp) => {
+          if (chrome.runtime.lastError) {
+            clearTimeout(timeout);
+            chrome.runtime.onMessage.removeListener(inboxListener);
+            console.log(
+              "[INBOX] ⚠️ Erreur envoi SCRAPE_INBOX:",
+              chrome.runtime.lastError.message
+            );
+            resolve([]);
+          }
+        }
+      );
+    });
+
+    console.log(
+      `[INBOX] ${replies.length} réponses confirmées par le content script`
+    );
+
+    // Le content script a déjà matché par nom → il retourne prospect_id directement
+    let updated = 0;
+    for (const reply of replies) {
+      const prospectId = reply.prospect_id;
+      if (!prospectId) {
+        console.log(
+          `[INBOX] ⚠️ Réponse de "${reply.name}" sans prospect_id — ignorée`
+        );
+        continue;
+      }
+
+      console.log(
+        `[INBOX] ✅ "${reply.name}" a répondu → mise à jour prospect #${prospectId}`
+      );
+      try {
+        const updateRes = await fetch(
+          `${API_BASE_URL}/prospects/update-status`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prospect_id: prospectId,
+              status: "responded"
+            })
+          }
+        );
+        const updateData = await updateRes.json();
+        if (updateRes.ok && updateData.success) {
+          updated++;
+          console.log(
+            `[INBOX] 📊 Prospect #${prospectId} "${reply.name}" → statut "responded"`
+          );
+
+          // Mettre à jour les stats campagne (replied) si le prospect est lié à une campagne
+          try {
+            const campaignStatsRes = await fetch(
+              `${API_BASE_URL}/campaigns/update-stats`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  prospect_id: prospectId,
+                  stat: "replied"
+                })
+              }
+            );
+            if (campaignStatsRes.ok) {
+              const statsData = await campaignStatsRes.json();
+              if (statsData.updated_campaigns?.length > 0) {
+                console.log(
+                  `[INBOX] 📈 Campagne(s) mise(s) à jour: ${statsData.updated_campaigns.join(", ")}`
+                );
+              }
+            }
+          } catch (statsErr) {
+            console.log(
+              `[INBOX] ⚠️ Erreur mise à jour stats campagne: ${statsErr.message}`
+            );
+          }
+        } else {
+          console.log(`[INBOX] ⚠️ Erreur API: ${JSON.stringify(updateData)}`);
+        }
+      } catch (e) {
+        console.log(`[INBOX] ⚠️ Erreur mise à jour: ${e.message}`);
+      }
+    }
+
+    console.log(
+      `[INBOX] 📬 Vérification terminée — ${updated} prospects mis à jour en "responded"`
+    );
+  } catch (error) {
+    console.error("[INBOX] Erreur vérification inbox:", error.message);
+  } finally {
+    // Fermer l'onglet inbox
+    if (inboxTab?.id) {
+      chrome.tabs.remove(inboxTab.id).catch(() => {});
+    }
+    isCheckingInbox = false;
+  }
+}
 
 // Écouter les messages du popup et content script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -241,6 +462,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     captureLinkedInCookie()
       .then((result) => sendResponse(result))
       .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.type === "GET_LINKEDIN_COOKIE") {
+    chrome.cookies
+      .get({ url: "https://www.linkedin.com", name: "li_at" })
+      .then((cookie) => {
+        if (!cookie || !cookie.value) {
+          sendResponse({
+            success: false,
+            error:
+              "Cookie li_at non trouvé. Connectez-vous d'abord sur linkedin.com."
+          });
+        } else {
+          sendResponse({ success: true, cookie: cookie.value });
+        }
+      })
+      .catch((err) =>
+        sendResponse({ success: false, error: err?.message || "Erreur" })
+      );
     return true;
   }
 });
@@ -721,6 +962,13 @@ async function executeSearchAndMessage(action) {
         ? JSON.parse(action.payload)
         : action.payload;
     const messageTemplate = payload.message_template || "";
+    const campaignId = payload.campaign_id || action.campaign_id || null;
+
+    if (campaignId) {
+      console.log(
+        `[SEARCH&MSG] Campagne liée: #${campaignId} (${payload.campaign_name || "N/A"})`
+      );
+    }
 
     if (!messageTemplate) {
       await updateActionStatus(
@@ -742,6 +990,7 @@ async function executeSearchAndMessage(action) {
     const isResume =
       prevResult.profiles_data && prevResult.profiles_data.length > 0;
     let profiles;
+    const prospectIdMap = {}; // linkedin_url → prospect_id (accessible dans toute la fonction)
 
     if (isResume) {
       // === REPRISE APRÈS STOP : utiliser les profils sauvegardés ===
@@ -842,7 +1091,40 @@ async function executeSearchAndMessage(action) {
       }
 
       // Sauvegarder les prospects en DB et récupérer leurs IDs
-      const prospectIdMap = {}; // linkedin_url → prospect_id
+      try {
+        const bulkPayload = {
+          prospects: profiles,
+          source: "linkedin_search",
+          search_action_id: action.id
+        };
+        if (campaignId) bulkPayload.campaign_id = campaignId;
+        const bulkRes = await fetch(`${API_BASE_URL}/prospects/bulk`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bulkPayload)
+        });
+        const bulkData = await bulkRes.json();
+        if (bulkData.success && bulkData.prospects) {
+          for (const p of bulkData.prospects) {
+            if (p.linkedin_url) prospectIdMap[p.linkedin_url] = p.id;
+          }
+          console.log(
+            `[SEARCH&MSG] 💾 ${bulkData.saved_count} prospects sauvegardés en DB (IDs récupérés: ${Object.keys(prospectIdMap).length})`
+          );
+        }
+      } catch (e) {
+        console.log(
+          "[SEARCH&MSG] Erreur sauvegarde prospects (non bloquante):",
+          e.message
+        );
+      }
+    }
+
+    // Résoudre les IDs des prospects si pas encore dans le map (reprise ou fallback)
+    if (Object.keys(prospectIdMap).length === 0 && profiles.length > 0) {
+      console.log(
+        "[SEARCH&MSG] 🔍 Résolution des IDs prospects depuis la DB..."
+      );
       try {
         const bulkRes = await fetch(`${API_BASE_URL}/prospects/bulk`, {
           method: "POST",
@@ -859,12 +1141,12 @@ async function executeSearchAndMessage(action) {
             if (p.linkedin_url) prospectIdMap[p.linkedin_url] = p.id;
           }
           console.log(
-            `[SEARCH&MSG] 💾 ${bulkData.saved_count} prospects sauvegardés en DB (IDs récupérés: ${Object.keys(prospectIdMap).length})`
+            `[SEARCH&MSG] 💾 IDs résolus: ${Object.keys(prospectIdMap).length} prospects`
           );
         }
       } catch (e) {
         console.log(
-          "[SEARCH&MSG] Erreur sauvegarde prospects (non bloquante):",
+          "[SEARCH&MSG] ⚠️ Erreur résolution IDs (non bloquante):",
           e.message
         );
       }
@@ -1103,7 +1385,7 @@ async function executeSearchAndMessage(action) {
           // Récupérer le prospect_id pour lier le message au prospect
           const prospectId = prospectIdMap[profile.linkedin_url] || null;
 
-          // Sauvegarder le message dans la table messages (lié au prospect)
+          // Sauvegarder le message dans la table messages (lié au prospect ET à la campagne)
           try {
             const msgPayload = {
               recipient_name: cleanName,
@@ -1114,6 +1396,7 @@ async function executeSearchAndMessage(action) {
             if (cleanRole) msgPayload.recipient_role = cleanRole;
             if (cleanCompany) msgPayload.recipient_company = cleanCompany;
             if (prospectId) msgPayload.prospect_id = prospectId;
+            if (campaignId) msgPayload.campaign_id = campaignId;
 
             console.log(
               `[SEARCH&MSG] 💾 Sauvegarde message vers ${API_BASE_URL}/messages... (prospect_id: ${prospectId})`

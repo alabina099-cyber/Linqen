@@ -129,7 +129,7 @@ export default function PerformanceCharts() {
                 </CardTitle>
 
                 <p className="text-xs text-gray-500">
-                  Leads qualifiés vs invitations envoyées
+                  Leads intéressés vs invitations envoyées
                 </p>
               </div>
 
@@ -190,7 +190,7 @@ export default function PerformanceCharts() {
                 strokeWidth={3}
                 fillOpacity={1}
                 fill="url(#colorQualified)"
-                name="Leads Qualifiés"
+                name="Leads Intéressés"
               />
 
               <Area

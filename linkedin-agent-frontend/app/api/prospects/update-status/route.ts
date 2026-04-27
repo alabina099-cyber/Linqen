@@ -45,10 +45,13 @@ export async function POST(request: NextRequest) {
         [status, prospect_id]
       );
     } else if (linkedin_url) {
-      // Mise à jour par URL LinkedIn
+      // Mise à jour par URL LinkedIn — essayer exact d'abord, puis LIKE pour variantes
+      const cleanUrl = linkedin_url.replace(/\/+$/, ""); // Enlever trailing slashes
       result = await query(
-        `UPDATE prospects SET status = $1, updated_at = NOW() WHERE linkedin_url = $2 RETURNING id, name, linkedin_url, status`,
-        [status, linkedin_url]
+        `UPDATE prospects SET status = $1, updated_at = NOW() 
+         WHERE linkedin_url = $2 OR linkedin_url = $3 OR linkedin_url LIKE $4
+         RETURNING id, name, linkedin_url, status`,
+        [status, linkedin_url, cleanUrl, `${cleanUrl}%`]
       );
     } else {
       return NextResponse.json(

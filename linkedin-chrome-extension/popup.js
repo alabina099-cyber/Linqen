@@ -24,24 +24,35 @@ document.addEventListener("DOMContentLoaded", () => {
     refreshLinkedInAccount();
   });
 
-  document.getElementById("refreshBtn").addEventListener("click", () => {
-    refreshData();
-    refreshLinkedInAccount();
-    chrome.runtime.sendMessage({ type: "MANUAL_POLL" });
-  });
+  const refreshBtn = document.getElementById("refreshBtn");
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", () => {
+      refreshData();
+      refreshLinkedInAccount();
+      chrome.runtime.sendMessage({ type: "MANUAL_POLL" });
+    });
+  }
 
-  document.getElementById("openDashboardBtn").addEventListener("click", () => {
-    chrome.tabs.create({ url: SERVER_URL });
-  });
+  const openDashboardBtn = document.getElementById("openDashboardBtn");
+  if (openDashboardBtn) {
+    openDashboardBtn.addEventListener("click", () => {
+      chrome.tabs.create({ url: SERVER_URL });
+    });
+  }
 
-  document
-    .getElementById("liAccountBtn")
-    .addEventListener("click", async () => {
+  const liAccountBtn = document.getElementById("liAccountBtn");
+  if (liAccountBtn)
+    liAccountBtn.addEventListener("click", async () => {
+      console.log("[LinkedIn Agent] >>> Bouton Connecter cliqué");
       const btn = document.getElementById("liAccountBtn");
       const text = document.getElementById("liAccountText");
+      console.log("[LinkedIn Agent] btn.textContent =", btn?.textContent);
 
       // Si déjà connecté, ouvrir la page de gestion
-      if (btn.textContent === "Gérer") {
+      if (btn.textContent.trim() === "Gérer") {
+        console.log(
+          "[LinkedIn Agent] Bouton en mode Gérer → ouverture du dashboard"
+        );
         chrome.tabs.create({ url: SERVER_URL + "/#linkedin-account" });
         return;
       }
@@ -50,6 +61,7 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.textContent = "Capture...";
       btn.disabled = true;
       if (text) text.textContent = "Capture du cookie en cours...";
+      console.log("[LinkedIn Agent] API_BASE_URL =", API_BASE_URL);
 
       try {
         // Vérifier que l'API cookies est disponible

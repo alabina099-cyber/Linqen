@@ -236,6 +236,9 @@ export default function Campaigns() {
     }
   }
 
+  const [executingCampaignId, setExecutingCampaignId] = useState<number | null>(null);
+  const [executeMessage, setExecuteMessage] = useState<string | null>(null);
+
   const toggleStatus = async (id: number) => {
     const campaign = campaigns.find(c => c.id === id);
     if (!campaign) return;
@@ -249,9 +252,37 @@ export default function Campaigns() {
       if (res.ok) {
         setCampaigns((prev) => prev.map((c) => c.id === id ? { ...c, status: newStatus as Campaign['status'] } : c));
         if (selected?.id === id) setSelected({ ...selected, status: newStatus as Campaign['status'] });
+
+        // Si la campagne passe à "active", lancer l'exécution automatique
+        if (newStatus === "active") {
+          await executeCampaign(id);
+        }
       }
     } catch (error) {
       console.error('Error toggling status:', error);
+    }
+  };
+
+  const executeCampaign = async (id: number) => {
+    setExecutingCampaignId(id);
+    setExecuteMessage(null);
+    try {
+      const res = await fetch(`/api/campaigns/${id}/execute`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setExecuteMessage(data.message || "Action de prospection créée ! Vérifiez la file d'approbation.");
+        // Masquer le message après 5s
+        setTimeout(() => setExecuteMessage(null), 5000);
+      } else {
+        setExecuteMessage(data.error || "Erreur lors du lancement de la campagne");
+        setTimeout(() => setExecuteMessage(null), 5000);
+      }
+    } catch (error) {
+      console.error('Error executing campaign:', error);
+      setExecuteMessage("Erreur réseau lors du lancement");
+      setTimeout(() => setExecuteMessage(null), 5000);
+    } finally {
+      setExecutingCampaignId(null);
     }
   };
 
@@ -499,6 +530,29 @@ export default function Campaigns() {
           </motion.button>
         </div>
       </div>
+
+      {/* Notification de lancement de campagne */}
+      <AnimatePresence>
+        {executeMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium ${
+              executeMessage.includes("Erreur") || executeMessage.includes("erreur")
+                ? "bg-red-50 border-red-200 text-red-700"
+                : "bg-green-50 border-green-200 text-green-700"
+            }`}
+          >
+            {executeMessage.includes("Erreur") || executeMessage.includes("erreur") ? (
+              <X className="w-4 h-4 shrink-0" />
+            ) : (
+              <Rocket className="w-4 h-4 shrink-0 animate-bounce" />
+            )}
+            <span>{executeMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Stats Cards compactes - icônes colorées sur fond blanc */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
@@ -838,6 +892,24 @@ export default function Campaigns() {
                     </div>
                   </div>
 
+                  {/* Lancer la prospection */}
+                  {selected.status === "active" && (
+                    <div className="pt-3 border-t border-gray-100">
+                      <Button
+                        size="sm"
+                        className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-xs font-semibold shadow-md"
+                        onClick={() => executeCampaign(selected.id)}
+                        disabled={executingCampaignId === selected.id}
+                      >
+                        {executingCampaignId === selected.id ? (
+                          <><Clock className="w-3.5 h-3.5 mr-1 animate-spin" />Lancement en cours...</>
+                        ) : (
+                          <><Rocket className="w-3.5 h-3.5 mr-1" />Lancer la prospection</>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+
                   {/* Actions */}
                   <div className="grid grid-cols-3 gap-2 pt-3 border-t border-gray-100">
                     <Button variant="outline" size="sm" className="text-xs" onClick={() => duplicateCampaign(selected)}><Copy className="w-3.5 h-3.5 mr-1" />Dupliquer</Button>
@@ -904,8 +976,7 @@ export default function Campaigns() {
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Nom de la campagne <span className="text-red-500">*</span></label>
                         <div className="relative">
-                          <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: CEOs SaaS Paris" className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: CEOs SaaS Paris" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
                       </div>
                       <div>
@@ -1078,7 +1149,7 @@ export default function Campaigns() {
                 {currentStep < 4 ? (
                   <button onClick={nextStep} disabled={currentStep === 1 && !form.name.trim()} className={`flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/30 transition-all ${currentStep === 1 && !form.name.trim() ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700 hover:shadow-xl"}`}>Suivant<ChevronRight className="w-5 h-5" /></button>
                 ) : (
-                  <button onClick={createCampaign} className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold shadow-lg shadow-purple-500/30 hover:shadow-xl transition-all"><Rocket className="w-5 h-5" />{editingCampaign ? 'Enregistrer' : 'Créer la campagne'}</button>
+                  <button onClick={createCampaign} className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold shadow-lg shadow-purple-500/30 hover:shadow-xl transition-all">{editingCampaign ? 'Enregistrer' : 'Créer la campagne'}</button>
                 )}
               </div>
             </div>

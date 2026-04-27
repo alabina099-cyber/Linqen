@@ -42,14 +42,14 @@ export async function GET() {
   }
 }
 
-// POST — sauvegarder les credentials LinkedIn (cookie ou OAuth)
+// POST — sauvegarder les credentials LinkedIn (cookie ou extension)
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { method, cookie, email, name } = body;
 
-    if (!method || !["cookie", "oauth"].includes(method)) {
-      return NextResponse.json({ error: "Méthode invalide. Utilisez 'cookie' ou 'oauth'." }, { status: 400 });
+    if (!method || !["cookie", "extension", "oauth"].includes(method)) {
+      return NextResponse.json({ error: "Méthode invalide. Utilisez 'cookie' ou 'extension'." }, { status: 400 });
     }
 
     if (method === "cookie" && !cookie) {
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Compte LinkedIn connecté via ${method === "cookie" ? "cookie" : "OAuth"}.`,
+      message: `Compte LinkedIn connecté via ${method === "cookie" ? "cookie" : "Extension"}.`,
       method,
     });
   } catch (error) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSettings } from "@/contexts/SettingsContext";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -165,14 +166,33 @@ export default function Settings() {
     loginAlerts: true,
   });
 
-  // Appearance
-  const [appearance, setAppearance] = useState({
-    theme: "light",
-    language: "fr",
-    dateFormat: "DD/MM/YYYY",
-    timeFormat: "24h",
-    compactMode: false,
+  // Appearance — synced with global SettingsContext
+  const { settings: globalSettings, updateSettings: updateGlobalSettings } = useSettings();
+  const [appearance, setAppearanceLocal] = useState({
+    theme: globalSettings.theme,
+    language: globalSettings.language,
+    dateFormat: globalSettings.dateFormat,
+    timeFormat: globalSettings.timeFormat,
   });
+
+  // Sync local appearance to global context
+  useEffect(() => {
+    updateGlobalSettings(appearance as any);
+  }, [appearance]);
+
+  // Sync from global on mount
+  useEffect(() => {
+    setAppearanceLocal({
+      theme: globalSettings.theme,
+      language: globalSettings.language,
+      dateFormat: globalSettings.dateFormat,
+      timeFormat: globalSettings.timeFormat,
+    });
+  }, []);
+
+  const setAppearance = (val: typeof appearance | ((prev: typeof appearance) => typeof appearance)) => {
+    setAppearanceLocal(val);
+  };
 
   // Billing
   const [billing] = useState({
@@ -220,38 +240,21 @@ export default function Settings() {
 
   return (
     <div className="space-y-6">
-      {/* Header créatif */}
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 text-white shadow-xl">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(99,102,241,0.15),transparent_50%),radial-gradient(circle_at_70%_80%,rgba(168,85,247,0.1),transparent_50%)]" />
-        <div className="relative flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/25">
-              <Settings2 className="w-7 h-7" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Paramètres</h1>
-              <p className="text-slate-400 mt-1">Configurez votre agent LinkedIn et vos préférences</p>
-            </div>
-          </div>
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Button 
-              onClick={handleSave}
-              className={`px-6 py-2.5 rounded-xl font-semibold shadow-lg transition-all ${saved ? "bg-gradient-to-r from-emerald-500 to-green-500" : "bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"}`}
-            >
-              {saved ? (
-                <><Check className="w-4 h-4 mr-2" /> Enregistré</>
-              ) : (
-                <><Save className="w-4 h-4 mr-2" /> Enregistrer</>
-              )}
-            </Button>
-          </motion.div>
+      {/* Header */}
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+            <Settings2 className="w-8 h-8 text-blue-600" />
+            Paramètres
+          </h1>
+          <p className="text-gray-600 mt-1">Configurez votre agent LinkedIn et vos préférences</p>
         </div>
       </motion.div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 bg-gray-100/50 p-2 rounded-2xl border border-gray-200/50 h-auto">
           <TabsTrigger value="account" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all px-2 sm:px-3 py-2"><User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /><span className="hidden sm:inline">Compte</span><span className="sm:hidden">Compte</span></TabsTrigger>
-          <TabsTrigger value="automation" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-amber-500 data-[state=active]:to-amber-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all px-2 sm:px-3 py-2"><Zap className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /><span className="hidden sm:inline">Automatisation</span><span className="sm:hidden">Auto</span></TabsTrigger>
+          <TabsTrigger value="automation" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-amber-500 data-[state=active]:to-amber-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all px-2 sm:px-3 py-2"><Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /><span className="hidden sm:inline">Automatisation</span><span className="sm:hidden">Auto</span></TabsTrigger>
           <TabsTrigger value="ai" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-pink-500 data-[state=active]:to-rose-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all px-2 sm:px-3 py-2"><Bot className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />IA</TabsTrigger>
           <TabsTrigger value="notifications" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-cyan-500 data-[state=active]:to-cyan-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all px-2 sm:px-3 py-2"><Bell className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /><span className="hidden sm:inline">Notifications</span><span className="sm:hidden">Notif</span></TabsTrigger>
           <TabsTrigger value="appearance" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-violet-500 data-[state=active]:to-violet-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all px-2 sm:px-3 py-2"><Palette className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /><span className="hidden sm:inline">Affichage</span><span className="sm:hidden">Affich</span></TabsTrigger>
@@ -261,7 +264,18 @@ export default function Settings() {
         <TabsContent value="account" className="space-y-6">
           {/* LinkedIn Connection — Real Component */}
           <Card className="overflow-hidden border-0 shadow-lg">
-            <div className="h-1 bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600" />
+            <div className="h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-600" />
+            <CardHeader className="bg-gradient-to-br from-blue-50/50 to-white border-b border-gray-100">
+              <CardTitle className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-xl flex items-center justify-center shadow-md shadow-blue-200">
+                  <User className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <span className="text-lg font-bold text-gray-900">Compte LinkedIn</span>
+                  <CardDescription className="mt-0.5">Gérez votre connexion et vos informations de compte</CardDescription>
+                </div>
+              </CardTitle>
+            </CardHeader>
             <CardContent className="p-0">
               <div className="p-6">
                 <LinkedInAccount />
@@ -275,13 +289,18 @@ export default function Settings() {
 
         {/* AUTOMATION TAB */}
         <TabsContent value="automation" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-orange-600" />
-                Paramètres d'Automatisation
+          <Card className="overflow-hidden border-0 shadow-lg">
+            <div className="h-1 bg-gradient-to-r from-amber-400 via-orange-500 to-amber-600" />
+            <CardHeader className="bg-gradient-to-br from-amber-50/50 to-white border-b border-gray-100">
+              <CardTitle className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center shadow-md shadow-amber-200">
+                  <Clock className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <span className="text-lg font-bold text-gray-900">Paramètres d'Automatisation</span>
+                  <CardDescription className="mt-0.5">Contrôlez le timing et le comportement de l'agent</CardDescription>
+                </div>
               </CardTitle>
-              <CardDescription>Contrôlez le timing et le comportement de l'agent</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-2 gap-6">
@@ -439,13 +458,18 @@ export default function Settings() {
 
         {/* AI TAB */}
         <TabsContent value="ai" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bot className="w-5 h-5 text-purple-600" />
-                Intelligence Artificielle
+          <Card className="overflow-hidden border-0 shadow-lg">
+            <div className="h-1 bg-gradient-to-r from-pink-400 via-rose-500 to-pink-600" />
+            <CardHeader className="bg-gradient-to-br from-pink-50/50 to-white border-b border-gray-100">
+              <CardTitle className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-rose-500 rounded-xl flex items-center justify-center shadow-md shadow-pink-200">
+                  <Bot className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <span className="text-lg font-bold text-gray-900">Intelligence Artificielle</span>
+                  <CardDescription className="mt-0.5">Configurez l'IA pour la personnalisation et les réponses automatiques</CardDescription>
+                </div>
               </CardTitle>
-              <CardDescription>Configurez l'IA pour la personnalisation et les réponses automatiques</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between p-4 bg-purple-50 rounded-xl">
@@ -635,13 +659,18 @@ export default function Settings() {
           
 
           {/* Notification types */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Bell className="w-4 h-4 text-cyan-600" />
-                Alertes dans l'extension
+          <Card className="overflow-hidden border-0 shadow-lg">
+            <div className="h-1 bg-gradient-to-r from-cyan-400 via-teal-500 to-cyan-600" />
+            <CardHeader className="bg-gradient-to-br from-cyan-50/50 to-white border-b border-gray-100">
+              <CardTitle className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-teal-500 rounded-xl flex items-center justify-center shadow-md shadow-cyan-200">
+                  <Bell className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <span className="text-lg font-bold text-gray-900">Alertes dans l'extension</span>
+                  <CardDescription className="mt-0.5">Choisissez quels événements déclenchent une notification dans le popup</CardDescription>
+                </div>
               </CardTitle>
-              <CardDescription>Choisissez quels événements déclenchent une notification dans le popup</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {[
@@ -673,22 +702,39 @@ export default function Settings() {
         <TabsContent value="appearance" className="space-y-6">
           {/* Theme Selection - Creative Cards */}
           <Card className="border-0 shadow-lg overflow-hidden">
-            <CardHeader className="bg-linear-to-r from-pink-50 via-purple-50 to-blue-50 border-b">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-white rounded-2xl shadow-md flex items-center justify-center">
-                  <Palette className="w-6 h-6 text-pink-600" />
+            <div className="h-1 bg-gradient-to-r from-violet-400 via-purple-500 to-violet-600" />
+            <CardHeader className="bg-gradient-to-br from-violet-50/50 to-white border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-violet-400 to-purple-500 rounded-xl flex items-center justify-center shadow-md shadow-violet-200">
+                    <Palette className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <span className="text-lg font-bold text-gray-900">Personnalisation visuelle</span>
+                    <CardDescription className="mt-0.5">Choisissez l'apparence qui vous convient le mieux</CardDescription>
+                  </div>
                 </div>
-                <div>
-                  <CardTitle className="text-xl">Personnalisation visuelle</CardTitle>
-                  <CardDescription>Choisissez l'apparence qui vous convient le mieux</CardDescription>
-                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="text-gray-600 hover:text-gray-900 bg-white/80 backdrop-blur-sm"
+                  onClick={() => setAppearance({
+                    theme: "light",
+                    language: "fr",
+                    dateFormat: "DD/MM/YYYY",
+                    timeFormat: "24h",
+                  })}
+                >
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                  Réinitialiser les préférences
+                </Button>
               </div>
             </CardHeader>
             <CardContent className="p-6 space-y-8">
               {/* Theme Preview Cards */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-yellow-500" />
+                  <Monitor className="w-4 h-4 text-blue-500" />
                   Thème de l'interface
                 </label>
                 <div className="grid grid-cols-3 gap-4">
@@ -778,103 +824,77 @@ export default function Settings() {
 
               <Separator className="bg-gray-200" />
 
-              {/* Accent Color Selection */}
+              {/* Langue et Date */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                  <Palette className="w-4 h-4 text-pink-500" />
-                  Couleur d'accent principale
+                  <Globe className="w-4 h-4 text-blue-500" />
+                  Langue et Date
                 </label>
-                <div className="flex flex-wrap gap-3">
-                  {[
-                    { color: "bg-blue-500", name: "Bleu", hex: "#3B82F6" },
-                    { color: "bg-purple-500", name: "Violet", hex: "#A855F7" },
-                    { color: "bg-pink-500", name: "Rose", hex: "#EC4899" },
-                    { color: "bg-red-500", name: "Rouge", hex: "#EF4444" },
-                    { color: "bg-orange-500", name: "Orange", hex: "#F97316" },
-                    { color: "bg-green-500", name: "Vert", hex: "#22C55E" },
-                    { color: "bg-cyan-500", name: "Cyan", hex: "#06B6D4" },
-                    { color: "bg-indigo-500", name: "Indigo", hex: "#6366F1" },
-                  ].map((c) => (
-                    <button
-                      key={c.name}
-                      className="group relative flex flex-col items-center gap-2"
-                    >
-                      <div className={`w-12 h-12 rounded-xl ${c.color} shadow-md group-hover:scale-110 group-hover:shadow-lg transition-all duration-200 flex items-center justify-center`}>
-                        <div className="w-4 h-4 bg-white/30 rounded-full" />
-                      </div>
-                      <span className="text-xs text-gray-600 font-medium">{c.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <Separator className="bg-gray-200" />
-
-              {/* Settings Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Language Selection */}
-                <div className="space-y-3">
-                  <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-blue-500" />
-                    Langue de l'interface
-                  </label>
-                  <div className="relative">
-                    <select
-                      id="appearance-language"
-                      aria-label="Langue"
-                      value={appearance.language}
-                      onChange={(e) => setAppearance({ ...appearance, language: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all appearance-none cursor-pointer"
-                    >
-                      <option value="fr">🇫🇷 Français</option>
-                      <option value="en">🇬🇧 English</option>
-                      <option value="es">🇪🇸 Español</option>
-                      <option value="de">🇩🇪 Deutsch</option>
-                      <option value="it">🇮🇹 Italiano</option>
-                      <option value="pt">🇵🇹 Português</option>
-                    </select>
-                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-gray-500">Langue</label>
+                  <div className="flex gap-2">
+                    {[
+                      { value: "fr", label: "FR", desc: "Français" },
+                      { value: "en", label: "EN", desc: "English" },
+                    ].map((lang) => (
+                      <button
+                        key={lang.value}
+                        onClick={() => setAppearance({ ...appearance, language: lang.value })}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border-2 text-sm font-medium transition-all duration-200 ${
+                          appearance.language === lang.value
+                            ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm shadow-blue-100"
+                            : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+                        }`}
+                      >
+                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${
+                          appearance.language === lang.value ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-600"
+                        }`}>{lang.label}</span>
+                        <span>{lang.desc}</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
 
                 {/* Date Format */}
-                <div className="space-y-3">
-                  <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-green-500" />
-                    Format de date
-                  </label>
-                  <div className="relative">
-                    <select
-                      id="appearance-dateformat"
-                      aria-label="Format date"
-                      value={appearance.dateFormat}
-                      onChange={(e) => setAppearance({ ...appearance, dateFormat: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all appearance-none cursor-pointer"
-                    >
-                      <option value="DD/MM/YYYY">31/12/2024 (Français)</option>
-                      <option value="MM/DD/YYYY">12/31/2024 (US)</option>
-                      <option value="YYYY-MM-DD">2024-12-31 (ISO)</option>
-                      <option value="DD MMMM YYYY">31 décembre 2024 (Long)</option>
-                    </select>
-                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-gray-500">Format de date</label>
+                  <div className="flex gap-2">
+                    {[
+                      { value: "DD/MM/YYYY", label: "31/12/2024", badge: "FR" },
+                      { value: "MM/DD/YYYY", label: "12/31/2024", badge: "US" },
+                    ].map((fmt) => (
+                      <button
+                        key={fmt.value}
+                        onClick={() => setAppearance({ ...appearance, dateFormat: fmt.value })}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border-2 text-sm font-medium transition-all duration-200 ${
+                          appearance.dateFormat === fmt.value
+                            ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm shadow-blue-100"
+                            : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+                        }`}
+                      >
+                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${
+                          appearance.dateFormat === fmt.value ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-600"
+                        }`}>{fmt.badge}</span>
+                        <span>{fmt.label}</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
 
                 {/* Time Format */}
-                <div className="space-y-3">
-                  <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-orange-500" />
-                    Format d'heure
-                  </label>
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-gray-500">Format d'heure</label>
                   <div className="flex gap-2">
                     {["24h", "12h"].map((format) => (
                       <button
                         key={format}
                         onClick={() => setAppearance({ ...appearance, timeFormat: format })}
-                        className={`flex-1 py-3 px-4 rounded-xl border-2 text-sm font-medium transition-all ${
+                        className={`flex-1 py-3 px-4 rounded-xl border-2 text-sm font-medium transition-all duration-200 ${
                           appearance.timeFormat === format
-                            ? "border-blue-500 bg-blue-50 text-blue-700"
-                            : "border-gray-200 text-gray-600 hover:border-gray-300"
+                            ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm shadow-blue-100"
+                            : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
                         }`}
                       >
                         {format === "24h" ? "14:30 (24h)" : "2:30 PM (12h)"}
@@ -883,73 +903,9 @@ export default function Settings() {
                   </div>
                 </div>
 
-                {/* Compact Mode */}
-                <div className="space-y-3">
-                  <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-purple-500" />
-                    Densité d'affichage
-                  </label>
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:border-blue-300 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-12 h-6 rounded-full transition-colors ${appearance.compactMode ? 'bg-blue-500' : 'bg-gray-300'}`}>
-                        <div className={`w-5 h-5 bg-white rounded-full shadow-md mt-0.5 transition-transform duration-300 ${appearance.compactMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">Mode compact</p>
-                        <p className="text-xs text-gray-500">Réduire l'espacement</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={appearance.compactMode}
-                      onCheckedChange={(v: boolean) => setAppearance({ ...appearance, compactMode: v })}
-                    />
-                  </div>
-                </div>
+              </div>
               </div>
 
-              <Separator className="bg-gray-200" />
-
-              {/* Typography Preview */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                  <Type className="w-4 h-4 text-indigo-500" />
-                  Aperçu de la typographie
-                </label>
-                <div className="p-6 bg-gray-50 rounded-2xl border border-gray-200">
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-2xl font-bold text-gray-900">Titre principal</p>
-                      <p className="text-sm text-gray-500">Police : Inter, Taille : 24px</p>
-                    </div>
-                    <div>
-                      <p className="text-base text-gray-700">Texte de corps standard utilisé pour la majorité du contenu de l'interface. C'est un exemple de paragraphe.</p>
-                      <p className="text-sm text-gray-500 mt-1">Police : Inter, Taille : 16px</p>
-                    </div>
-                    <div className="flex gap-4">
-                      <Badge className="bg-blue-100 text-blue-700">Badge exemple</Badge>
-                      <span className="text-xs text-gray-500 uppercase tracking-wider">LABEL</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Reset Button */}
-              <div className="flex justify-end">
-                <Button 
-                  variant="outline" 
-                  className="text-gray-600 hover:text-gray-900"
-                  onClick={() => setAppearance({
-                    theme: "light",
-                    language: "fr",
-                    dateFormat: "DD/MM/YYYY",
-                    timeFormat: "24h",
-                    compactMode: false,
-                  })}
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Réinitialiser les préférences
-                </Button>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>

@@ -27,6 +27,11 @@
         sendResponse({ received: true });
         break;
 
+      case "SCRAPE_INBOX":
+        scrapeInboxReplies(message.contactedProspects || []);
+        sendResponse({ received: true });
+        break;
+
       default:
         sendResponse({ error: "Unknown message type" });
     }
@@ -604,6 +609,207 @@
         type: "ACTION_FAILED",
         actionId,
         error: error.message || "Erreur lors de l'envoi du message"
+      });
+    }
+  }
+
+  // =============================================
+  // SCRAPING: Inbox LinkedIn — Détecter les réponses par nom de prospect
+  // Méthode fiable: ouvrir chaque conversation matchée et vérifier le vrai dernier message
+  // =============================================
+  async function scrapeInboxReplies(contactedProspects) {
+    try {
+      // Construire un map de noms normalisés → prospect info
+      const prospectMap = {}; // nom normalisé → prospect
+      for (const p of contactedProspects) {
+        if (p.name) {
+          const normalized = p.name.toLowerCase().trim();
+          prospectMap[normalized] = p;
+        }
+      }
+
+      console.log(
+        `[LinkedIn Agent] Inbox: recherche de réponses pour ${contactedProspects.length} prospects:`,
+        contactedProspects.map((p) => p.name).join(", ")
+      );
+
+      // Attendre le chargement de la liste de conversations
+      await waitForSelector(
+        ".msg-conversations-container__conversations-list, .msg-conversation-listitem",
+        10000
+      );
+      await delay(2000);
+
+      const conversations = document.querySelectorAll(
+        ".msg-conversation-listitem, .msg-conversations-container__conversations-list li, .msg-conversation-card"
+      );
+
+      console.log(
+        `[LinkedIn Agent] Inbox: ${conversations.length} conversations trouvées`
+      );
+
+      const replies = [];
+
+      for (const conv of conversations) {
+        try {
+          // Nom du contact dans la conversation
+          const nameEl = conv.querySelector(
+            ".msg-conversation-listitem__participant-names .truncate, " +
+              ".msg-conversation-card__participant-names, " +
+              "h3.msg-conversation-listitem__title span, " +
+              ".msg-conversation-listitem__title-text"
+          );
+          const rawName = nameEl ? nameEl.textContent.trim() : "";
+          if (!rawName) continue;
+
+          const convName = rawName.split(",")[0].trim().toLowerCase();
+
+          // ÉTAPE 1: Match par NOM COMPLET uniquement (pas de prénom seul = trop de faux positifs)
+          let matchedProspect = null;
+          if (prospectMap[convName]) {
+            matchedProspect = prospectMap[convName];
+          } else {
+            // Match partiel strict: le nom complet du prospect doit être dans le nom de la conversation
+            for (const [pName, prospect] of Object.entries(prospectMap)) {
+              // Exiger que le nom complet (prénom + nom) soit contenu, pas juste un prénom
+              if (
+                pName.split(" ").length >= 2 &&
+                (convName.includes(pName) || pName.includes(convName))
+              ) {
+                matchedProspect = prospect;
+                break;
+              }
+            }
+          }
+
+          if (!matchedProspect) continue;
+
+          console.log(
+            `[LinkedIn Agent] Inbox: 🔍 Conversation trouvée avec "${rawName}" → prospect #${matchedProspect.id} (${matchedProspect.name})`
+          );
+
+          // ÉTAPE 2: CLIQUER sur la conversation pour l'ouvrir et vérifier le vrai dernier message
+          const clickTarget = conv.querySelector("a") || conv;
+          clickTarget.click();
+          await delay(2500); // Attendre le chargement de la conversation
+
+          // ÉTAPE 3: Compter les bulles de messages et vérifier l'expéditeur du dernier
+          const msgBubbles = document.querySelectorAll(
+            ".msg-s-event-listitem, " +
+              ".msg-s-message-list__event, " +
+              ".msg-s-event-listitem__message-bubble"
+          );
+
+          if (msgBubbles.length < 2) {
+            console.log(
+              `[LinkedIn Agent] Inbox: "${rawName}" → seulement ${msgBubbles.length} message(s) → pas de réponse`
+            );
+            continue;
+          }
+
+          // Dernier message
+          const lastMsg = msgBubbles[msgBubbles.length - 1];
+
+          // Vérifier si le dernier message est de NOUS
+          // LinkedIn marque nos messages avec des classes spécifiques
+          const isOurMessage =
+            lastMsg.classList.contains("msg-s-event-listitem--other") ===
+              false &&
+            (lastMsg.classList.contains("msg-s-event-listitem--self") ||
+              lastMsg.querySelector(
+                ".msg-s-event-listitem__message-bubble--self"
+              ) !== null ||
+              lastMsg.closest(".msg-s-event-listitem--self") !== null);
+
+          // Fallback: vérifier le nom de l'expéditeur dans le message
+          const senderEl = lastMsg.querySelector(
+            ".msg-s-message-group__name, " +
+              ".msg-s-event-listitem__name, " +
+              ".msg-s-message-group__profile-link"
+          );
+          const senderName = senderEl
+            ? senderEl.textContent.trim().toLowerCase()
+            : "";
+
+          // Vérifier aussi par la structure du message (LinkedIn met les messages envoyés à droite)
+          const msgContainer =
+            lastMsg.closest(".msg-s-message-list-content") ||
+            document.querySelector(".msg-s-message-list-content");
+          const allGroups = msgContainer
+            ? msgContainer.querySelectorAll(".msg-s-message-group")
+            : [];
+          let lastGroupIsFromThem = false;
+
+          if (allGroups.length > 0) {
+            const lastGroup = allGroups[allGroups.length - 1];
+            // Si le dernier groupe contient un lien profil avec le nom du prospect → c'est de lui
+            const profileLink = lastGroup.querySelector(
+              "a.msg-s-message-group__profile-link, .msg-s-message-group__name"
+            );
+            if (profileLink) {
+              const groupSender = profileLink.textContent.trim().toLowerCase();
+              lastGroupIsFromThem =
+                convName.includes(groupSender) ||
+                groupSender.includes(convName.split(" ")[0]);
+              console.log(
+                `[LinkedIn Agent] Inbox: dernier groupe de messages envoyé par: "${groupSender}" — est du prospect: ${lastGroupIsFromThem}`
+              );
+            }
+          }
+
+          // DÉCISION: le prospect a répondu SEULEMENT si on est SÛR que le dernier message est de lui
+          const hasReplied =
+            lastGroupIsFromThem ||
+            (senderName &&
+              convName.includes(senderName.split(" ")[0]) &&
+              !isOurMessage);
+
+          if (!hasReplied) {
+            console.log(
+              `[LinkedIn Agent] Inbox: "${rawName}" → dernier message est de nous ou indéterminé → pas de réponse`
+            );
+            continue;
+          }
+
+          // Récupérer le texte du dernier message
+          const lastMsgText = lastMsg.querySelector(
+            ".msg-s-event-listitem__body, .msg-s-event__content"
+          );
+          const replyText = lastMsgText
+            ? lastMsgText.textContent.trim().substring(0, 100)
+            : "";
+
+          console.log(
+            `[LinkedIn Agent] Inbox: ✅ "${rawName}" a VRAIMENT répondu ! Message: "${replyText.substring(0, 50)}..."`
+          );
+
+          replies.push({
+            name: rawName.split(",")[0].trim(),
+            prospect_id: matchedProspect.id,
+            snippet: replyText,
+            confirmed: true
+          });
+        } catch (e) {
+          console.log(
+            `[LinkedIn Agent] Inbox: erreur conversation: ${e.message}`
+          );
+        }
+      }
+
+      console.log(
+        `[LinkedIn Agent] Inbox: ${replies.length} réponses CONFIRMÉES sur ${contactedProspects.length} prospects`
+      );
+
+      chrome.runtime.sendMessage({
+        type: "INBOX_REPLIES",
+        data: replies
+      });
+    } catch (error) {
+      console.error("[LinkedIn Agent] Scrape inbox error:", error);
+      chrome.runtime.sendMessage({
+        type: "INBOX_REPLIES",
+        data: [],
+        error: error.message
       });
     }
   }

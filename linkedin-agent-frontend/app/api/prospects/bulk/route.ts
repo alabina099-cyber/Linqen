@@ -23,6 +23,9 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
+      // Normaliser l'URL LinkedIn (enlever trailing slashes)
+      const normalizedUrl = p.linkedin_url.replace(/\/+$/, "");
+
       try {
         // UPSERT: insérer ou mettre à jour si l'URL existe déjà
         const result = await query(
@@ -36,7 +39,7 @@ export async function POST(request: NextRequest) {
              updated_at = NOW()
            RETURNING id, name, linkedin_url, role, company, status`,
           [
-            p.linkedin_url,
+            normalizedUrl,
             p.name,
             p.role || null,
             p.company || null,

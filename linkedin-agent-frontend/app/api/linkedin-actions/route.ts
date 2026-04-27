@@ -183,6 +183,23 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
+    // Si l'action est "search_and_message" et a réussi, mettre à jour les stats campagne avec le total de messages envoyés
+    if (action.action_type === 'search_and_message' && status === 'completed' && action.campaign_id) {
+      const resultData = typeof actionResult === 'object' ? actionResult : {};
+      const messagesSent = resultData.messages_sent || 0;
+      if (messagesSent > 0) {
+        // Synchroniser le compteur "contacted" de la campagne avec le nombre réel de messages envoyés
+        // On utilise une sous-requête pour compter les messages liés à cette campagne
+        await query(
+          `UPDATE campaigns SET 
+            contacted = (SELECT COUNT(*) FROM messages WHERE campaign_id = $1 AND status = 'sent'),
+            updated_at = NOW() 
+           WHERE id = $1`,
+          [action.campaign_id]
+        );
+      }
+    }
+
     return NextResponse.json({
       success: true,
       action: updateResult.rows[0],

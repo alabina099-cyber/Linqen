@@ -125,6 +125,8 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
   const fetchProspects = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
+      // Synchroniser les statuts avant de charger (prospects contactés mais encore en "new")
+      await fetch('/api/prospects/sync-status', { method: 'POST' }).catch(() => {});
       const response = await fetch('/api/prospects?limit=100');
       const data = await response.json();
       
@@ -200,7 +202,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
       },
       {
         id: "qualified",
-        status: "Qualifiés",
+        status: "Intéressés",
         count: prospects.filter((p: Prospect) => p.status === 'qualified').length,
         prospects: filtered.filter((p: Prospect) => p.status === 'qualified').slice(0, displayLimit),
         gradient: "bg-orange-100 border-orange-400",
