@@ -127,6 +127,67 @@ export async function PUT(
   }
 }
 
+// PATCH /api/prospects/[id] - Mise à jour partielle (drag-and-drop status)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: idStr } = await params;
+    const id = parseInt(idStr);
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "ID invalide" }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const validated = prospectUpdateSchema.parse(body);
+
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramCount = 0;
+
+    Object.entries(validated).forEach(([key, value]) => {
+      if (value !== undefined) {
+        paramCount++;
+        updates.push(`${key} = $${paramCount}`);
+        values.push(value);
+      }
+    });
+
+    if (updates.length === 0) {
+      return NextResponse.json({ error: "Aucune donnée à mettre à jour" }, { status: 400 });
+    }
+
+    paramCount++;
+    updates.push(`updated_at = NOW()`);
+    values.push(id);
+
+    const sql = `UPDATE prospects SET ${updates.join(", ")} WHERE id = $${paramCount} RETURNING *`;
+    const result = await query(sql, values);
+
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: "Prospect non trouvé" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      prospect: result.rows[0],
+    });
+  } catch (error) {
+    console.error("PATCH /api/prospects/[id] error:", error);
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Données invalides", details: error.format() },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json(
+      { error: "Erreur lors de la mise à jour du prospect" },
+      { status: 500 }
+    );
+  }
+}
+
 // DELETE /api/prospects/[id] - Supprimer un prospect
 // Force recompile: 2026-03-13
 export async function DELETE(

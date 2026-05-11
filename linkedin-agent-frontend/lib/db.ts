@@ -64,14 +64,15 @@ export async function createCampaign(data: {
   company_size?: string;
   objective?: string;
   seniority?: string;
+  campaign_type?: string;
   daily_limit?: number;
   follow_up_days?: number;
 }) {
   const result = await query(
-    `INSERT INTO campaigns (name, status, target, template, description, industry, location, company_size, objective, seniority, daily_limit, follow_up_days, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+    `INSERT INTO campaigns (name, status, target, template, description, industry, location, company_size, objective, seniority, campaign_type, daily_limit, follow_up_days, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
      RETURNING *`,
-    [data.name, data.status, data.target, data.template, data.description, data.industry, data.location, data.company_size, data.objective || null, data.seniority || null, data.daily_limit || 20, data.follow_up_days || 3]
+    [data.name, data.status, data.target, data.template, data.description, data.industry, data.location, data.company_size, data.objective || null, data.seniority || null, data.campaign_type || 'messages', data.daily_limit || 20, data.follow_up_days || 3]
   );
   return result.rows[0];
 }

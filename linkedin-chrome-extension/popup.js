@@ -2,7 +2,25 @@ const DEFAULT_SERVER_URL = "http://localhost:3000";
 let API_BASE_URL = DEFAULT_SERVER_URL + "/api";
 let SERVER_URL = DEFAULT_SERVER_URL;
 
-// Charger l'URL depuis le storage
+// Default notification preferences (matches Settings.tsx defaults)
+const DEFAULT_NOTIF_PREFS = {
+  emailDailySummary: true,
+  emailNewReply: true,
+  emailNewConversion: true,
+  emailLimitWarning: true
+};
+
+// Default daily limits (matches Settings.tsx limits defaults)
+const DEFAULT_LIMITS = {
+  dailyMessages: 50,
+  dailyConnections: 20,
+  dailyProfileViews: 100
+};
+
+let currentPrefs = { ...DEFAULT_NOTIF_PREFS };
+let currentLimits = { ...DEFAULT_LIMITS };
+
+// ============ BOOT ============
 chrome.storage.local.get(["serverUrl"], (result) => {
   if (result.serverUrl) {
     SERVER_URL = result.serverUrl.replace(/\/$/, "");
@@ -18,17 +36,13 @@ document.addEventListener("DOMContentLoaded", () => {
       SERVER_URL = result.serverUrl.replace(/\/$/, "");
       API_BASE_URL = SERVER_URL + "/api";
     }
-    const input = document.getElementById("serverUrlInput");
-    if (input) input.value = SERVER_URL;
-    refreshData();
-    refreshLinkedInAccount();
+    refreshAll();
   });
 
   const refreshBtn = document.getElementById("refreshBtn");
   if (refreshBtn) {
     refreshBtn.addEventListener("click", () => {
-      refreshData();
-      refreshLinkedInAccount();
+      refreshAll();
       chrome.runtime.sendMessage({ type: "MANUAL_POLL" });
     });
   }
@@ -41,121 +55,164 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const liAccountBtn = document.getElementById("liAccountBtn");
-  if (liAccountBtn)
-    liAccountBtn.addEventListener("click", async () => {
-      console.log("[LinkedIn Agent] >>> Bouton Connecter cliqué");
-      const btn = document.getElementById("liAccountBtn");
-      const text = document.getElementById("liAccountText");
-      console.log("[LinkedIn Agent] btn.textContent =", btn?.textContent);
-
-      // Si déjà connecté, ouvrir la page de gestion
-      if (btn.textContent.trim() === "Gérer") {
-        console.log(
-          "[LinkedIn Agent] Bouton en mode Gérer → ouverture du dashboard"
-        );
-        chrome.tabs.create({ url: SERVER_URL + "/#linkedin-account" });
-        return;
-      }
-
-      // Capturer le cookie directement depuis popup.js (plus fiable que message passing)
-      btn.textContent = "Capture...";
-      btn.disabled = true;
-      if (text) text.textContent = "Capture du cookie en cours...";
-      console.log("[LinkedIn Agent] API_BASE_URL =", API_BASE_URL);
-
-      try {
-        // Vérifier que l'API cookies est disponible
-        if (!chrome.cookies || !chrome.cookies.get) {
-          btn.disabled = false;
-          btn.textContent = "Connecter";
-          if (text)
-            text.textContent = "Rechargez l'extension (désactiver/réactiver)";
-          console.error(
-            "[LinkedIn Agent] chrome.cookies API non disponible. Rechargez l'extension."
-          );
-          return;
-        }
-
-        // 1. Lire le cookie li_at depuis Chrome
-        const cookie = await chrome.cookies.get({
-          url: "https://www.linkedin.com",
-          name: "li_at"
-        });
-
-        if (!cookie || !cookie.value) {
-          btn.disabled = false;
-          btn.textContent = "Connecter";
-          if (text) text.textContent = "Cookie li_at non trouvé";
-          setTimeout(() => {
-            if (
-              confirm(
-                "Vous devez d'abord vous connecter sur linkedin.com.\n\nOuvrir LinkedIn maintenant ?"
-              )
-            ) {
-              chrome.tabs.create({ url: "https://www.linkedin.com/login" });
-            }
-          }, 300);
-          return;
-        }
-
-        // 2. Envoyer le cookie au serveur
-        const response = await fetch(`${API_BASE_URL}/linkedin-auth`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            method: "cookie",
-            cookie: cookie.value,
-            name: "",
-            email: ""
-          })
-        });
-
-        const data = await response.json();
-
-        btn.disabled = false;
-        if (response.ok && data.success) {
-          btn.textContent = "Connecté ✓";
-          if (text) text.textContent = "Compte LinkedIn connecté !";
-          setTimeout(() => refreshLinkedInAccount(), 1000);
-        } else {
-          btn.textContent = "Connecter";
-          if (text) text.textContent = data.error || "Erreur serveur";
-        }
-      } catch (err) {
-        btn.disabled = false;
-        btn.textContent = "Connecter";
-        if (text)
-          text.textContent = "Erreur: " + (err.message || "connexion échouée");
-        console.error("[LinkedIn Agent] Capture error:", err);
-      }
-    });
-
-  // Sauvegarde de l'URL serveur
-  const saveBtn = document.getElementById("saveServerUrlBtn");
-  if (saveBtn) {
-    saveBtn.addEventListener("click", () => {
-      const input = document.getElementById("serverUrlInput");
-      const newUrl = (input?.value || "").trim().replace(/\/$/, "");
-      if (!newUrl) return;
-      SERVER_URL = newUrl;
-      API_BASE_URL = newUrl + "/api";
-      chrome.storage.local.set({ serverUrl: newUrl }, () => {
-        chrome.runtime.sendMessage({ type: "SERVER_URL_UPDATED", url: newUrl });
-        saveBtn.textContent = "Sauvegardé ✓";
-        setTimeout(() => {
-          saveBtn.textContent = "Sauvegarder";
-        }, 2000);
-        refreshData();
-        refreshLinkedInAccount();
-      });
-    });
+  if (liAccountBtn) {
+    liAccountBtn.addEventListener("click", handleLinkedInConnect);
   }
 
-  // Auto-refresh toutes les 5 secondes
+  // Auto-refresh
   setInterval(refreshData, 5000);
   setInterval(refreshLinkedInAccount, 15000);
+  setInterval(refreshUserPrefs, 30000);
+  setInterval(refreshAlerts, 10000);
 });
 
+// ============ UNIFIED REFRESH ============
+async function refreshAll() {
+  await refreshUserPrefs();
+  await Promise.all([refreshData(), refreshLinkedInAccount(), refreshAlerts()]);
+}
+
+// ============ LINKEDIN CONNECT ============
+async function handleLinkedInConnect() {
+  const btn = document.getElementById("liAccountBtn");
+  const text = document.getElementById("liAccountText");
+
+  if (btn.textContent.trim() === "Gérer") {
+    chrome.tabs.create({ url: SERVER_URL + "/#linkedin-account" });
+    return;
+  }
+
+  btn.textContent = "…";
+  btn.disabled = true;
+  if (text) text.textContent = "Capture…";
+
+  try {
+    if (!chrome.cookies || !chrome.cookies.get) {
+      btn.disabled = false;
+      btn.textContent = "Connecter";
+      if (text) text.textContent = "Rechargez l'extension";
+      return;
+    }
+
+    const cookie = await chrome.cookies.get({
+      url: "https://www.linkedin.com",
+      name: "li_at"
+    });
+
+    if (!cookie || !cookie.value) {
+      btn.disabled = false;
+      btn.textContent = "Connecter";
+      if (text) text.textContent = "Cookie li_at introuvable";
+      setTimeout(() => {
+        if (
+          confirm(
+            "Vous devez vous connecter sur linkedin.com.\n\nOuvrir LinkedIn ?"
+          )
+        ) {
+          chrome.tabs.create({ url: "https://www.linkedin.com/login" });
+        }
+      }, 300);
+      return;
+    }
+
+    // Try to get LinkedIn profile name from active tab
+    let profileName = "";
+    let profileEmail = "";
+    try {
+      const [tab] = await chrome.tabs.query({
+        url: "https://www.linkedin.com/*",
+        active: true,
+        currentWindow: true
+      });
+      if (tab && tab.id) {
+        const [result] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            // Get name from navigation profile link or page title
+            const nameEl = document.querySelector(
+              '.feed-identity-module__actor-meta a, .artdeco-entity-lockup__title, [data-control-name="identity_welcome_message"]'
+            );
+            const name = nameEl ? nameEl.textContent.trim() : "";
+            // Fallback: extract from page title "(...) | LinkedIn" or nav
+            const fallbackName = !name
+              ? document
+                  .querySelector(".t-16.t-black.t-bold")
+                  ?.textContent?.trim() || ""
+              : name;
+            return { name: fallbackName || name };
+          }
+        });
+        if (result && result.result && result.result.name) {
+          profileName = result.result.name;
+        }
+      }
+    } catch (e) {
+      console.log("[LinkedIn Agent] Could not get profile name:", e.message);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/linkedin-auth`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        method: "extension",
+        cookie: cookie.value,
+        name: profileName,
+        email: profileEmail
+      })
+    });
+    const data = await response.json();
+    btn.disabled = false;
+
+    if (response.ok && data.success) {
+      btn.textContent = "Connecté ✓";
+      if (text) text.textContent = "Compte LinkedIn connecté !";
+      setTimeout(() => refreshLinkedInAccount(), 1000);
+    } else {
+      btn.textContent = "Connecter";
+      if (text) text.textContent = data.error || "Erreur serveur";
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = "Connecter";
+    if (text) text.textContent = "Erreur: " + (err.message || "échec");
+    console.error("[LinkedIn Agent] Capture error:", err);
+  }
+}
+
+// ============ USER PREFS ============
+async function refreshUserPrefs() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/users/me`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data?.user?.settings?.notifications) {
+      currentPrefs = {
+        ...DEFAULT_NOTIF_PREFS,
+        ...data.user.settings.notifications
+      };
+    }
+    if (data?.user?.settings?.limits) {
+      currentLimits = { ...DEFAULT_LIMITS, ...data.user.settings.limits };
+    }
+    applyPrefsVisibility();
+  } catch (err) {
+    console.warn("[LinkedIn Agent] Failed to load user prefs:", err);
+  }
+}
+
+function applyPrefsVisibility() {
+  // Daily summary section visibility
+  const summarySection = document.getElementById("summarySection");
+  if (summarySection) {
+    summarySection.classList.toggle(
+      "disabled",
+      !currentPrefs.emailDailySummary
+    );
+  }
+  // Alert cards will be shown/hidden individually based on prefs + data presence
+}
+
+// ============ LINKEDIN ACCOUNT ============
 async function refreshLinkedInAccount() {
   try {
     const res = await fetch(`${API_BASE_URL}/linkedin-auth`);
@@ -171,49 +228,47 @@ function updateLinkedInAccountBar(data) {
   const dot = document.getElementById("liAccountDot");
   const text = document.getElementById("liAccountText");
   const btn = document.getElementById("liAccountBtn");
-
   if (!dot || !text || !btn) return;
 
   if (data.connected) {
-    dot.className = "account-dot li-connected";
-    const label = data.name || data.email || "LinkedIn connecté";
-    text.textContent = "🔵 " + label;
+    dot.className = "pill-dot blue";
+    const label = data.name || data.email || "Connecté";
+    text.textContent = label;
     btn.textContent = "Gérer";
-    btn.className = "btn-linkedin";
+    btn.className = "pill-action";
   } else {
-    dot.className = "account-dot li-disconnected";
-    text.textContent = "Compte LinkedIn non connecté";
+    dot.className = "pill-dot err";
+    text.textContent = "Non connecté";
     btn.textContent = "Connecter";
-    btn.className = "btn-linkedin";
+    btn.className = "pill-action";
   }
 }
 
-function openLinkedInAccountPage() {
-  chrome.tabs.create({ url: SERVER_URL + "/#linkedin-account" });
-}
-
+// ============ MAIN DATA REFRESH (stats + actions) ============
 async function refreshData() {
   try {
-    // Statut du background
     chrome.runtime.sendMessage({ type: "GET_STATUS" }, (response) => {
       if (response) {
         updateStatus(response.isConnected, response.isProcessing);
       }
     });
 
-    // Actions depuis l'API
-    const [pendingRes, allRes] = await Promise.all([
+    const [pendingRes, completedRes] = await Promise.all([
       fetch(`${API_BASE_URL}/linkedin-actions?status=pending&limit=20`),
       fetch(`${API_BASE_URL}/linkedin-actions?status=completed&limit=20`)
     ]);
 
-    if (pendingRes.ok && allRes.ok) {
+    if (pendingRes.ok && completedRes.ok) {
       const pendingData = await pendingRes.json();
-      const allData = await allRes.json();
-
-      updateStats(pendingData, allData);
+      const completedData = await completedRes.json();
+      updateStats(pendingData, completedData);
       updateActionsList(pendingData.actions || []);
       updateStatus(true, false);
+
+      // Refresh limit warning based on today's completed count
+      const todayCompleted =
+        extractStatCount(pendingData.stats, "completed") || 0;
+      updateLimitAlert(todayCompleted);
     } else {
       updateStatus(false, false);
     }
@@ -223,75 +278,99 @@ async function refreshData() {
   }
 }
 
+function extractStatCount(stats, status) {
+  if (!Array.isArray(stats)) return 0;
+  const row = stats.find((s) => s.status === status);
+  return row ? parseInt(row.count) || 0 : 0;
+}
+
 function updateStatus(connected, processing) {
   const dot = document.getElementById("statusDot");
   const text = document.getElementById("statusText");
-  const procText = document.getElementById("processingText");
+  if (!dot || !text) return;
 
   if (processing) {
-    dot.className = "status-dot processing";
-    text.textContent = "En cours...";
-    procText.textContent = "Exécution des actions";
+    dot.className = "pill-dot warn";
+    text.textContent = "Actions en cours…";
   } else if (connected) {
-    dot.className = "status-dot connected";
+    dot.className = "pill-dot ok";
     text.textContent = "Connecté";
-    procText.textContent = "";
   } else {
-    dot.className = "status-dot disconnected";
+    dot.className = "pill-dot err";
     text.textContent = "Déconnecté";
-    procText.textContent = "Vérifiez le serveur";
   }
 }
 
 function updateStats(pendingData, completedData) {
-  const pending = pendingData.actions?.length || 0;
-  const completed = completedData.actions?.length || 0;
+  const stats = pendingData.stats || [];
+  const todayPending =
+    extractStatCount(stats, "pending") +
+    extractStatCount(stats, "approved") +
+    extractStatCount(stats, "pending_approval");
+  const todayCompleted = extractStatCount(stats, "completed");
+  const todayFailed = extractStatCount(stats, "failed");
+  const todayTotal = stats.reduce(
+    (sum, s) => sum + (parseInt(s.count) || 0),
+    0
+  );
 
-  // Calculer les stats depuis daily_stats
-  let failed = 0;
-  let total = 0;
+  setText("pendingCount", todayPending);
+  setText("completedCount", todayCompleted);
+  setText("failedCount", todayFailed);
+  setText("totalCount", todayTotal);
 
-  if (pendingData.daily_stats) {
-    pendingData.daily_stats.forEach((stat) => {
-      total += parseInt(stat.count) || 0;
-      failed += parseInt(stat.failed) || 0;
-    });
+  const actionsBadge = document.getElementById("actionsBadge");
+  if (actionsBadge) {
+    const count = pendingData.actions?.length || 0;
+    actionsBadge.textContent = count;
   }
-
-  document.getElementById("pendingCount").textContent = pending;
-  document.getElementById("completedCount").textContent = completed;
-  document.getElementById("failedCount").textContent = failed;
-  document.getElementById("totalCount").textContent =
-    total || pending + completed;
 }
 
 function updateActionsList(actions) {
   const list = document.getElementById("actionsList");
+  if (!list) return;
 
   if (!actions || actions.length === 0) {
-    list.innerHTML = '<div class="empty-state">Aucune action en attente</div>';
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">🌙</div>
+        <div>Aucune action en attente</div>
+      </div>`;
     return;
   }
+
+  const icons = {
+    search: "🔎",
+    visit_profile: "👁",
+    send_connection: "🤝",
+    send_message: "💬",
+    search_and_message: "📨"
+  };
 
   list.innerHTML = actions
     .map((action) => {
       const payload =
         typeof action.payload === "string"
-          ? JSON.parse(action.payload)
+          ? safeParse(action.payload)
           : action.payload;
       const name =
         action.target_name ||
         payload?.keywords ||
         action.target_url?.split("/in/")[1] ||
         "Action";
-
+      const type = action.action_type || "search";
+      const emoji = icons[type] || "⚡";
       return `
-      <div class="action-item">
-        <span class="action-type ${action.action_type}">${formatActionType(action.action_type)}</span>
-        <span class="action-name" title="${name}">${name}</span>
-        <span class="action-status ${action.status}">${action.status}</span>
-      </div>
-    `;
+        <div class="action-item">
+          <div class="action-avatar ${escapeAttr(type)}">${emoji}</div>
+          <div class="action-body">
+            <div class="action-name" title="${escapeAttr(name)}">${escapeHTML(name)}</div>
+            <div class="action-meta">
+              <span class="action-type-label">${formatActionType(type)}</span>
+            </div>
+          </div>
+          <span class="action-status ${escapeAttr(action.status)}">${escapeHTML(action.status)}</span>
+        </div>`;
     })
     .join("");
 }
@@ -301,7 +380,162 @@ function formatActionType(type) {
     search: "Recherche",
     visit_profile: "Visite",
     send_connection: "Connexion",
-    send_message: "Message"
+    send_message: "Message",
+    search_and_message: "Recherche & message"
   };
   return labels[type] || type;
+}
+
+// ============ ALERTS (driven by notification preferences) ============
+async function refreshAlerts() {
+  try {
+    const [notifRes, statsRes] = await Promise.all([
+      fetch(`${API_BASE_URL}/notifications`),
+      fetch(`${API_BASE_URL}/stats`)
+    ]);
+
+    let notifData = {};
+    let statsData = {};
+    if (notifRes.ok) notifData = await notifRes.json();
+    if (statsRes.ok) statsData = await statsRes.json();
+
+    renderAlerts(notifData, statsData);
+  } catch (err) {
+    console.warn("[LinkedIn Agent] Failed to load alerts:", err);
+    renderAlerts({}, {});
+  }
+}
+
+function renderAlerts(notifData, statsData) {
+  const replies = parseInt(notifData?.newReplies || 0);
+  const conversionsTotal = parseInt(
+    statsData?.stats?.prospects?.converted || 0
+  );
+  const notifications = Array.isArray(notifData?.notifications)
+    ? notifData.notifications
+    : [];
+
+  // Extract recent reply names from notifications list (type 'reply' or 'message')
+  const recentReplyNames = notifications
+    .filter((n) => /reply|response|message/i.test(n.type || ""))
+    .slice(0, 3)
+    .map((n) => n.title || n.data?.name || "")
+    .filter(Boolean);
+
+  let visibleCount = 0;
+
+  // ============ REPLY ALERT ============
+  const replyEl = document.getElementById("alertReply");
+  if (currentPrefs.emailNewReply && replies > 0) {
+    replyEl.classList.remove("hidden");
+    setText("alertReplyCount", replies);
+    const detail = recentReplyNames.length
+      ? recentReplyNames.join(", ")
+      : `${replies} réponse(s) dans les dernières 24h`;
+    setText("alertReplyDetail", detail);
+    visibleCount++;
+  } else {
+    replyEl.classList.add("hidden");
+  }
+
+  // ============ CONVERSION ALERT ============
+  const convEl = document.getElementById("alertConversion");
+  if (currentPrefs.emailNewConversion && conversionsTotal > 0) {
+    convEl.classList.remove("hidden");
+    setText("alertConversionCount", conversionsTotal);
+    setText(
+      "alertConversionDetail",
+      `${conversionsTotal} prospect(s) converti(s) au total`
+    );
+    visibleCount++;
+  } else {
+    convEl.classList.add("hidden");
+  }
+
+  // Limit alert handled separately by updateLimitAlert()
+  // But we count its current visibility here:
+  const limitEl = document.getElementById("alertLimit");
+  if (limitEl && !limitEl.classList.contains("hidden")) visibleCount++;
+
+  // ============ EMPTY STATE ============
+  const emptyEl = document.getElementById("alertEmpty");
+  if (visibleCount === 0) {
+    emptyEl.classList.remove("hidden");
+    const anyPrefOn =
+      currentPrefs.emailNewReply ||
+      currentPrefs.emailNewConversion ||
+      currentPrefs.emailLimitWarning;
+    const detail = anyPrefOn
+      ? "Tout est calme — aucun événement récent"
+      : "Activez-les dans les paramètres";
+    const emptyDetail = emptyEl.querySelector(".alert-detail");
+    if (emptyDetail) emptyDetail.textContent = detail;
+  } else {
+    emptyEl.classList.add("hidden");
+  }
+}
+
+function updateLimitAlert(todayActions) {
+  const limitEl = document.getElementById("alertLimit");
+  if (!limitEl) return;
+
+  if (!currentPrefs.emailLimitWarning) {
+    limitEl.classList.add("hidden");
+    return;
+  }
+
+  // Use the most restrictive daily limit as reference (messages)
+  const limit = currentLimits.dailyMessages || 50;
+  const pct = Math.min(100, Math.round((todayActions / limit) * 100));
+
+  // Only show the warning when close to the limit
+  if (pct >= 80) {
+    limitEl.classList.remove("hidden");
+    setText(
+      "alertLimitTitle",
+      pct >= 100 ? "Limite atteinte" : "Approche de la limite"
+    );
+    setText(
+      "alertLimitText",
+      `${todayActions}/${limit} actions envoyées (${pct}%)`
+    );
+    const bar = document.getElementById("alertLimitBar");
+    if (bar) bar.style.width = pct + "%";
+    // Re-render alerts to update empty state logic
+    // (renderAlerts reads limitEl visibility to count)
+  } else {
+    limitEl.classList.add("hidden");
+  }
+}
+
+// ============ HELPERS ============
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function safeParse(str) {
+  try {
+    return JSON.parse(str);
+  } catch {
+    return {};
+  }
+}
+
+function escapeHTML(str) {
+  return String(str || "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[c]
+  );
+}
+
+function escapeAttr(str) {
+  return String(str || "").replace(/[^a-zA-Z0-9_-]/g, "");
 }

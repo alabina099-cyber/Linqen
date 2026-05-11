@@ -6,12 +6,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import { Dropdown } from "./ui/dropdown";
 import {
   Plus, Play, Pause, Trash2, Settings, Users, MessageSquare, TrendingUp, X,
   ChevronRight, Calendar, Target, Sparkles, Rocket, Zap, CheckCircle,
   ChevronLeft, Globe, Clock, Mail, BarChart3, Filter, Search,
   Edit3, Copy, Eye, Award, Crown, Star, Flame, Compass, 
-  MapPin, Building2, UserCircle, Send, Bell, LayoutGrid, List, MousePointerClick,
+  MapPin, Building2, UserCircle, UserPlus, Send, Bell, LayoutGrid, List, MousePointerClick, Activity, Radio,
 } from "lucide-react";
 
 // Icon Link custom
@@ -33,14 +34,16 @@ interface Campaign {
   startDate: string;
   contacted: number;
   replied: number;
-  clicked: number;
   converted: number;
+  connectionsSent: number;
+  connectionsAccepted: number;
   description?: string;
   industry?: string;
   location?: string;
   companySize?: string;
   objective?: string;
   seniority?: string[];
+  campaignType?: string;
   dailyLimit?: number;
   followUpDays?: number;
 }
@@ -55,8 +58,9 @@ const initialCampaigns: Campaign[] = [
     startDate: "01 Mar 2026",
     contacted: 142,
     replied: 28,
-    clicked: 15,
     converted: 4,
+    connectionsSent: 0,
+    connectionsAccepted: 0,
     description: "Ciblage des décideurs techniques",
     industry: "Technologie",
     location: "Île-de-France",
@@ -71,8 +75,9 @@ const initialCampaigns: Campaign[] = [
     startDate: "20 Fév 2026",
     contacted: 89,
     replied: 18,
-    clicked: 9,
     converted: 2,
+    connectionsSent: 0,
+    connectionsAccepted: 0,
     description: "Prospection fondateurs de startups",
     industry: "SaaS",
     location: "France",
@@ -87,8 +92,9 @@ const initialCampaigns: Campaign[] = [
     startDate: "10 Fév 2026",
     contacted: 56,
     replied: 9,
-    clicked: 4,
     converted: 1,
+    connectionsSent: 0,
+    connectionsAccepted: 0,
     description: "Campagne pour professionnels marketing",
     industry: "Marketing",
     location: "France",
@@ -103,8 +109,9 @@ const initialCampaigns: Campaign[] = [
     startDate: "—",
     contacted: 0,
     replied: 0,
-    clicked: 0,
     converted: 0,
+    connectionsSent: 0,
+    connectionsAccepted: 0,
     description: "Scale-ups ayant levé des fonds",
     industry: "Startup",
     location: "Europe",
@@ -144,12 +151,14 @@ interface CampaignForm {
   followUpDays: number;
   objective: string;
   seniority: string[];
+  campaignType: string;
 }
 
 const emptyForm: CampaignForm = {
   name: "", description: "", target: "", template: "",
   industry: "Toutes industries", location: "France entière", companySize: "Toutes tailles",
   dailyLimit: 20, followUpDays: 3, objective: "", seniority: [],
+  campaignType: "messages",
 };
 
 const seniorityOptions = [
@@ -216,14 +225,16 @@ export default function Campaigns() {
           startDate: new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
           contacted: c.contacted || 0,
           replied: c.replied || 0,
-          clicked: c.clicked || 0,
           converted: c.converted || 0,
+          connectionsSent: c.connections_sent || 0,
+          connectionsAccepted: c.connections_accepted || 0,
           description: c.description,
           industry: c.industry,
           location: c.location,
           companySize: c.company_size,
           objective: c.objective || '',
           seniority: c.seniority ? c.seniority.split(',') : [],
+          campaignType: c.campaign_type || 'messages',
           dailyLimit: c.daily_limit || 20,
           followUpDays: c.follow_up_days || 3,
         }));
@@ -328,13 +339,15 @@ export default function Campaigns() {
           target: c.target_role || c.target || "Non défini",
           template: c.template || "Premier contact",
           startDate: new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
-          contacted: 0, replied: 0, clicked: 0, converted: 0,
+          contacted: 0, replied: 0, converted: 0,
+          connectionsSent: 0, connectionsAccepted: 0,
           description: c.description,
           industry: c.industry,
           location: c.location,
           companySize: c.company_size,
           objective: c.objective || '',
           seniority: c.seniority ? c.seniority.split(',') : [],
+          campaignType: c.campaign_type || 'messages',
           dailyLimit: c.daily_limit || 20,
           followUpDays: c.follow_up_days || 3,
         };
@@ -364,6 +377,7 @@ export default function Campaigns() {
             company_size: form.companySize || '',
             objective: form.objective || '',
             seniority: form.seniority.length > 0 ? form.seniority.join(',') : '',
+            campaign_type: form.campaignType || 'messages',
             daily_limit: form.dailyLimit || 20,
             follow_up_days: form.followUpDays || 3,
           }),
@@ -389,7 +403,6 @@ export default function Campaigns() {
                 startDate: new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
                 contacted: c.contacted || 0,
                 replied: c.replied || 0,
-                clicked: c.clicked || 0,
                 converted: c.converted || 0,
                 description: c.description || '',
                 industry: c.industry || '',
@@ -421,6 +434,7 @@ export default function Campaigns() {
             company_size: form.companySize === 'Toutes tailles' ? '' : form.companySize,
             objective: form.objective || '',
             seniority: form.seniority.length > 0 ? form.seniority.join(',') : '',
+            campaign_type: form.campaignType || 'messages',
             daily_limit: form.dailyLimit,
             follow_up_days: form.followUpDays,
           }),
@@ -435,13 +449,15 @@ export default function Campaigns() {
             target: c.target_role || c.target || "À définir",
             template: c.template || "Premier contact",
             startDate: new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
-            contacted: 0, replied: 0, clicked: 0, converted: 0,
+            contacted: 0, replied: 0, converted: 0,
+            connectionsSent: 0, connectionsAccepted: 0,
             description: c.description,
             industry: c.industry,
             location: c.location,
             companySize: c.company_size,
             objective: c.objective || '',
             seniority: c.seniority ? c.seniority.split(',') : [],
+            campaignType: c.campaign_type || 'messages',
             dailyLimit: c.daily_limit || 20,
             followUpDays: c.follow_up_days || 3,
           };
@@ -473,6 +489,7 @@ export default function Campaigns() {
       followUpDays: campaign.followUpDays || 3,
       objective: campaign.objective || '',
       seniority: campaign.seniority || [],
+      campaignType: campaign.campaignType || 'messages',
     });
     setCurrentStep(1);
     setShowModal(true);
@@ -487,24 +504,25 @@ export default function Campaigns() {
     return matchesStatus && matchesSearch;
   });
 
+  const totalConnectionsSent = campaigns.reduce((s, c) => s + c.connectionsSent, 0);
+  const totalConnectionsAccepted = campaigns.reduce((s, c) => s + c.connectionsAccepted, 0);
   const stats = [
-    { label: "Campagnes actives", value: campaigns.filter((c) => c.status === "active").length, icon: Rocket, color: "from-green-500 to-emerald-600", bgColor: "bg-green-50", textColor: "text-green-600" },
+    { label: "Campagnes actives", value: campaigns.filter((c) => c.status === "active").length, icon: Radio, color: "from-green-500 to-emerald-600", bgColor: "bg-green-50", textColor: "text-green-600" },
+    { label: "Connexions envoyées", value: totalConnectionsSent, icon: UserPlus, color: "from-cyan-500 to-blue-600", bgColor: "bg-cyan-50", textColor: "text-cyan-600" },
+    { label: "Connexions acceptées", value: totalConnectionsAccepted, icon: UserCircle, color: "from-amber-500 to-orange-600", bgColor: "bg-amber-50", textColor: "text-amber-600" },
     { label: "Total contactés", value: campaigns.reduce((s, c) => s + c.contacted, 0), icon: Users, color: "from-blue-500 to-indigo-600", bgColor: "bg-blue-50", textColor: "text-blue-600" },
     { label: "Total réponses", value: campaigns.reduce((s, c) => s + c.replied, 0), icon: MessageSquare, color: "from-purple-500 to-violet-600", bgColor: "bg-purple-50", textColor: "text-purple-600" },
-    { label: "Total clics", value: campaigns.reduce((s, c) => s + c.clicked, 0), icon: MousePointerClick, color: "from-yellow-400 to-amber-500", bgColor: "bg-yellow-50", textColor: "text-yellow-600" },
-    { label: "Total conversions", value: campaigns.reduce((s, c) => s + c.converted, 0), icon: TrendingUp, color: "from-orange-500 to-red-600", bgColor: "bg-orange-50", textColor: "text-orange-600" },
   ];
 
   const funnelData = [
     { label: "Contactés", value: campaigns.reduce((s, c) => s + c.contacted, 0), color: "bg-blue-500" },
     { label: "Réponses", value: campaigns.reduce((s, c) => s + c.replied, 0), color: "bg-purple-500" },
-    { label: "Clics", value: campaigns.reduce((s, c) => s + c.clicked, 0), color: "bg-cyan-500" },
     { label: "Conversions", value: campaigns.reduce((s, c) => s + c.converted, 0), color: "bg-green-500" },
   ];
   const maxFunnelValue = Math.max(...funnelData.map(d => d.value)) || 1;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 w-full">
       {/* Header simple sans bande */}
       <div className="flex items-center justify-between">
         <div>
@@ -665,13 +683,15 @@ export default function Campaigns() {
                                 </div>
                               </div>
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-                              {[
+                            <div className={`grid ${campaign.campaignType === 'connections_only' ? 'grid-cols-2' : 'grid-cols-3'} gap-2 mb-2`}>
+                              {(campaign.campaignType === 'connections_only' ? [
+                                { label: "Envoyés", value: campaign.connectionsSent, color: "text-blue-600", bg: "bg-blue-50" },
+                                { label: "Acceptés", value: `${campaign.connectionsAccepted} (${rate(campaign.connectionsAccepted, campaign.connectionsSent)})`, color: "text-green-600", bg: "bg-green-50" },
+                              ] : [
                                 { label: "Contactés", value: campaign.contacted, color: "text-blue-600", bg: "bg-blue-50" },
                                 { label: "Réponses", value: `${campaign.replied} (${rate(campaign.replied, campaign.contacted)})`, color: "text-purple-600", bg: "bg-purple-50" },
-                                { label: "Clics", value: `${campaign.clicked} (${rate(campaign.clicked, campaign.contacted)})`, color: "text-cyan-600", bg: "bg-cyan-50" },
                                 { label: "Conversions", value: `${campaign.converted} (${rate(campaign.converted, campaign.contacted)})`, color: "text-green-600", bg: "bg-green-50" },
-                              ].map((m) => (
+                              ]).map((m) => (
                                 <div key={m.label} className={`${m.bg} rounded-lg p-1.5 text-center`}>
                                   <p className={`text-sm font-bold ${m.color}`}>{m.value}</p>
                                   <p className="text-xs text-gray-500">{m.label}</p>
@@ -716,8 +736,13 @@ export default function Campaigns() {
                       <h3 className="font-semibold text-gray-900 text-sm mb-1">{campaign.name}</h3>
                       <p className="text-xs text-gray-500 mb-2">{campaign.target}</p>
                       <div className="grid grid-cols-2 gap-1 text-xs">
-                        <div className="bg-blue-50 rounded p-1.5 text-center"><p className="font-bold text-blue-600">{campaign.contacted}</p><p className="text-xs text-gray-500">Contactés</p></div>
-                        <div className="bg-green-50 rounded p-1.5 text-center"><p className="font-bold text-green-600">{campaign.converted}</p><p className="text-xs text-gray-500">Conversions</p></div>
+                        {campaign.campaignType === 'connections_only' ? (<>
+                          <div className="bg-blue-50 rounded p-1.5 text-center"><p className="font-bold text-blue-600">{campaign.connectionsSent}</p><p className="text-xs text-gray-500">Envoyés</p></div>
+                          <div className="bg-green-50 rounded p-1.5 text-center"><p className="font-bold text-green-600">{campaign.connectionsAccepted}</p><p className="text-xs text-gray-500">Acceptés</p></div>
+                        </>) : (<>
+                          <div className="bg-blue-50 rounded p-1.5 text-center"><p className="font-bold text-blue-600">{campaign.contacted}</p><p className="text-xs text-gray-500">Contactés</p></div>
+                          <div className="bg-green-50 rounded p-1.5 text-center"><p className="font-bold text-green-600">{campaign.converted}</p><p className="text-xs text-gray-500">Conversions</p></div>
+                        </>)}
                       </div>
                     </CardContent>
                   </Card>
@@ -857,39 +882,54 @@ export default function Campaigns() {
                   {/* Statistiques - Full width below columns */}
                   <div className="pt-2">
                     <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2 flex items-center gap-2"><BarChart3 className="w-4 h-4" />Statistiques</h4>
-                    {/* 4 stats in one horizontal row */}
-                    <div className="flex gap-3 mb-3">
-                      <div className="flex-1 bg-blue-50 rounded-lg py-3 px-2 text-center">
-                        <p className="text-xl font-bold text-blue-600 leading-tight">{selected.contacted}</p>
-                        <p className="text-xs text-gray-500">Contactés</p>
-                      </div>
-                      <div className="flex-1 bg-purple-50 rounded-lg py-3 px-2 text-center">
-                        <p className="text-xl font-bold text-purple-600 leading-tight">{selected.replied}</p>
-                        <p className="text-xs text-gray-500">Réponses</p>
-                      </div>
-                      <div className="flex-1 bg-cyan-50 rounded-lg py-3 px-2 text-center">
-                        <p className="text-xl font-bold text-cyan-600 leading-tight">{selected.clicked}</p>
-                        <p className="text-xs text-gray-500">Clics</p>
-                      </div>
-                      <div className="flex-1 bg-green-50 rounded-lg py-3 px-2 text-center">
-                        <p className="text-xl font-bold text-green-600 leading-tight">{selected.converted}</p>
-                        <p className="text-xs text-gray-500">Conversions</p>
-                      </div>
-                    </div>
-                    {/* Progress bars - full width */}
-                    <div className="space-y-2">
-                      {[
-                        { label: "Taux de réponse", value: rate(selected.replied, selected.contacted), color: "bg-purple-500" },
-                        { label: "Taux de clic", value: rate(selected.clicked, selected.contacted), color: "bg-cyan-500" },
-                        { label: "Conversion", value: rate(selected.converted, selected.contacted), color: "bg-green-500" },
-                      ].map((m) => (
-                        <div key={m.label} className="flex items-center gap-3">
-                          <span className="text-xs text-gray-500 w-24 shrink-0">{m.label}</span>
-                          <div className="flex-1 bg-gray-100 rounded-full h-2.5"><div className={`h-2.5 rounded-full ${m.color} transition-all duration-500`} style={{ width: m.value }} /></div>
-                          <span className="text-xs font-bold w-10 text-right">{m.value}</span>
+                    {selected.campaignType === 'connections_only' ? (<>
+                      {/* Stats pour campagne connexions */}
+                      <div className="flex gap-3 mb-3">
+                        <div className="flex-1 bg-blue-50 rounded-lg py-3 px-2 text-center">
+                          <p className="text-xl font-bold text-blue-600 leading-tight">{selected.connectionsSent}</p>
+                          <p className="text-xs text-gray-500">Envoyés</p>
                         </div>
-                      ))}
-                    </div>
+                        <div className="flex-1 bg-green-50 rounded-lg py-3 px-2 text-center">
+                          <p className="text-xl font-bold text-green-600 leading-tight">{selected.connectionsAccepted}</p>
+                          <p className="text-xs text-gray-500">Acceptés</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-gray-500 w-24 shrink-0">Taux d&apos;acceptation</span>
+                          <div className="flex-1 bg-gray-100 rounded-full h-2.5"><div className="h-2.5 rounded-full bg-green-500 transition-all duration-500" style={{ width: rate(selected.connectionsAccepted, selected.connectionsSent) }} /></div>
+                          <span className="text-xs font-bold w-10 text-right">{rate(selected.connectionsAccepted, selected.connectionsSent)}</span>
+                        </div>
+                      </div>
+                    </>) : (<>
+                      {/* Stats pour campagne messages */}
+                      <div className="flex gap-3 mb-3">
+                        <div className="flex-1 bg-blue-50 rounded-lg py-3 px-2 text-center">
+                          <p className="text-xl font-bold text-blue-600 leading-tight">{selected.contacted}</p>
+                          <p className="text-xs text-gray-500">Contactés</p>
+                        </div>
+                        <div className="flex-1 bg-purple-50 rounded-lg py-3 px-2 text-center">
+                          <p className="text-xl font-bold text-purple-600 leading-tight">{selected.replied}</p>
+                          <p className="text-xs text-gray-500">Réponses</p>
+                        </div>
+                        <div className="flex-1 bg-green-50 rounded-lg py-3 px-2 text-center">
+                          <p className="text-xl font-bold text-green-600 leading-tight">{selected.converted}</p>
+                          <p className="text-xs text-gray-500">Conversions</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {[
+                          { label: "Taux de réponse", value: rate(selected.replied, selected.contacted), color: "bg-purple-500" },
+                          { label: "Conversion", value: rate(selected.converted, selected.contacted), color: "bg-green-500" },
+                        ].map((m) => (
+                          <div key={m.label} className="flex items-center gap-3">
+                            <span className="text-xs text-gray-500 w-24 shrink-0">{m.label}</span>
+                            <div className="flex-1 bg-gray-100 rounded-full h-2.5"><div className={`h-2.5 rounded-full ${m.color} transition-all duration-500`} style={{ width: m.value }} /></div>
+                            <span className="text-xs font-bold w-10 text-right">{m.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>)}
                   </div>
 
                   {/* Lancer la prospection */}
@@ -1000,6 +1040,21 @@ export default function Campaigns() {
                           ))}
                         </div>
                       </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Type de campagne</label>
+                        <div className="grid grid-cols-2 gap-3">
+                          {[
+                            { icon: MessageSquare, label: "Messages", desc: "Envoyer des messages", value: "messages" },
+                            { icon: Users, label: "Connexions", desc: "Demandes sans message", value: "connections_only" },
+                          ].map((type) => (
+                            <button key={type.label} onClick={() => setForm({ ...form, campaignType: type.value })} className={`p-4 border-2 rounded-xl text-left transition-all ${form.campaignType === type.value ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"}`}>
+                              <type.icon className={`w-6 h-6 mb-2 ${form.campaignType === type.value ? "text-blue-600" : "text-gray-400"}`} />
+                              <p className={`font-semibold text-sm ${form.campaignType === type.value ? "text-blue-900" : "text-gray-900"}`}>{type.label}</p>
+                              <p className="text-xs text-gray-500">{type.desc}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </motion.div>
                 )}
@@ -1020,45 +1075,33 @@ export default function Campaigns() {
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Industrie</label>
-                        <div className="relative">
-                          <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-                          <select value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })} className="appearance-none w-full pl-12 pr-10 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer hover:border-blue-300 transition-all">
-                            {industries.map((ind) => <option key={ind} value={ind}>{ind}</option>)}
-                          </select>
-                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </div>
-                        </div>
+                        <Dropdown
+                          ariaLabel="Industrie"
+                          leftIcon={Building2}
+                          value={form.industry}
+                          onChange={(v) => setForm({ ...form, industry: v })}
+                          options={industries.map((ind) => ({ value: ind, label: ind }))}
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Localisation</label>
-                        <div className="relative">
-                          <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-                          <select value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="appearance-none w-full pl-12 pr-10 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer hover:border-blue-300 transition-all">
-                            {locations.map((loc) => <option key={loc} value={loc}>{loc}</option>)}
-                          </select>
-                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </div>
-                        </div>
+                        <Dropdown
+                          ariaLabel="Localisation"
+                          leftIcon={MapPin}
+                          value={form.location}
+                          onChange={(v) => setForm({ ...form, location: v })}
+                          options={locations.map((loc) => ({ value: loc, label: loc }))}
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Taille d'entreprise</label>
-                        <div className="relative">
-                          <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-                          <select value={form.companySize} onChange={(e) => setForm({ ...form, companySize: e.target.value })} className="appearance-none w-full pl-12 pr-10 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer hover:border-blue-300 transition-all">
-                            {companySizes.map((size) => <option key={size} value={size}>{size}</option>)}
-                          </select>
-                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </div>
-                        </div>
+                        <Dropdown
+                          ariaLabel="Taille d'entreprise"
+                          leftIcon={Users}
+                          value={form.companySize}
+                          onChange={(v) => setForm({ ...form, companySize: v })}
+                          options={companySizes.map((size) => ({ value: size, label: size }))}
+                        />
                       </div>
                     </div>
                     <div>
@@ -1113,7 +1156,7 @@ export default function Campaigns() {
                         <label className="block text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><Zap className="w-4 h-4 text-yellow-500" />Limite quotidienne</label>
                         <div className="flex items-center justify-center">
                           <div className="relative">
-                            <input type="number" value={form.dailyLimit} onChange={(e) => setForm({ ...form, dailyLimit: parseInt(e.target.value) || 0 })} className="w-24 text-center text-3xl font-bold text-gray-900 bg-transparent border-b-2 border-gray-300 focus:border-blue-500 focus:outline-none py-2" />
+                            <span className="w-24 text-center text-3xl font-bold text-gray-900 border-b-2 border-gray-300 py-2 inline-block">{form.dailyLimit}</span>
                             <span className="absolute right-0 bottom-3 text-sm text-gray-400">/jour</span>
                           </div>
                         </div>
@@ -1123,7 +1166,7 @@ export default function Campaigns() {
                         <label className="block text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><Clock className="w-4 h-4 text-blue-500" />Délai de relance</label>
                         <div className="flex items-center justify-center">
                           <div className="relative">
-                            <input type="number" value={form.followUpDays} onChange={(e) => setForm({ ...form, followUpDays: parseInt(e.target.value) || 0 })} className="w-24 text-center text-3xl font-bold text-gray-900 bg-transparent border-b-2 border-gray-300 focus:border-blue-500 focus:outline-none py-2" />
+                            <span className="w-24 text-center text-3xl font-bold text-gray-900 border-b-2 border-gray-300 py-2 inline-block">{form.followUpDays}</span>
                             <span className="absolute right-0 bottom-3 text-sm text-gray-400">jours</span>
                           </div>
                         </div>

@@ -24,6 +24,7 @@ import {
   WifiOff,
   ChevronRight,
   Zap,
+  Puzzle,
 } from "lucide-react";
 
 interface LinkedInStatus {
@@ -215,7 +216,7 @@ export default function LinkedInAccount() {
                   ? "bg-blue-100 text-blue-700"
                   : "bg-gray-100 text-gray-500"
                 }`}>
-                  {status?.connected ? "Actif" : "Inactif"}
+                  {status?.connected ? "Connecté" : "Déconnecté"}
                 </span>
               </div>
               {status?.connected ? (
@@ -301,7 +302,7 @@ export default function LinkedInAccount() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-gray-900 text-sm">Via Cookie</span>
-                  <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-bold uppercase">Recommanded</span>
+                  <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded text-[10px] font-bold uppercase">Recommanded</span>
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5">Copiez le cookie depuis votre navigateur Chrome</p>
               </div>
@@ -385,7 +386,7 @@ export default function LinkedInAccount() {
                   disabled={saving}
                   className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50"
                 >
-                  <Zap className="w-3 h-3" />
+                  <Puzzle className="w-3 h-3" />
                   Récupérer via extension
                 </button>
               </div>
@@ -394,8 +395,8 @@ export default function LinkedInAccount() {
                   type={showCookie ? "text" : "password"}
                   value={cookieValue}
                   onChange={(e) => setCookieValue(e.target.value)}
-                  placeholder="Collez votre cookie li_at ou cliquez sur 'Récupérer via extension'"
-                  className="w-full pr-10 pl-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400 font-mono bg-white"
+                  placeholder="Collez votre cookie li_at ou cliquez sur Récupérer via extension"
+                  className="w-full pr-10 pl-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400 bg-white"
                 />
                 <button
                   type="button"
@@ -408,7 +409,7 @@ export default function LinkedInAccount() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Nom (optionnel)</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Nom <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={cookieName}
@@ -432,7 +433,7 @@ export default function LinkedInAccount() {
 
           <button
             onClick={connectViaCookie}
-            disabled={saving || !cookieValue.trim()}
+            disabled={saving || !cookieValue.trim() || !cookieName.trim()}
             className="w-full py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2 text-sm shadow-sm"
           >
             {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Cookie className="w-4 h-4" />}
@@ -443,10 +444,10 @@ export default function LinkedInAccount() {
 
       {/* ===== EXTENSION METHOD FORM ===== */}
       {selectedMethod === "extension" && (
-        <div className="border border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-5 space-y-4">
+        <div className="border border-blue-200 bg-gradient-to-br from-blue-50 to-sky-50 rounded-xl p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-purple-600" />
+              <Shield className="w-5 h-5 text-blue-600" />
               <h3 className="font-bold text-gray-900 text-sm">Connexion via Extension</h3>
             </div>
             <button onClick={() => setSelectedMethod(null)} className="text-xs text-gray-400 hover:text-gray-600 font-medium px-2 py-1 hover:bg-white/50 rounded-lg transition-colors">
@@ -454,7 +455,7 @@ export default function LinkedInAccount() {
             </button>
           </div>
 
-          <div className="bg-white rounded-lg border border-purple-100 p-3.5">
+          <div className="bg-white rounded-lg border border-blue-100 p-3.5">
             <span className="text-xs font-semibold text-gray-700 mb-2 block">Comment fonctionne</span>
             <div className="flex flex-wrap gap-2">
               {[
@@ -463,8 +464,8 @@ export default function LinkedInAccount() {
                 { n: "3", t: "Connectez-vous sur LinkedIn" },
                 { n: "4", t: "Cookie capturé automatiquement" },
               ].map((step) => (
-                <div key={step.n} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-50 rounded-lg">
-                  <span className="w-4 h-4 bg-purple-200 text-purple-800 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0">{step.n}</span>
+                <div key={step.n} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 rounded-lg">
+                  <span className="w-4 h-4 bg-blue-200 text-blue-800 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0">{step.n}</span>
                   <span className="text-[11px] text-gray-700 font-medium">{step.t}</span>
                 </div>
               ))}
@@ -479,7 +480,7 @@ export default function LinkedInAccount() {
                 value={cookieName}
                 onChange={(e) => setCookieName(e.target.value)}
                 placeholder="Prénom Nom"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 bg-white"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 bg-white"
               />
             </div>
             <div>
@@ -489,7 +490,7 @@ export default function LinkedInAccount() {
                 value={cookieEmail}
                 onChange={(e) => setCookieEmail(e.target.value)}
                 placeholder="exemple@exemple.com"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 bg-white"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 bg-white"
               />
             </div>
           </div>
@@ -507,7 +508,7 @@ export default function LinkedInAccount() {
             <button
               onClick={connectViaExtension}
               disabled={saving}
-              className="flex-1 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2 text-sm shadow-sm"
+              className="flex-1 py-2.5 bg-gradient-to-r from-blue-500 to-sky-500 hover:from-blue-600 hover:to-sky-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2 text-sm shadow-sm"
             >
               {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
               {saving ? "Activation..." : "Activer la capture"}
@@ -519,7 +520,7 @@ export default function LinkedInAccount() {
       {/* ===== DISCONNECT CONFIRMATION MODAL ===== */}
       {showDisconnectModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-[2px] animate-in fade-in duration-200"
           onClick={() => !disconnecting && setShowDisconnectModal(false)}
         >
           <div

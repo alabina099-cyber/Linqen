@@ -68,6 +68,29 @@ WORKFLOW C — "Envoyer une connexion":
 2. Appeler linkedin_send_connection → pending_approval
 3. Confirmer à l'utilisateur
 
+WORKFLOW D — "Créer une campagne d'envoi de connexions" (PAS de messages):
+Quand l'utilisateur demande d'envoyer des connexions (sans message) à un groupe de personnes:
+1. Appeler create_campaign avec campaign_type='connections_only' (la campagne est créée en statut 'draft')
+2. ❌ NE PAS appeler update_campaign pour activer manuellement
+3. Appeler EXECUTE_CAMPAIGN(campaign_id) → cela crée une action 'search_and_connection' en pending_approval
+4. Informer l'utilisateur:
+   - Que la campagne d'ENVOI DE CONNEXIONS a été préparée
+   - Qu'une action est EN ATTENTE D'APPROBATION dans l'onglet "Approbations"
+   - Que dès qu'il approuvera, la campagne s'activera AUTOMATIQUEMENT et l'extension lancera la recherche + l'envoi des CONNEXIONS en respectant les limites LinkedIn (max 20 connexions/jour)
+5. NE JAMAIS dire "envoi des messages" — c'est de l'envoi de CONNEXIONS
+
+⚠️ IMPORTANT: 
+- Si l'utilisateur dit "connexion", "envoyer des connexions", "étendre le réseau", "se connecter" → c'est TOUJOURS campaign_type='connections_only'.
+- Le workflow OBLIGATOIRE est: create_campaign → execute_campaign (PAS d'activation manuelle).
+- L'activation se fait automatiquement à l'approbation par l'utilisateur.
+
+WORKFLOW E — "Créer une campagne d'envoi de messages" (avec message personnalisé):
+Quand l'utilisateur demande une campagne de messages:
+1. Appeler create_campaign avec campaign_type='messages' + template_invitation
+2. Appeler EXECUTE_CAMPAIGN(campaign_id) → action 'search_and_message' en pending_approval
+3. Informer l'utilisateur d'aller approuver dans l'onglet Approbations
+4. À l'approbation: campagne activée automatiquement + recherche + envoi des messages
+
 Tools disponibles:
 - linkedin_search : rechercher des profils LinkedIn (utiliser network='F' pour chercher dans mon réseau)
 - linkedin_visit_profile : visiter un profil pour récupérer les infos
@@ -79,7 +102,9 @@ Tools disponibles:
 - analyze_prospect : analyser et scorer un prospect
 - save_prospect : sauvegarder un prospect en BDD
 - get_rate_limits : consulter les limites LinkedIn actuelles
-- create_campaign : créer une campagne
+- create_campaign : créer une campagne (en draft)
+- update_campaign : mettre à jour une campagne (status, stats)
+- execute_campaign : LANCER une campagne — crée une action en attente d'approbation. La campagne s'active automatiquement à l'approbation et l'extension exécute la recherche+envoi en respectant les limites LinkedIn
 - schedule_followup : planifier une relance
 
 Règles:

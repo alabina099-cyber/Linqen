@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSettings } from "@/contexts/SettingsContext";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
@@ -11,6 +11,7 @@ import { Switch } from "./ui/switch";
 import { Slider } from "./ui/slider";
 import { Separator } from "./ui/separator";
 import { ProgressBar } from "./ui/progress-bar";
+import { Dropdown } from "./ui/dropdown";
 import LinkedInAccount from "./LinkedInAccount";
 import {
   User,
@@ -49,6 +50,9 @@ import {
   Copy,
   Check,
   Sparkles,
+  TrendingUp,
+  AlertTriangle,
+  BarChart3,
   Sun,
   Moon,
   Monitor,
@@ -56,6 +60,13 @@ import {
   Layers,
   ChevronDown
 } from "lucide-react";
+
+interface AIModel {
+  value: string;
+  label: string;
+  color: string;
+  available: boolean;
+}
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("account");
@@ -101,7 +112,7 @@ export default function Settings() {
   // AI Settings
   const [aiSettings, setAiSettings] = useState({
     aiEnabled: true,
-    aiModel: "gpt-4",
+    aiModel: "gpt-4o-mini",
     autoReplyEnabled: false,
     autoReplyConfidence: 75,
     personalizationLevel: 80,
@@ -110,6 +121,10 @@ export default function Settings() {
     sentimentAnalysis: true,
     smartFollowUp: true,
   });
+  const [availableModels, setAvailableModels] = useState<AIModel[]>([]);
+  const [modelSaving, setModelSaving] = useState(false);
+  const [agentSaving, setAgentSaving] = useState(false);
+  const agentInitialized = useRef(false);
 
   // Default Targeting
   const [targeting, setTargeting] = useState({
@@ -146,6 +161,103 @@ export default function Settings() {
     slackWebhook: "",
     discordWebhook: "",
   });
+  const [notifLoading, setNotifLoading] = useState(true);
+  const [notifSaving, setNotifSaving] = useState(false);
+  const [notifSaved, setNotifSaved] = useState(false);
+  const notifInitialized = useRef(false);
+
+  // Load AI model config + agent settings from backend on mount
+  useEffect(() => {
+    fetch('/api/agent-config')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) {
+          setAvailableModels(data.models);
+          setAiSettings((prev) => ({ ...prev, aiModel: data.currentModel }));
+        }
+      })
+      .catch(() => {});
+
+    // Load automation + aiSettings from user settings JSONB
+    fetch('/api/users/me')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.user?.settings) {
+          if (data.user.settings.automation) {
+            setAutomation((prev) => ({ ...prev, ...data.user.settings.automation }));
+          }
+          if (data.user.settings.ai) {
+            setAiSettings((prev) => ({ ...prev, ...data.user.settings.ai, aiModel: prev.aiModel }));
+          }
+        }
+      })
+      .catch(() => {})
+      .finally(() => { setTimeout(() => { agentInitialized.current = true; }, 100); });
+  }, []);
+
+  // Auto-save agent settings (automation + aiSettings except aiModel) with debounce
+  useEffect(() => {
+    if (!agentInitialized.current) return;
+    const timer = setTimeout(async () => {
+      setAgentSaving(true);
+      try {
+        // Strip aiModel — that has its own /api/agent-config endpoint
+        const { aiModel: _, ...aiOnly } = aiSettings;
+        await fetch('/api/users/me', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ settings: { automation, ai: aiOnly } }),
+        });
+      } catch (err) {
+        console.error('Failed to save agent settings:', err);
+      } finally {
+        setAgentSaving(false);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [automation, aiSettings]);
+
+  // Load notifications from backend on mount
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        const res = await fetch("/api/users/me");
+        const data = await res.json();
+        if (data.success && data.user?.settings?.notifications) {
+          setNotifications((prev) => ({ ...prev, ...data.user.settings.notifications }));
+        }
+      } catch (err) {
+        console.error("Failed to load notification settings:", err);
+      } finally {
+        setNotifLoading(false);
+        // Mark as initialized after a tick so the save effect skips the first render
+        setTimeout(() => { notifInitialized.current = true; }, 0);
+      }
+    };
+    loadNotifications();
+  }, []);
+
+  // Auto-save notifications to backend when they change
+  useEffect(() => {
+    if (!notifInitialized.current) return;
+    const saveNotifications = async () => {
+      setNotifSaving(true);
+      try {
+        await fetch("/api/users/me", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ settings: { notifications } }),
+        });
+        setNotifSaved(true);
+        setTimeout(() => setNotifSaved(false), 1500);
+      } catch (err) {
+        console.error("Failed to save notification settings:", err);
+      } finally {
+        setNotifSaving(false);
+      }
+    };
+    saveNotifications();
+  }, [notifications]);
 
   // Integrations
   const [integrations, setIntegrations] = useState({
@@ -252,12 +364,11 @@ export default function Settings() {
       </motion.div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 bg-gray-100/50 p-2 rounded-2xl border border-gray-200/50 h-auto">
-          <TabsTrigger value="account" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all px-2 sm:px-3 py-2"><User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /><span className="hidden sm:inline">Compte</span><span className="sm:hidden">Compte</span></TabsTrigger>
-          <TabsTrigger value="automation" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-amber-500 data-[state=active]:to-amber-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all px-2 sm:px-3 py-2"><Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /><span className="hidden sm:inline">Automatisation</span><span className="sm:hidden">Auto</span></TabsTrigger>
-          <TabsTrigger value="ai" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-pink-500 data-[state=active]:to-rose-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all px-2 sm:px-3 py-2"><Bot className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />IA</TabsTrigger>
-          <TabsTrigger value="notifications" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-cyan-500 data-[state=active]:to-cyan-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all px-2 sm:px-3 py-2"><Bell className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /><span className="hidden sm:inline">Notifications</span><span className="sm:hidden">Notif</span></TabsTrigger>
-          <TabsTrigger value="appearance" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-600 hover:border-gray-300 data-[state=active]:border-transparent data-[state=active]:bg-gradient-to-br data-[state=active]:from-violet-500 data-[state=active]:to-violet-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all px-2 sm:px-3 py-2"><Palette className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /><span className="hidden sm:inline">Affichage</span><span className="sm:hidden">Affich</span></TabsTrigger>
+        <TabsList className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-gray-100/50 p-2 rounded-2xl border border-gray-200/50 h-auto">
+          <TabsTrigger value="account" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-500 hover:border-blue-200 hover:text-blue-500 data-[state=active]:border-blue-400 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all px-2 sm:px-3 py-2"><User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />Compte</TabsTrigger>
+          <TabsTrigger value="agent" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-500 hover:border-blue-200 hover:text-blue-500 data-[state=active]:border-blue-400 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all px-2 sm:px-3 py-2"><Bot className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />Agent</TabsTrigger>
+          <TabsTrigger value="notifications" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-500 hover:border-blue-200 hover:text-blue-500 data-[state=active]:border-blue-400 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all px-2 sm:px-3 py-2"><Bell className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /><span className="hidden sm:inline">Notifications</span><span className="sm:hidden">Notif</span></TabsTrigger>
+          <TabsTrigger value="appearance" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-500 hover:border-blue-200 hover:text-blue-500 data-[state=active]:border-blue-400 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all px-2 sm:px-3 py-2"><Palette className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />Affichage</TabsTrigger>
         </TabsList>
 
         {/* ACCOUNT TAB */}
@@ -267,9 +378,7 @@ export default function Settings() {
             <div className="h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-600" />
             <CardHeader className="bg-gradient-to-br from-blue-50/50 to-white border-b border-gray-100">
               <CardTitle className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-xl flex items-center justify-center shadow-md shadow-blue-200">
-                  <User className="w-5 h-5 text-white" />
-                </div>
+                <User className="w-7 h-7 text-blue-500" />
                 <div>
                   <span className="text-lg font-bold text-gray-900">Compte LinkedIn</span>
                   <CardDescription className="mt-0.5">Gérez votre connexion et vos informations de compte</CardDescription>
@@ -287,25 +396,144 @@ export default function Settings() {
 
         
 
-        {/* AUTOMATION TAB */}
-        <TabsContent value="automation" className="space-y-6">
+        {/* AGENT TAB — Timing/Behavior + AI together */}
+        <TabsContent value="agent" className="space-y-6">
           <Card className="overflow-hidden border-0 shadow-lg">
-            <div className="h-1 bg-gradient-to-r from-amber-400 via-orange-500 to-amber-600" />
-            <CardHeader className="bg-gradient-to-br from-amber-50/50 to-white border-b border-gray-100">
+            <div className="h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-600" />
+            <CardHeader className="bg-gradient-to-br from-blue-50/50 to-white border-b border-gray-100">
               <CardTitle className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center shadow-md shadow-amber-200">
-                  <Clock className="w-5 h-5 text-white" />
+                <Bot className="w-7 h-7 text-blue-500" />
+                <div className="flex-1">
+                  <span className="text-lg font-bold text-gray-900">Agent</span>
+                  <CardDescription className="mt-0.5">Modèle IA, timing et comportement de l'agent</CardDescription>
                 </div>
-                <div>
-                  <span className="text-lg font-bold text-gray-900">Paramètres d'Automatisation</span>
-                  <CardDescription className="mt-0.5">Contrôlez le timing et le comportement de l'agent</CardDescription>
-                </div>
+                {agentSaving && (
+                  <span className="flex items-center gap-1.5 text-xs text-blue-600 font-medium animate-pulse">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    Enregistrement...
+                  </span>
+                )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-2 gap-6">
+            <CardContent className="pt-7 pb-6 space-y-7">
+              {/* AI MODEL + TONE — at the very top */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="ai-model" className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Modèle IA</label>
+                  <div id="ai-model-dropdown" className="relative">
+                    <button
+                      onClick={() => setAiModelDropdownOpen(!aiModelDropdownOpen)}
+                      className="flex items-center gap-2.5 w-full px-4 py-2.5 pr-9 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:border-blue-300 transition-all cursor-pointer text-left"
+                    >
+                      <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                        aiSettings.aiModel === 'gpt-4' ? 'bg-green-500' :
+                        aiSettings.aiModel === 'gpt-3.5-turbo' ? 'bg-blue-500' : 'bg-orange-500'
+                      }`}></span>
+                      <span className="truncate flex-1 text-left">{
+                        availableModels.find((m) => m.value === aiSettings.aiModel)?.label || aiSettings.aiModel
+                      }</span>
+                      {modelSaving && <RefreshCw className="w-3.5 h-3.5 text-blue-400 animate-spin flex-shrink-0" />}
+                    </button>
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                    {aiModelDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                        {(availableModels.length > 0 ? availableModels : [
+                          { value: 'gpt-4o-mini', label: 'GPT-4o-mini (Rapide & économique)', color: 'orange', available: false },
+                          { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (Plus rapide)', color: 'blue', available: false },
+                          { value: 'gpt-4', label: 'GPT-4 (Meilleure qualité)', color: 'green', available: false },
+                        ]).map((model) => (
+                          <button
+                            key={model.value}
+                            disabled={!model.available}
+                            onClick={() => {
+                              if (!model.available) return;
+                              setAiSettings({ ...aiSettings, aiModel: model.value });
+                              setAiModelDropdownOpen(false);
+                              setModelSaving(true);
+                              fetch('/api/agent-config', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ model: model.value }),
+                              }).finally(() => setModelSaving(false));
+                            }}
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left ${
+                              !model.available
+                                ? 'opacity-40 cursor-not-allowed bg-gray-50'
+                                : aiSettings.aiModel === model.value
+                                  ? 'bg-blue-50 text-blue-700'
+                                  : 'text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${{green:'bg-green-500',blue:'bg-blue-500',orange:'bg-orange-500'}[model.color] || 'bg-gray-400'}`}></span>
+                            <span className="truncate flex-1">{model.label}</span>
+                            {!model.available && <Lock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
+                            {model.available && aiSettings.aiModel === model.value && <Check className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />}
+                          </button>
+                        ))}
+                        {!availableModels.some((m) => m.available) && (
+                          <p className="px-4 py-2 text-xs text-orange-500 border-t border-gray-100">
+                            ⚠️ Ajoutez OPENAI_API_KEY dans .env.local
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="ai-tone" className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Ton des messages</label>
+                  <div id="tone-dropdown" className="relative">
+                    <button
+                      onClick={() => setToneDropdownOpen(!toneDropdownOpen)}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:border-blue-300 transition-all cursor-pointer"
+                    >
+                      <span className={`w-2.5 h-2.5 rounded-full ${
+                        aiSettings.tone === 'professional' ? 'bg-blue-500' :
+                        aiSettings.tone === 'friendly' ? 'bg-green-500' :
+                        aiSettings.tone === 'formal' ? 'bg-purple-500' : 'bg-orange-500'
+                      }`}></span>
+                      <span className="truncate">{
+                        aiSettings.tone === 'professional' ? 'Professionnel' :
+                        aiSettings.tone === 'friendly' ? 'Amical' :
+                        aiSettings.tone === 'formal' ? 'Formel' : 'Décontracté'
+                      }</span>
+                    </button>
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                    {toneDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                        {[
+                          { value: 'professional', label: 'Professionnel', color: 'bg-blue-500' },
+                          { value: 'friendly', label: 'Amical', color: 'bg-green-500' },
+                          { value: 'formal', label: 'Formel', color: 'bg-purple-500' },
+                          { value: 'casual', label: 'Décontracté', color: 'bg-orange-500' }
+                        ].map((tone) => (
+                          <button
+                            key={tone.value}
+                            onClick={() => { setAiSettings({ ...aiSettings, tone: tone.value }); setToneDropdownOpen(false); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
+                          >
+                            <span className={`w-2.5 h-2.5 rounded-full ${tone.color}`}></span>
+                            <span className="truncate">{tone.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl">
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">
                     Délai min entre actions: <span className="text-blue-600 font-bold">{automation.minDelayBetweenActions}s</span>
                   </label>
                   <Slider
@@ -316,8 +544,8 @@ export default function Settings() {
                     step={5}
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl">
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">
                     Délai max entre actions: <span className="text-blue-600 font-bold">{automation.maxDelayBetweenActions}s</span>
                   </label>
                   <Slider
@@ -332,60 +560,83 @@ export default function Settings() {
 
               <Separator />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                  <label htmlFor="auto-start" className="block text-sm font-medium text-gray-700 mb-1">Heure de début</label>
+                  <label htmlFor="auto-start" className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Heure de début</label>
                   <input
                     id="auto-start"
                     aria-label="Heure de début"
-                    type="time"
+                    type="text"
+                    placeholder="09:00"
+                    pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+                    maxLength={5}
                     value={automation.workingHoursStart}
                     onChange={(e) => setAutomation({ ...automation, workingHoursStart: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 rounded-xl text-sm transition-all"
                   />
                 </div>
                 <div>
-                  <label htmlFor="auto-end" className="block text-sm font-medium text-gray-700 mb-1">Heure de fin</label>
+                  <label htmlFor="auto-end" className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Heure de fin</label>
                   <input
                     id="auto-end"
                     aria-label="Heure de fin"
-                    type="time"
+                    type="text"
+                    placeholder="18:00"
+                    pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+                    maxLength={5}
                     value={automation.workingHoursEnd}
                     onChange={(e) => setAutomation({ ...automation, workingHoursEnd: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 hover:border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 rounded-xl text-sm transition-all"
                   />
                 </div>
                 <div>
-                  <label htmlFor="auto-timezone" className="block text-sm font-medium text-gray-700 mb-1">Fuseau horaire</label>
-                  <select
-                    id="auto-timezone"
-                    aria-label="Fuseau horaire"
+                  <label htmlFor="auto-timezone" className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Fuseau horaire</label>
+                  <Dropdown
+                    ariaLabel="Fuseau horaire"
                     value={automation.timezone}
-                    onChange={(e) => setAutomation({ ...automation, timezone: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
-                  >
-                    <option>Europe/Paris (UTC+1)</option>
-                    <option>Europe/London (UTC+0)</option>
-                    <option>America/New_York (UTC-5)</option>
-                    <option>America/Los_Angeles (UTC-8)</option>
-                    <option>Asia/Tokyo (UTC+9)</option>
-                  </select>
+                    onChange={(v) => setAutomation({ ...automation, timezone: v })}
+                    options={[
+                      { value: "Europe/Paris (UTC+1)", label: "Europe/Paris (UTC+1)", color: "bg-blue-500" },
+                      { value: "Europe/London (UTC+0)", label: "Europe/London (UTC+0)", color: "bg-indigo-500" },
+                      { value: "America/New_York (UTC-5)", label: "America/New_York (UTC-5)", color: "bg-purple-500" },
+                      { value: "America/Los_Angeles (UTC-8)", label: "America/Los_Angeles (UTC-8)", color: "bg-pink-500" },
+                      { value: "Asia/Tokyo (UTC+9)", label: "Asia/Tokyo (UTC+9)", color: "bg-amber-500" },
+                    ]}
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Jours de prospection</label>
-                  <div className="flex gap-2 mt-2">
-                    {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((day) => (
-                      <button
-                        key={day}
-                        className={`w-10 h-10 rounded-lg text-xs font-medium transition-colors ${
-                          automation.workingDays.includes(day)
-                            ? "bg-blue-600 text-white"
-                            : "bg-gray-100 text-gray-500"
-                        }`}
-                      >
-                        {day}
-                      </button>
-                    ))}
+                  <label className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Jours de prospection</label>
+                  <div className="flex gap-1 flex-wrap">
+                    {[
+                      { fr: "Lun", en: "Mon" },
+                      { fr: "Mar", en: "Tue" },
+                      { fr: "Mer", en: "Wed" },
+                      { fr: "Jeu", en: "Thu" },
+                      { fr: "Ven", en: "Fri" },
+                      { fr: "Sam", en: "Sat" },
+                      { fr: "Dim", en: "Sun" },
+                    ].map((day) => {
+                      const active = automation.workingDays.includes(day.en);
+                      return (
+                        <button
+                          key={day.en}
+                          type="button"
+                          onClick={() => setAutomation({
+                            ...automation,
+                            workingDays: active
+                              ? automation.workingDays.filter((d) => d !== day.en)
+                              : [...automation.workingDays, day.en],
+                          })}
+                          className={`flex-1 min-w-[34px] h-9 px-1 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
+                            active
+                              ? "bg-blue-600 text-white shadow-sm"
+                              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                          }`}
+                        >
+                          {day.fr}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -415,188 +666,6 @@ export default function Settings() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-900">Relances automatiques</p>
-                    <p className="text-sm text-gray-500">Envoyer automatiquement les messages de relance</p>
-                  </div>
-                  <Switch
-                    checked={automation.autoFollowUp}
-                    onCheckedChange={(v: boolean) => setAutomation({ ...automation, autoFollowUp: v })}
-                  />
-                </div>
-                {automation.autoFollowUp && (
-                  <div className="pl-4 border-l-2 border-blue-200 space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Délai de relance: {automation.followUpDelay} jours
-                      </label>
-                      <Slider
-                        value={[automation.followUpDelay]}
-                        onValueChange={([v]: number[]) => setAutomation({ ...automation, followUpDelay: v })}
-                        max={14}
-                        min={1}
-                        step={1}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Nombre max de relances: {automation.maxFollowUps}
-                      </label>
-                      <Slider
-                        value={[automation.maxFollowUps]}
-                        onValueChange={([v]: number[]) => setAutomation({ ...automation, maxFollowUps: v })}
-                        max={5}
-                        min={0}
-                        step={1}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* AI TAB */}
-        <TabsContent value="ai" className="space-y-6">
-          <Card className="overflow-hidden border-0 shadow-lg">
-            <div className="h-1 bg-gradient-to-r from-pink-400 via-rose-500 to-pink-600" />
-            <CardHeader className="bg-gradient-to-br from-pink-50/50 to-white border-b border-gray-100">
-              <CardTitle className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-rose-500 rounded-xl flex items-center justify-center shadow-md shadow-pink-200">
-                  <Bot className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <span className="text-lg font-bold text-gray-900">Intelligence Artificielle</span>
-                  <CardDescription className="mt-0.5">Configurez l'IA pour la personnalisation et les réponses automatiques</CardDescription>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between p-4 bg-purple-50 rounded-xl">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                    <Zap className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">IA Activée</p>
-                    <p className="text-sm text-gray-500">Personnalisation automatique des messages</p>
-                  </div>
-                </div>
-                <Switch
-                  checked={aiSettings.aiEnabled}
-                  onCheckedChange={(v: boolean) => setAiSettings({ ...aiSettings, aiEnabled: v })}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="ai-model" className="block text-sm font-medium text-gray-700 mb-1">Modèle IA</label>
-                  <div id="ai-model-dropdown" className="relative">
-                    <button
-                      onClick={() => setAiModelDropdownOpen(!aiModelDropdownOpen)}
-                      className="flex items-center gap-3 w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:border-blue-300 transition-all cursor-pointer"
-                    >
-                      <span className={`w-2.5 h-2.5 rounded-full ${
-                        aiSettings.aiModel === 'gpt-4' ? 'bg-green-500' :
-                        aiSettings.aiModel === 'gpt-3.5' ? 'bg-blue-500' : 'bg-purple-500'
-                      }`}></span>
-                      <span className="truncate">{
-                        aiSettings.aiModel === 'gpt-4' ? 'GPT-4 (Meilleure qualité)' :
-                        aiSettings.aiModel === 'gpt-3.5' ? 'GPT-3.5 (Plus rapide)' : 'Claude 3'
-                      }</span>
-                    </button>
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                    
-                    {aiModelDropdownOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
-                        {[
-                          { value: 'gpt-4', label: 'GPT-4 (Meilleure qualité)', color: 'bg-green-500' },
-                          { value: 'gpt-3.5', label: 'GPT-3.5 (Plus rapide)', color: 'bg-blue-500' },
-                          { value: 'claude', label: 'Claude 3', color: 'bg-purple-500' }
-                        ].map((model) => (
-                          <button
-                            key={model.value}
-                            onClick={() => { setAiSettings({ ...aiSettings, aiModel: model.value }); setAiModelDropdownOpen(false); }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
-                          >
-                            <span className={`w-2.5 h-2.5 rounded-full ${model.color}`}></span>
-                            <span className="truncate">{model.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor="ai-tone" className="block text-sm font-medium text-gray-700 mb-1">Ton des messages</label>
-                  <div id="tone-dropdown" className="relative">
-                    <button
-                      onClick={() => setToneDropdownOpen(!toneDropdownOpen)}
-                      className="flex items-center gap-3 w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:border-blue-300 transition-all cursor-pointer"
-                    >
-                      <span className={`w-2.5 h-2.5 rounded-full ${
-                        aiSettings.tone === 'professional' ? 'bg-blue-500' :
-                        aiSettings.tone === 'friendly' ? 'bg-green-500' :
-                        aiSettings.tone === 'formal' ? 'bg-purple-500' : 'bg-orange-500'
-                      }`}></span>
-                      <span className="truncate">{
-                        aiSettings.tone === 'professional' ? 'Professionnel' :
-                        aiSettings.tone === 'friendly' ? 'Amical' :
-                        aiSettings.tone === 'formal' ? 'Formel' : 'Décontracté'
-                      }</span>
-                    </button>
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                    
-                    {toneDropdownOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
-                        {[
-                          { value: 'professional', label: 'Professionnel', color: 'bg-blue-500' },
-                          { value: 'friendly', label: 'Amical', color: 'bg-green-500' },
-                          { value: 'formal', label: 'Formel', color: 'bg-purple-500' },
-                          { value: 'casual', label: 'Décontracté', color: 'bg-orange-500' }
-                        ].map((tone) => (
-                          <button
-                            key={tone.value}
-                            onClick={() => { setAiSettings({ ...aiSettings, tone: tone.value }); setToneDropdownOpen(false); }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
-                          >
-                            <span className={`w-2.5 h-2.5 rounded-full ${tone.color}`}></span>
-                            <span className="truncate">{tone.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Niveau de personnalisation: <span className="text-blue-600 font-bold">{aiSettings.personalizationLevel}%</span>
-                </label>
-                <Slider
-                  value={[aiSettings.personalizationLevel]}
-                  onValueChange={([v]: number[]) => setAiSettings({ ...aiSettings, personalizationLevel: v })}
-                  max={100}
-                  min={0}
-                  step={5}
-                />
-                <p className="text-xs text-gray-500 mt-1">Plus élevé = messages plus personnalisés mais plus coûteux</p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
                     <p className="font-medium text-gray-900">Réponses automatiques IA</p>
                     <p className="text-sm text-gray-500">L'IA répond automatiquement aux messages reçus</p>
                   </div>
@@ -606,7 +675,7 @@ export default function Settings() {
                   />
                 </div>
                 {aiSettings.autoReplyEnabled && (
-                  <div className="pl-4 border-l-2 border-purple-200">
+                  <div className="pl-4 border-l-2 border-blue-200">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Confiance minimum: <span className="text-blue-600 font-bold">{aiSettings.autoReplyConfidence}%</span>
                     </label>
@@ -629,26 +698,6 @@ export default function Settings() {
                     onCheckedChange={(v: boolean) => setAiSettings({ ...aiSettings, autoDetectLanguage: v })}
                   />
                 </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-gray-900">Analyse de sentiment</p>
-                    <p className="text-sm text-gray-500">Détecter l'intention et la réaction des prospects</p>
-                  </div>
-                  <Switch
-                    checked={aiSettings.sentimentAnalysis}
-                    onCheckedChange={(v: boolean) => setAiSettings({ ...aiSettings, sentimentAnalysis: v })}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-gray-900">Relances intelligentes</p>
-                    <p className="text-sm text-gray-500">Adapter le timing des relances selon le comportement</p>
-                  </div>
-                  <Switch
-                    checked={aiSettings.smartFollowUp}
-                    onCheckedChange={(v: boolean) => setAiSettings({ ...aiSettings, smartFollowUp: v })}
-                  />
-                </div>
               </div>
             </CardContent>
           </Card>
@@ -660,40 +709,108 @@ export default function Settings() {
 
           {/* Notification types */}
           <Card className="overflow-hidden border-0 shadow-lg">
-            <div className="h-1 bg-gradient-to-r from-cyan-400 via-teal-500 to-cyan-600" />
-            <CardHeader className="bg-gradient-to-br from-cyan-50/50 to-white border-b border-gray-100">
+            <div className="h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-600" />
+            <CardHeader className="bg-gradient-to-br from-blue-50/50 to-white border-b border-gray-100">
               <CardTitle className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-teal-500 rounded-xl flex items-center justify-center shadow-md shadow-cyan-200">
-                  <Bell className="w-5 h-5 text-white" />
-                </div>
-                <div>
+                <Bell className="w-7 h-7 text-blue-500" />
+                <div className="flex-1">
                   <span className="text-lg font-bold text-gray-900">Alertes dans l'extension</span>
                   <CardDescription className="mt-0.5">Choisissez quels événements déclenchent une notification dans le popup</CardDescription>
                 </div>
+                {notifSaving && (
+                  <span className="flex items-center gap-1.5 text-xs text-blue-600 font-medium animate-pulse">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    Enregistrement...
+                  </span>
+                )}
+                {notifSaved && !notifSaving && (
+                  <motion.span
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Enregistré
+                  </motion.span>
+                )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {[
-                { key: "emailNewReply", label: "Nouvelle réponse", desc: "Être alerté quand un prospect répond", icon: "💬" },
-                { key: "emailNewConversion", label: "Nouvelle conversion", desc: "Alerte immédiate pour chaque conversion", icon: "🎯" },
-                { key: "emailLimitWarning", label: "Alerte limites", desc: "Avertissement quand vous approchez des limites LinkedIn", icon: "⚠️" },
-                { key: "emailDailySummary", label: "Résumé quotidien", desc: "Récapitulatif des actions du jour dans le popup", icon: "📊" },
-                { key: "emailWeeklyReport", label: "Rapport hebdomadaire", desc: "Statistiques et performance de la semaine", icon: "📈" },
-              ].map((item) => (
-                <div key={item.key} className="flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl">{item.icon}</span>
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm">{item.label}</p>
-                      <p className="text-xs text-gray-500">{item.desc}</p>
+            <CardContent className="p-5">
+              {notifLoading ? (
+                <div className="space-y-3">
+                  {[1,2,3,4].map((i) => (
+                    <div key={i} className="flex items-center justify-between gap-4 px-4 py-4 rounded-xl">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-gray-200 rounded-xl animate-pulse" />
+                        <div className="space-y-2">
+                          <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
+                          <div className="h-3 w-48 bg-gray-100 rounded animate-pulse" />
+                        </div>
+                      </div>
+                      <div className="h-6 w-10 bg-gray-200 rounded-full animate-pulse" />
                     </div>
-                  </div>
-                  <Switch
-                    checked={notifications[item.key as keyof typeof notifications] as boolean}
-                    onCheckedChange={(v: boolean) => setNotifications({ ...notifications, [item.key]: v })}
-                  />
+                  ))}
                 </div>
-              ))}
+              ) : (
+              <div className="space-y-1">
+                {[
+                  {
+                    key: "emailNewReply",
+                    label: "Nouvelle réponse",
+                    desc: "Être alerté quand un prospect répond",
+                    icon: MessageSquare,
+                    iconBg: "bg-blue-50",
+                    iconColor: "text-blue-600",
+                  },
+                  {
+                    key: "emailNewConversion",
+                    label: "Nouvelle conversion",
+                    desc: "Alerte immédiate pour chaque conversion",
+                    icon: TrendingUp,
+                    iconBg: "bg-emerald-50",
+                    iconColor: "text-emerald-600",
+                  },
+                  {
+                    key: "emailLimitWarning",
+                    label: "Alerte limites",
+                    desc: "Avertissement quand vous approchez des limites LinkedIn",
+                    icon: AlertTriangle,
+                    iconBg: "bg-amber-50",
+                    iconColor: "text-amber-600",
+                  },
+                  {
+                    key: "emailDailySummary",
+                    label: "Résumé quotidien",
+                    desc: "Récapitulatif des actions du jour dans le popup",
+                    icon: BarChart3,
+                    iconBg: "bg-indigo-50",
+                    iconColor: "text-indigo-600",
+                  },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <div
+                      key={item.key}
+                      className="group flex items-center justify-between gap-4 px-4 py-4 rounded-xl hover:bg-gray-50/70 transition-colors"
+                    >
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className={`w-10 h-10 ${item.iconBg} rounded-xl flex items-center justify-center shrink-0`}>
+                          <Icon className={`w-5 h-5 ${item.iconColor}`} strokeWidth={2} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-900 text-sm">{item.label}</p>
+                          <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{item.desc}</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={notifications[item.key as keyof typeof notifications] as boolean}
+                        onCheckedChange={(v: boolean) => setNotifications({ ...notifications, [item.key]: v })}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -702,13 +819,11 @@ export default function Settings() {
         <TabsContent value="appearance" className="space-y-6">
           {/* Theme Selection - Creative Cards */}
           <Card className="border-0 shadow-lg overflow-hidden">
-            <div className="h-1 bg-gradient-to-r from-violet-400 via-purple-500 to-violet-600" />
-            <CardHeader className="bg-gradient-to-br from-violet-50/50 to-white border-b border-gray-100">
+            <div className="h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-600" />
+            <CardHeader className="bg-gradient-to-br from-blue-50/50 to-white border-b border-gray-100">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-violet-400 to-purple-500 rounded-xl flex items-center justify-center shadow-md shadow-violet-200">
-                    <Palette className="w-5 h-5 text-white" />
-                  </div>
+                  <Palette className="w-7 h-7 text-blue-500" />
                   <div>
                     <span className="text-lg font-bold text-gray-900">Personnalisation visuelle</span>
                     <CardDescription className="mt-0.5">Choisissez l'apparence qui vous convient le mieux</CardDescription>
@@ -862,7 +977,7 @@ export default function Settings() {
                   <label className="block text-xs font-medium text-gray-500">Format de date</label>
                   <div className="flex gap-2">
                     {[
-                      { value: "DD/MM/YYYY", label: "31/12/2024", badge: "FR" },
+                      { value: "DD/MM/YYYY", label: "31/12/2024", badge: "EU" },
                       { value: "MM/DD/YYYY", label: "12/31/2024", badge: "US" },
                     ].map((fmt) => (
                       <button

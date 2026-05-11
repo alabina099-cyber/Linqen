@@ -579,7 +579,7 @@ export default function AgentChat() {
                   <CardTitle className="text-xl font-bold text-slate-900 flex items-center gap-1.5">
                     Agent Linkedin
                   </CardTitle>
-                  <p className="text-xs text-slate-500">Conversation pilotée par OpenAI, LangChain, le backend et l'extension Chrome</p>
+                  <p className="text-xs text-slate-500">Conversation pilotée par OpenAI et l'extension Chrome</p>
                 </div>
               </div>
 

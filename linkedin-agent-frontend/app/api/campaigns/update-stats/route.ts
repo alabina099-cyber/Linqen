@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { createNotification } from "@/lib/notifications";
 
 // OPTIONS — CORS preflight
 export async function OPTIONS() {
@@ -19,9 +20,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { prospect_id, stat, campaign_id } = body;
 
-    if (!stat || !['replied', 'clicked', 'converted'].includes(stat)) {
+    if (!stat || !['replied', 'converted', 'contacted', 'connections_sent', 'connections_accepted'].includes(stat)) {
       return NextResponse.json(
-        { error: "stat doit être 'replied', 'clicked' ou 'converted'" },
+        { error: "stat doit être 'replied', 'converted', 'contacted', 'connections_sent' ou 'connections_accepted'" },
         { status: 400 }
       );
     }
@@ -54,6 +55,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "prospect_id ou campaign_id requis" },
         { status: 400 }
+      );
+    }
+
+    // Créer une notification in-app selon l'événement
+    if (stat === 'replied') {
+      await createNotification(
+        'reply',
+        'Nouvelle réponse',
+        'Un prospect a répondu à votre message',
+        { prospect_id, campaign_id, stat }
+      );
+    } else if (stat === 'converted') {
+      await createNotification(
+        'connection',
+        'Nouvelle conversion 🎉',
+        'Un prospect vient d’être converti en client',
+        { prospect_id, campaign_id, stat }
+      );
+    } else if (stat === 'connections_accepted') {
+      await createNotification(
+        'connection',
+        'Connexion acceptée',
+        'Un prospect a accepté votre demande de connexion',
+        { prospect_id, campaign_id, stat }
       );
     }
 

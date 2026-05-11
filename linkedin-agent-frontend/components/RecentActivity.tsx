@@ -21,11 +21,10 @@ interface Message {
   created_at: string;
 }
 
-const filters = ["Tous", "Réponses", "Conversions", "Connexions", "Clics"];
+const filters = ["Tous", "Réponses", "Conversions", "Connexions"];
 
 const statusConfig: Record<string, { icon: React.ElementType; color: string; bgColor: string; badgeColor: string; badge: string; title: string }> = {
   replied: { icon: MessageSquare, color: "text-purple-600", bgColor: "bg-purple-50", badgeColor: "bg-purple-100 text-purple-700 border-purple-200", badge: "Réponse", title: "Message reçu" },
-  clicked: { icon: MousePointerClick, color: "text-cyan-600", bgColor: "bg-cyan-50", badgeColor: "bg-cyan-100 text-cyan-700 border-cyan-200", badge: "Clic", title: "Lien visité" },
   converted: { icon: CheckCircle, color: "text-green-600", bgColor: "bg-green-50", badgeColor: "bg-green-100 text-green-700 border-green-200", badge: "Conversion", title: "Conversion" },
   sent: { icon: UserPlus, color: "text-blue-600", bgColor: "bg-blue-50", badgeColor: "bg-blue-100 text-blue-700 border-blue-200", badge: "Connexion", title: "Message envoyé" },
   pending: { icon: Clock, color: "text-gray-600", bgColor: "bg-gray-50", badgeColor: "bg-gray-100 text-gray-700 border-gray-200", badge: "En attente", title: "En attente" },
@@ -74,7 +73,6 @@ export default function RecentActivity() {
         if (activeFilter === "Réponses") return m.status === 'replied';
         if (activeFilter === "Conversions") return m.status === 'converted';
         if (activeFilter === "Connexions") return m.status === 'sent';
-        if (activeFilter === "Clics") return m.status === 'clicked';
         return true;
       });
 

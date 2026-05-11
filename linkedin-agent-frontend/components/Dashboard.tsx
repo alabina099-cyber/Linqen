@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { TrendingUp, Calendar, LayoutDashboard } from "lucide-react";
 import { useSettings } from "@/contexts/SettingsContext";
-import Sidebar from "./Sidebar";
 import Header from "./Header";
 import StatsCards from "./StatsCards";
 import PerformanceCharts from "./PerformanceCharts";
@@ -106,11 +105,10 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+    <div className="flex flex-col h-screen bg-gray-50">
+      <Header activeTab={activeTab} setActiveTab={setActiveTab} />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
         
         <main className={`flex-1 min-h-0 ${activeTab === "agent" ? "overflow-hidden" : "overflow-y-auto p-3 sm:p-4 lg:p-6"}`}>
           {activeTab === "dashboard" && (
@@ -118,7 +116,7 @@ export default function Dashboard() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
-              className="space-y-4 sm:space-y-6 max-w-7xl mx-auto"
+              className="space-y-4 sm:space-y-6 w-full"
             >
               <DashboardHeader />
               <StatsCards />

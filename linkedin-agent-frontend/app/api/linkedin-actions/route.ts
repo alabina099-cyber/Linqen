@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { createNotification } from '@/lib/notifications';
 
 // OPTIONS — CORS preflight
 export async function OPTIONS() {
@@ -11,6 +12,41 @@ export async function OPTIONS() {
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
     },
   });
+}
+
+// Helper: check if current time is within working hours configured by the user
+async function isWithinWorkingHours(): Promise<{ allowed: boolean; reason?: string }> {
+  try {
+    const userResult = await query('SELECT settings FROM users LIMIT 1');
+    const automation = userResult.rows[0]?.settings?.automation || {};
+
+    const workingDays: string[]   = automation.workingDays        || ['Mon','Tue','Wed','Thu','Fri'];
+    const workingHoursStart: string = automation.workingHoursStart || '09:00';
+    const workingHoursEnd: string   = automation.workingHoursEnd   || '18:00';
+
+    // Get current Paris time (default timezone)
+    const now = new Date();
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const currentDay = dayNames[now.getDay()];
+
+    if (!workingDays.includes(currentDay)) {
+      return { allowed: false, reason: `Aujourd'hui (${currentDay}) n'est pas un jour de prospection.` };
+    }
+
+    const [startH, startM] = workingHoursStart.split(':').map(Number);
+    const [endH,   endM]   = workingHoursEnd.split(':').map(Number);
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const startMinutes   = startH * 60 + startM;
+    const endMinutes     = endH   * 60 + endM;
+
+    if (currentMinutes < startMinutes || currentMinutes >= endMinutes) {
+      return { allowed: false, reason: `Hors des heures de travail (${workingHoursStart}-${workingHoursEnd}).` };
+    }
+
+    return { allowed: true };
+  } catch {
+    return { allowed: true }; // Don't block if settings can't be read
+  }
 }
 
 // GET /api/linkedin-actions - Récupérer les actions (appelé par l'extension Chrome)
@@ -34,12 +70,32 @@ export async function GET(request: NextRequest) {
 
     // L'extension Chrome ne récupère que les actions "approved" (approuvées par l'utilisateur)
     const status = searchParams.get('status') || 'approved';
+
+    // Vérifier les heures de travail pour les actions approuvées
+    if (status === 'approved') {
+      const workCheck = await isWithinWorkingHours();
+      if (!workCheck.allowed) {
+        return NextResponse.json({
+          success: true,
+          actions: [],
+          count: 0,
+          paused: true,
+          reason: workCheck.reason,
+          stats: [],
+        });
+      }
+    }
     const limit = parseInt(searchParams.get('limit') || '10');
 
+    // Pour les actions à exécuter (approved), exclure celles dont la campagne liée
+    // est en pause ou terminée. L'utilisateur peut ainsi mettre une campagne en pause
+    // dans l'UI et l'extension arrêtera de récupérer ses actions.
     const result = await query(
-      `SELECT * FROM linkedin_actions_queue 
-       WHERE status = $1 
-       ORDER BY created_at ASC 
+      `SELECT q.* FROM linkedin_actions_queue q
+       LEFT JOIN campaigns c ON c.id = q.campaign_id
+       WHERE q.status = $1
+         AND (q.campaign_id IS NULL OR c.status NOT IN ('paused', 'completed'))
+       ORDER BY q.created_at ASC 
        LIMIT $2`,
       [status, limit]
     );
@@ -165,6 +221,32 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Créer une notification in-app pour les actions importantes
+    if (status === 'completed') {
+      if (action.action_type === 'send_connection') {
+        await createNotification(
+          'connection',
+          'Invitation envoyée',
+          `Demande de connexion envoyée à ${action.target_name || 'un prospect'}`,
+          { action_id: action.id, target_url: action.target_url }
+        );
+      } else if (action.action_type === 'send_message') {
+        await createNotification(
+          'message',
+          'Message envoyé',
+          `Message envoyé à ${action.target_name || 'un prospect'}`,
+          { action_id: action.id, target_url: action.target_url }
+        );
+      }
+    } else if (status === 'failed') {
+      await createNotification(
+        'alert',
+        'Action échouée',
+        `L'action ${action.action_type} vers ${action.target_name || 'un prospect'} a échoué`,
+        { action_id: action.id, error: error_message }
+      );
+    }
+
     // Si l'action est "send_connection" ou "send_message" et a réussi, mettre à jour le statut du message
     if ((action.action_type === 'send_connection' || action.action_type === 'send_message') && status === 'completed') {
       await query(
@@ -197,6 +279,26 @@ export async function PATCH(request: NextRequest) {
            WHERE id = $1`,
           [action.campaign_id]
         );
+      }
+    }
+
+    // Auto-completion: quand l'action principale (search_and_connection ou search_and_message)
+    // d'une campagne se termine (avec succès ou échec), marquer la campagne comme "completed".
+    // L'utilisateur peut relancer en appelant execute_campaign (qui n'autorise que draft/active).
+    if (
+      action.campaign_id &&
+      (action.action_type === 'search_and_connection' || action.action_type === 'search_and_message') &&
+      (status === 'completed' || status === 'failed')
+    ) {
+      try {
+        await query(
+          `UPDATE campaigns SET status = 'completed', updated_at = NOW() 
+           WHERE id = $1 AND status = 'active'`,
+          [action.campaign_id]
+        );
+        console.log(`[CAMPAIGN] Campaign #${action.campaign_id} marquée comme 'completed' (action #${id} ${status})`);
+      } catch (e) {
+        console.error('[CAMPAIGN] Erreur completion campagne:', e);
       }
     }
 

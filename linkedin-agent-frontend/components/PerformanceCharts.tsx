@@ -58,7 +58,6 @@ export default function PerformanceCharts() {
     { stage: "Identified", count: 0, color: "rgba(194, 96, 30, 0.85)" },
     { stage: "Contacted", count: 0, color: "rgba(37, 99, 235, 0.85)" },
     { stage: "Replied", count: 0, color: "rgba(109, 40, 217, 0.85)" },
-    { stage: "Clicked", count: 0, color: "rgba(21, 128, 61, 0.85)" },
     { stage: "Converted", count: 0, color: "rgba(161, 98, 7, 0.85)" },
   ]);
 

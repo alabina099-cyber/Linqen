@@ -11,6 +11,7 @@ import {
   User,
   MessageSquare,
   Link as LinkIcon,
+  UserPlus,
   AlertCircle,
   RefreshCw,
   ExternalLink,
@@ -178,6 +179,8 @@ export default function ApprovalQueue() {
         return <Search className="w-5 h-5 text-blue-600" />;
       case "search_and_message":
         return <MessageSquare className="w-5 h-5 text-purple-600" />;
+      case "search_and_connection":
+        return <UserPlus className="w-5 h-5 text-green-600" />;
       case "visit_profile":
         return <User className="w-5 h-5 text-amber-600" />;
       case "send_connection":
@@ -195,6 +198,7 @@ export default function ApprovalQueue() {
     const labels: Record<string, string> = {
       search: "Recherche LinkedIn",
       search_and_message: "Envoyer un message",
+      search_and_connection: "Envoi de connexion",
       visit_profile: "Visiter profil",
       send_connection: "Demande de connexion",
       send_message: "Envoyer message",
@@ -209,6 +213,8 @@ export default function ApprovalQueue() {
         return "bg-blue-100 text-blue-700 border-blue-200";
       case "search_and_message":
         return "bg-purple-100 text-purple-700 border-purple-200";
+      case "search_and_connection":
+        return "bg-green-100 text-green-700 border-green-200";
       case "visit_profile":
         return "bg-yellow-100 text-yellow-700 border-yellow-200";
       case "send_connection":
@@ -685,6 +691,8 @@ export default function ApprovalQueue() {
                         >
                           {action.action_type === "search_and_message"
                             ? "Voir la liste des prospects"
+                            : action.action_type === "search_and_connection"
+                            ? "Voir la liste des connexions"
                             : `${action.target_url.substring(0, 60)}...`}
                           <ExternalLink className="w-3 h-3" />
                         </a>
@@ -713,7 +721,7 @@ export default function ApprovalQueue() {
                         );
                       })()}
 
-                      {action.action_type !== "search_and_message" && formatPayload(action) && (
+                      {action.action_type !== "search_and_message" && action.action_type !== "search_and_connection" && formatPayload(action) && (
                         <p className="text-xs text-gray-600 mt-2 bg-gray-50 p-2 rounded">
                           {formatPayload(action)}
                         </p>

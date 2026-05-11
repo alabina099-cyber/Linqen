@@ -613,7 +613,7 @@ export const scheduleFollowupTool = new DynamicStructuredTool({
 // TOOL: Créer une campagne
 export const createCampaignTool = new DynamicStructuredTool({
   name: "create_campaign",
-  description: "Créer une nouvelle campagne de prospection LinkedIn.",
+  description: "Créer une nouvelle campagne de prospection LinkedIn. Utiliser campaign_type='connections_only' pour les campagnes d'envoi de connexions sans message.",
   schema: z.object({
     name: z.string().describe("Nom de la campagne"),
     description: z.string().describe("Description de la campagne"),
@@ -621,22 +621,25 @@ export const createCampaignTool = new DynamicStructuredTool({
     company_size: z.string().describe("Taille des entreprises ciblées"),
     location: z.string().describe("Localisation cible"),
     target_role: z.string().describe("Poste cible"),
+    campaign_type: z.enum(["messages", "connections_only"]).default("messages").describe("Type de campagne: 'messages' pour envoi de messages, 'connections_only' pour envoi de connexions uniquement sans message"),
     template_invitation: z.string().describe("Template de demande de connexion"),
     template_followup: z.string().describe("Template de message de suivi"),
   }),
-  func: async ({ name, description, industry, company_size, location, target_role, template_invitation, template_followup }) => {
+  func: async ({ name, description, industry, company_size, location, target_role, campaign_type, template_invitation, template_followup }) => {
     try {
       const result = await pool.query(
-        `INSERT INTO campaigns (name, description, industry, company_size, location, target_role, template_invitation, template_followup, status, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', NOW()) RETURNING id`,
-        [name, description, industry, company_size, location, target_role, template_invitation, template_followup]
+        `INSERT INTO campaigns (name, description, industry, company_size, location, target_role, campaign_type, template_invitation, template_followup, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'draft', NOW()) RETURNING id`,
+        [name, description, industry, company_size, location, target_role, campaign_type || 'messages', template_invitation, template_followup]
       );
 
+      const typeLabel = campaign_type === 'connections_only' ? "d'envoi de connexions" : "de prospection";
       return JSON.stringify({
         success: true,
         campaign_id: result.rows[0].id,
+        campaign_type: campaign_type || 'messages',
         status: "draft",
-        message: `Campagne "${name}" créée avec succès. Utilisez update_campaign pour l'activer.`,
+        message: `Campagne ${typeLabel} "${name}" créée avec succès. Utilisez update_campaign pour l'activer.`,
       });
     } catch (error) {
       return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
@@ -653,10 +656,9 @@ export const updateCampaignTool = new DynamicStructuredTool({
     status: z.enum(["draft", "active", "paused", "completed"]).optional(),
     contacted: z.number().optional(),
     replied: z.number().optional(),
-    clicked: z.number().optional(),
     converted: z.number().optional(),
   }),
-  func: async ({ campaign_id, status, contacted, replied, clicked, converted }) => {
+  func: async ({ campaign_id, status, contacted, replied, converted }) => {
     try {
       const updates: string[] = [];
       const values: any[] = [];
@@ -665,7 +667,6 @@ export const updateCampaignTool = new DynamicStructuredTool({
       if (status) { updates.push(`status = $${idx}`); values.push(status); idx++; }
       if (contacted !== undefined) { updates.push(`contacted = $${idx}`); values.push(contacted); idx++; }
       if (replied !== undefined) { updates.push(`replied = $${idx}`); values.push(replied); idx++; }
-      if (clicked !== undefined) { updates.push(`clicked = $${idx}`); values.push(clicked); idx++; }
       if (converted !== undefined) { updates.push(`converted = $${idx}`); values.push(converted); idx++; }
 
       if (updates.length === 0) {
@@ -677,6 +678,112 @@ export const updateCampaignTool = new DynamicStructuredTool({
 
       await pool.query(`UPDATE campaigns SET ${updates.join(", ")} WHERE id = $${idx}`, values);
       return JSON.stringify({ success: true, campaign_id, updated_fields: updates.length - 1 });
+    } catch (error) {
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+    }
+  },
+});
+
+// TOOL: Lancer l'exécution d'une campagne (crée une action en attente d'approbation)
+export const executeCampaignTool = new DynamicStructuredTool({
+  name: "execute_campaign",
+  description: "Lancer l'exécution d'une campagne. Crée une action 'search_and_connection' (pour campaign_type='connections_only') ou 'search_and_message' (pour 'messages') en attente d'approbation. La campagne sera automatiquement activée quand l'utilisateur approuvera l'action dans l'onglet Approbations. L'extension Chrome exécutera ensuite la recherche et l'envoi en respectant les limites LinkedIn.",
+  schema: z.object({
+    campaign_id: z.number().describe("ID de la campagne à lancer"),
+  }),
+  func: async ({ campaign_id }) => {
+    try {
+      // Récupérer la campagne
+      const campRes = await pool.query(`SELECT * FROM campaigns WHERE id = $1`, [campaign_id]);
+      if (campRes.rows.length === 0) {
+        return JSON.stringify({ success: false, error: "Campagne non trouvée" });
+      }
+      const campaign = campRes.rows[0];
+
+      if (!["draft", "active"].includes(campaign.status)) {
+        return JSON.stringify({ success: false, error: `Campagne en statut '${campaign.status}', ne peut pas être lancée` });
+      }
+
+      // Construire l'URL de recherche
+      const searchKeywords: string[] = [];
+      if (campaign.target_role) {
+        searchKeywords.push(...campaign.target_role.split(",").map((r: string) => r.trim()));
+      }
+      if (campaign.industry) {
+        searchKeywords.push(campaign.industry);
+      }
+      if (searchKeywords.length === 0) {
+        return JSON.stringify({ success: false, error: "Aucun critère de ciblage (rôle/industrie)" });
+      }
+
+      const keywordsParam = encodeURIComponent(searchKeywords.join(" "));
+      let searchUrl = `https://www.linkedin.com/search/results/people/?keywords=${keywordsParam}&origin=SWITCH_SEARCH_VERTICAL`;
+      if (campaign.location) {
+        const locKw = encodeURIComponent(campaign.location.split(",")[0].trim());
+        searchUrl = `https://www.linkedin.com/search/results/people/?keywords=${keywordsParam}+${locKw}&origin=SWITCH_SEARCH_VERTICAL`;
+      }
+
+      const campaignType = campaign.campaign_type || "messages";
+      const actionType = campaignType === "connections_only" ? "search_and_connection" : "search_and_message";
+
+      let messageTemplate: string | null = null;
+      if (campaignType === "messages") {
+        const tpl: string = campaign.template_invitation ||
+          `Bonjour {name},\n\nJ'ai remarqué votre profil et j'aimerais échanger avec vous.\n\nCordialement`;
+        messageTemplate = tpl
+          .replace(/\{\{name\}\}/g, "{name}")
+          .replace(/\{firstName\}/g, "{name}")
+          .replace(/\{prénom\}/g, "{name}");
+      }
+
+      // Vérifier qu'aucune action n'est déjà en cours pour cette campagne
+      const existing = await pool.query(
+        `SELECT id, status FROM linkedin_actions_queue 
+         WHERE campaign_id = $1 AND status IN ('pending_approval', 'approved', 'processing')
+         LIMIT 1`,
+        [campaign_id]
+      );
+      if (existing.rows.length > 0) {
+        return JSON.stringify({
+          success: false,
+          error: `Une action est déjà en cours/en attente pour cette campagne (id=${existing.rows[0].id}, statut=${existing.rows[0].status})`,
+        });
+      }
+
+      const dailyLimit = campaign.daily_limit || 20;
+      const result = await pool.query(
+        `INSERT INTO linkedin_actions_queue 
+         (action_type, target_url, target_name, payload, status, campaign_id, created_at)
+         VALUES ($1, $2, $3, $4, 'pending_approval', $5, NOW())
+         RETURNING id`,
+        [
+          actionType,
+          searchUrl,
+          `Campagne: ${campaign.name}`,
+          JSON.stringify({
+            message_template: messageTemplate,
+            campaign_type: campaignType,
+            campaign_id,
+            campaign_name: campaign.name,
+            target_role: campaign.target_role,
+            industry: campaign.industry,
+            location: campaign.location,
+            company_size: campaign.company_size,
+            daily_limit: dailyLimit,
+            follow_up_days: campaign.follow_up_days || 3,
+          }),
+          campaign_id,
+        ]
+      );
+
+      const typeLabel = campaignType === "connections_only" ? "envoi de connexions" : "envoi de messages";
+      return JSON.stringify({
+        success: true,
+        action_id: result.rows[0].id,
+        action_type: actionType,
+        campaign_type: campaignType,
+        message: `Action d'${typeLabel} créée (id=${result.rows[0].id}) en attente d'approbation. La campagne sera automatiquement activée et la recherche démarrera dès que vous approuverez l'action dans l'onglet Approbations. Limite: ${dailyLimit} connexions/jour, respect des cadences LinkedIn.`,
+      });
     } catch (error) {
       return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
     }
@@ -1074,6 +1181,7 @@ export const ALL_TOOLS = [
   // Campagnes
   createCampaignTool,
   updateCampaignTool,
+  executeCampaignTool,
 ];
 
 export const TOOLS_MAP: Record<string, DynamicStructuredTool> = {};

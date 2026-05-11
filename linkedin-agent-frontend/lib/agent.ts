@@ -24,9 +24,9 @@ export interface AgentChatResult {
 }
 
 // Créer le modèle LLM avec OpenAI + tool binding
-function createBoundLLM() {
+function createBoundLLM(modelName?: string) {
   const llm = new ChatOpenAI({
-    modelName: OPENAI_CONFIG.model,
+    modelName: modelName || OPENAI_CONFIG.model,
     temperature: OPENAI_CONFIG.temperature,
     maxTokens: OPENAI_CONFIG.maxTokens,
     openAIApiKey: process.env.OPENAI_API_KEY,
@@ -41,22 +41,32 @@ export class LinkedInAgent {
   private maxHistory = 20;
 
   // Envoyer un message à l'agent — boucle multi-tool pour chaîner les actions
-  async chat(userMessage: string, context?: Record<string, unknown>): Promise<AgentChatResult> {
+  async chat(userMessage: string, context?: Record<string, unknown>, modelName?: string): Promise<AgentChatResult> {
     const toolSteps: ToolStep[] = [];
     const MAX_TOOL_ROUNDS = 6; // Max 6 rounds de tool calls pour éviter les boucles infinies
 
     try {
-      const llm = createBoundLLM();
+      const llm = createBoundLLM(modelName);
+
+      // Extraire les settings du contexte (ton, langue)
+      const tone = context?.tone as string | undefined;
+      const autoDetectLang = context?.autoDetectLanguage !== false;
+      const toneInstruction = tone ? `\n\nℹ️ TON IMPOSE: Utilise un ton ${tone} dans TOUS tes messages. Adapte le style de rédaction en conséquence.` : '';
+      const langInstruction = autoDetectLang ? '\n\u2139️ LANGUE: Détecte la langue du prospect et réponds-lui dans SA LANGUE si elle est différente du français.' : '';
 
       // Construire le prompt avec contexte
       let input = userMessage;
       if (context) {
-        input = `[Contexte: ${JSON.stringify(context)}]\n\n${userMessage}`;
+        // Exclude internal settings keys from context shown to LLM
+        const { tone: _t, autoDetectLanguage: _l, ...displayCtx } = context;
+        if (Object.keys(displayCtx).length > 0) {
+          input = `[Contexte: ${JSON.stringify(displayCtx)}]\n\n${userMessage}`;
+        }
       }
 
       // Messages pour le LLM
       const messages: BaseMessage[] = [
-        new SystemMessage(`${SYSTEM_PROMPTS.prospecting}
+        new SystemMessage(`${SYSTEM_PROMPTS.prospecting}${toneInstruction}${langInstruction}
 
 RAPPEL CRITIQUE:
 - TOUTES les actions passent par la file d'approbation. AUCUNE action ne s'exécute directement.

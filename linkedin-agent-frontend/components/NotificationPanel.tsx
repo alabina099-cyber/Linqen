@@ -63,6 +63,28 @@ export default function NotificationPanel() {
     }
   }, [isOpen]);
 
+  // Auto-refresh every 30s when panel is open
+  useEffect(() => {
+    if (!isOpen) return;
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch('/api/notifications');
+        const data = await response.json();
+        if (data.success && data.notifications) {
+          setNotifications(data.notifications.map((n: any) => ({
+            id: String(n.id),
+            type: n.type as Notification['type'],
+            title: n.title,
+            description: n.message,
+            time: formatTimeAgo(n.created_at),
+            read: n.read
+          })));
+        }
+      } catch {}
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [isOpen]);
+
   function formatTimeAgo(dateString: string): string {
     const date = new Date(dateString);
     const now = new Date();
@@ -100,24 +122,28 @@ export default function NotificationPanel() {
   };
 
   const clearAll = async () => {
-    // Note: API doesn't have bulk delete, so we just clear locally
-    setNotifications([]);
+    try {
+      await fetch('/api/notifications', { method: 'DELETE' });
+      setNotifications([]);
+    } catch (error) {
+      console.error('Error clearing notifications:', error);
+    }
   };
 
   return (
     <div className="relative">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="relative"
+      <button
+        className="relative p-2 rounded-xl text-gray-400 hover:text-blue-600 hover:bg-blue-50/60 transition-all duration-200"
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Notifications"
       >
-        <Bell className="w-5 h-5" />
+        <Bell className="w-[18px] h-[18px]" />
         {unreadCount > 0 && (
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full border-2 border-white flex items-center justify-center">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
         )}
-      </Button>
+      </button>
 
       {isOpen && (
         <>

@@ -73,9 +73,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Obtenir l'agent et envoyer le message
+    // Lire les settings utilisateur (modèle, ton, détection langue)
+    let chosenModel: string | undefined;
+    let enrichedContext = context || {};
+    try {
+      const userResult = await query('SELECT settings FROM users LIMIT 1');
+      const settings = userResult.rows[0]?.settings || {};
+      chosenModel = settings.aiModel || undefined;
+      const aiCfg = settings.ai || {};
+      // Inject tone + language into context so the agent adapts
+      const toneMap: Record<string, string> = {
+        professional: 'professionnel et courtois',
+        friendly:     'amical et chaleureux',
+        formal:       'formel et soutenu',
+        casual:       'décontracté et naturel',
+      };
+      enrichedContext = {
+        ...enrichedContext,
+        tone: toneMap[aiCfg.tone || 'professional'] || 'professionnel et courtois',
+        autoDetectLanguage: aiCfg.autoDetectLanguage !== false,
+      };
+    } catch {}
+
+    // Obtenir l'agent et envoyer le message avec le modèle et le contexte enrichis
     const agent = getLinkedInAgent();
-    const agentResult = await agent.chat(message, context);
+    const agentResult = await agent.chat(message, enrichedContext, chosenModel);
 
     // Sauvegarder les messages dans l'historique
     try {

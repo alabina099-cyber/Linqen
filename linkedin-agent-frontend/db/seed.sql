@@ -368,7 +368,7 @@ VALUES (
     'GrowthMarketing',
     'Julie, votre stratégie growth chez GrowthMarketing est impressionnante ! Je pense que mon agent IA pourrait vous aider à générer encore plus de leads.',
     'connection',
-    'clicked',
+    'responded',
     NOW() - INTERVAL '2 days'
   ),
   (

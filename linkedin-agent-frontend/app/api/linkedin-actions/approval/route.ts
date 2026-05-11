@@ -174,6 +174,21 @@ export async function POST(request: NextRequest) {
       }), id]
     );
 
+    // Auto-activation: quand une action liée à une campagne est approuvée,
+    // activer la campagne si elle est encore en draft
+    if (action === 'approve' && actionData.campaign_id) {
+      try {
+        await query(
+          `UPDATE campaigns SET status = 'active', updated_at = NOW() 
+           WHERE id = $1 AND status = 'draft'`,
+          [actionData.campaign_id]
+        );
+        console.log(`[APPROVAL] Campaign #${actionData.campaign_id} activée suite à l'approbation de l'action #${id}`);
+      } catch (e) {
+        console.error('[APPROVAL] Erreur activation campagne:', e);
+      }
+    }
+
     let message: string;
     switch (action) {
       case 'approve':

@@ -21,10 +21,10 @@ export async function POST(
 
     const campaign = campaignResult.rows[0];
 
-    // Vérifier que la campagne est active
-    if (campaign.status !== "active") {
+    // Autoriser draft et active. La campagne sera activée automatiquement à l'approbation.
+    if (!["draft", "active"].includes(campaign.status)) {
       return NextResponse.json(
-        { error: "La campagne doit être active pour être exécutée" },
+        { error: `La campagne ne peut pas être exécutée dans le statut '${campaign.status}'` },
         { status: 400 }
       );
     }
@@ -61,25 +61,32 @@ export async function POST(
       searchUrl = `https://www.linkedin.com/search/results/people/?keywords=${keywordsParam}+${locationKeyword}&origin=SWITCH_SEARCH_VERTICAL`;
     }
 
-    // Construire le template de message
-    let messageTemplate = campaign.template_invitation;
-    
-    if (!messageTemplate) {
-      // Template par défaut si aucun n'est défini
-      messageTemplate = `Bonjour {name},\n\nJ'ai remarqué votre profil et votre expertise chez {company}. Je travaille sur une solution qui pourrait vous intéresser.\n\nSeriez-vous disponible pour un échange rapide ?\n\nCordialement`;
-    }
+    // Déterminer le type d'action selon campaign_type
+    const campaignType = campaign.campaign_type || 'messages';
+    const actionType = campaignType === 'connections_only' ? 'search_and_connection' : 'search_and_message';
 
-    // Normaliser les variables du template vers le format {name} attendu par l'extension
-    messageTemplate = messageTemplate
-      .replace(/\{\{name\}\}/g, "{name}")
-      .replace(/\{\{company\}\}/g, "{company}")
-      .replace(/\{\{role\}\}/g, "{role}")
-      .replace(/\{firstName\}/g, "{name}")
-      .replace(/\{\{firstName\}\}/g, "{name}")
-      .replace(/\{prénom\}/g, "{name}")
-      .replace(/\{nom\}/g, "{name}")
-      .replace(/\{entreprise\}/g, "{company}")
-      .replace(/\{poste\}/g, "{role}");
+    // Construire le template de message (uniquement pour type messages)
+    let messageTemplate = null;
+    if (campaignType === 'messages') {
+      messageTemplate = campaign.template_invitation;
+      
+      if (!messageTemplate) {
+        // Template par défaut si aucun n'est défini
+        messageTemplate = `Bonjour {name},\n\nJ'ai remarqué votre profil et votre expertise chez {company}. Je travaille sur une solution qui pourrait vous intéresser.\n\nSeriez-vous disponible pour un échange rapide ?\n\nCordialement`;
+      }
+
+      // Normaliser les variables du template vers le format {name} attendu par l'extension
+      messageTemplate = messageTemplate
+        .replace(/\{\{name\}\}/g, "{name}")
+        .replace(/\{\{company\}\}/g, "{company}")
+        .replace(/\{\{role\}\}/g, "{role}")
+        .replace(/\{firstName\}/g, "{name}")
+        .replace(/\{\{firstName\}\}/g, "{name}")
+        .replace(/\{prénom\}/g, "{name}")
+        .replace(/\{nom\}/g, "{name}")
+        .replace(/\{entreprise\}/g, "{company}")
+        .replace(/\{poste\}/g, "{role}");
+    }
 
     // Vérifier s'il y a déjà une action en cours pour cette campagne
     const existingActions = await query(
@@ -97,7 +104,7 @@ export async function POST(
       });
     }
 
-    // Créer l'action search_and_message dans la queue
+    // Créer l'action dans la queue selon le type de campagne
     const dailyLimit = campaign.daily_limit || 20;
     const actionResult = await query(
       `INSERT INTO linkedin_actions_queue 
@@ -105,11 +112,12 @@ export async function POST(
        VALUES ($1, $2, $3, $4, 'pending_approval', $5, NOW())
        RETURNING *`,
       [
-        "search_and_message",
+        actionType,
         searchUrl,
         `Campagne: ${campaign.name}`,
         JSON.stringify({
           message_template: messageTemplate,
+          campaign_type: campaignType,
           campaign_id: id,
           campaign_name: campaign.name,
           target_role: campaign.target_role,
@@ -129,12 +137,13 @@ export async function POST(
       // On le note dans le payload pour référence future
     }
 
+    const actionLabel = campaignType === 'connections_only' ? "d'envoi de connexions" : "de prospection";
     return NextResponse.json({
       success: true,
-      message: `Action créée pour la campagne "${campaign.name}". Elle apparaîtra dans la file d'approbation.`,
+      message: `Action ${actionLabel} créée pour la campagne "${campaign.name}". Elle apparaîtra dans la file d'approbation.`,
       action: actionResult.rows[0],
       search_url: searchUrl,
-      template_preview: messageTemplate.substring(0, 100) + "...",
+      ...(messageTemplate ? { template_preview: messageTemplate.substring(0, 100) + "..." } : {}),
     });
   } catch (error) {
     console.error("POST /api/campaigns/[id]/execute error:", error);

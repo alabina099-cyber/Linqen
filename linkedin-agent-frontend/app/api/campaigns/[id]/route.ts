@@ -17,10 +17,12 @@ const campaignUpdateSchema = z.object({
   status: z.enum(["draft", "active", "paused", "completed"]).optional(),
   contacted: z.number().optional(),
   replied: z.number().optional(),
-  clicked: z.number().optional(),
   converted: z.number().optional(),
+  connections_sent: z.number().optional(),
+  connections_accepted: z.number().optional(),
   objective: z.string().optional(),
   seniority: z.string().optional(),
+  campaign_type: z.string().optional(),
   daily_limit: z.number().optional(),
   follow_up_days: z.number().optional(),
 });

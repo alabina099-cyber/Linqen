@@ -32,8 +32,44 @@ const ACTION_DELAYS = {
   visit_profile: [20000, 40000], // 20s à 40s
   search: [45000, 70000], // 45s à 70s
   search_and_message: [45000, 70000], // même délai que search (les délais internes sont gérés dans la fonction)
+  search_and_connection: [45000, 70000], // même délai que search (les délais internes sont gérés dans la fonction)
   default: [10000, 20000] // 10s à 20s
 };
+
+// Settings utilisateur chargés depuis le backend
+let agentSettings = {
+  minDelayBetweenActions: 30,
+  maxDelayBetweenActions: 120,
+  randomizeDelays: true,
+  simulateHumanBehavior: true,
+  autoReplyEnabled: false,
+  workingDays: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+  workingHoursStart: "09:00",
+  workingHoursEnd: "18:00",
+  tone: "professional",
+  autoDetectLanguage: true
+};
+
+async function loadAgentSettings() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/settings/agent`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.success && data.settings) {
+      agentSettings = { ...agentSettings, ...data.settings };
+      console.log("[Settings] Paramètres agent chargés:", agentSettings);
+    }
+  } catch (e) {
+    console.log(
+      "[Settings] Impossible de charger les paramètres agent:",
+      e.message
+    );
+  }
+}
+
+// Charger les settings au démarrage et toutes les 5 minutes
+setTimeout(loadAgentSettings, 2000);
+setInterval(loadAgentSettings, 5 * 60 * 1000);
 
 // Limites journalières LinkedIn (conservatives)
 const DAILY_LIMITS = {
@@ -41,7 +77,8 @@ const DAILY_LIMITS = {
   send_message: 30,
   visit_profile: 50,
   search: 25,
-  search_and_message: 15
+  search_and_message: 15,
+  search_and_connection: 20
 };
 
 // Compteurs journaliers — réinitialisés à minuit
@@ -49,6 +86,17 @@ let dailyCounters = {};
 let lastResetDate = new Date().toDateString();
 
 function getRandomDelay(actionType) {
+  // Pour send_message et send_connection, utiliser les délais configurés par l'utilisateur
+  if (
+    actionType === "send_message" ||
+    actionType === "send_connection" ||
+    actionType === "default"
+  ) {
+    const minMs = (agentSettings.minDelayBetweenActions || 30) * 1000;
+    const maxMs = (agentSettings.maxDelayBetweenActions || 120) * 1000;
+    if (!agentSettings.randomizeDelays) return minMs;
+    return Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
+  }
   const [min, max] = ACTION_DELAYS[actionType] || ACTION_DELAYS.default;
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -87,6 +135,7 @@ let isProcessing = false;
 let isConnected = false;
 let activeActionTabId = null; // onglet ouvert pour l'action en cours
 let searchAndMessageActionIds = new Set(); // IDs des actions search_and_message en cours (le listener global ne doit PAS les traiter)
+let searchAndConnectionActionIds = new Set(); // IDs des actions search_and_connection en cours (le listener global ne doit PAS les traiter)
 
 // Initialiser l'alarme de polling
 chrome.alarms.create("pollActions", { periodInMinutes: 0.2 }); // Toutes les 12 secondes
@@ -100,6 +149,13 @@ chrome.alarms.create("checkInboxReplies", {
   periodInMinutes: 5
 }); // 1ère fois après 30s, puis toutes les 5 min
 let isCheckingInbox = false;
+
+// Alarme pour vérifier les connexions acceptées
+chrome.alarms.create("checkAcceptedConnections", {
+  delayInMinutes: 0.5,
+  periodInMinutes: 15
+}); // 1ère fois après 30s, puis toutes les 15 min
+let isCheckingConnections = false;
 
 // Vérification immédiate au démarrage (après 10s pour laisser LinkedIn se charger)
 setTimeout(() => {
@@ -136,7 +192,10 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
           continue; // En attente de reprise par le polling — ne pas toucher
         }
         // Ne pas récupérer les actions en cours d'exécution
-        if (searchAndMessageActionIds.has(action.id)) {
+        if (
+          searchAndMessageActionIds.has(action.id) ||
+          searchAndConnectionActionIds.has(action.id)
+        ) {
           continue;
         }
         const updatedAt = action.executed_at || action.created_at;
@@ -161,6 +220,13 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === "checkInboxReplies") {
     if (!isCheckingInbox && !isProcessing) {
       await checkInboxForReplies();
+    }
+  }
+
+  // Vérifier les connexions acceptées
+  if (alarm.name === "checkAcceptedConnections") {
+    if (!isCheckingConnections && !isProcessing && !isCheckingInbox) {
+      await checkAcceptedConnections();
     }
   }
 });
@@ -342,6 +408,35 @@ async function checkInboxForReplies() {
               `[INBOX] ⚠️ Erreur mise à jour stats campagne: ${statsErr.message}`
             );
           }
+
+          // AUTO-REPLY: si activé dans les paramètres, générer et envoyer une réponse automatique
+          if (agentSettings.autoReplyEnabled) {
+            try {
+              console.log(
+                `[AUTO-REPLY] 🤖 Réponse automatique pour "${reply.name}"...`
+              );
+              const autoReplyRes = await fetch(`${API_BASE_URL}/auto-reply`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  prospect_id: prospectId,
+                  prospect_name: reply.name,
+                  prospect_url: reply.linkedin_url || null,
+                  prospect_message: reply.message || reply.last_message || ""
+                })
+              });
+              const autoReplyData = await autoReplyRes.json();
+              if (autoReplyData.success && !autoReplyData.skipped) {
+                console.log(
+                  `[AUTO-REPLY] ✅ Réponse créée pour "${reply.name}" — Action #${autoReplyData.action_id}`
+                );
+              } else if (autoReplyData.skipped) {
+                console.log(`[AUTO-REPLY] ⏭️ Ignoré: ${autoReplyData.reason}`);
+              }
+            } catch (arErr) {
+              console.log(`[AUTO-REPLY] ⚠️ Erreur: ${arErr.message}`);
+            }
+          }
         } else {
           console.log(`[INBOX] ⚠️ Erreur API: ${JSON.stringify(updateData)}`);
         }
@@ -361,6 +456,256 @@ async function checkInboxForReplies() {
       chrome.tabs.remove(inboxTab.id).catch(() => {});
     }
     isCheckingInbox = false;
+  }
+}
+
+// =============================================
+// VÉRIFICATION CONNEXIONS ACCEPTÉES
+// =============================================
+async function checkAcceptedConnections() {
+  isCheckingConnections = true;
+  console.log("[CONNECTIONS] 🔍 Vérification des connexions acceptées...");
+
+  let networkTab = null;
+  try {
+    // 1) Récupérer les noms envoyés via search_and_connection (campagnes)
+    //    Ces prospects restent en status='identified' jusqu'à acceptation
+    const sentNames = new Set();
+    try {
+      const actionsRes = await fetch(
+        `${API_BASE_URL}/linkedin-actions?status=completed&limit=100`
+      );
+      const actionsData = await actionsRes.json();
+      if (actionsData.success && Array.isArray(actionsData.actions)) {
+        for (const act of actionsData.actions) {
+          if (act.action_type !== "search_and_connection") continue;
+          const result =
+            typeof act.result === "string"
+              ? (() => {
+                  try {
+                    return JSON.parse(act.result);
+                  } catch {
+                    return null;
+                  }
+                })()
+              : act.result;
+          if (result?.sent_profiles && Array.isArray(result.sent_profiles)) {
+            for (const n of result.sent_profiles) {
+              if (n) sentNames.add(String(n).toLowerCase().trim());
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.log("[CONNECTIONS] Erreur fetch actions:", e.message);
+    }
+
+    // 2) Récupérer les prospects à vérifier:
+    //    - Tous les prospects 'identified' dont le nom est dans sentNames (campagne)
+    //    - Plus les prospects 'contacted' (anciennes demandes de connexion directes)
+    const prospectsRes = await fetch(`${API_BASE_URL}/prospects?limit=200`);
+    const prospectsData = await prospectsRes.json();
+
+    if (
+      !prospectsData.success ||
+      !prospectsData.prospects ||
+      prospectsData.prospects.length === 0
+    ) {
+      console.log("[CONNECTIONS] Aucun prospect à vérifier");
+      isCheckingConnections = false;
+      return;
+    }
+
+    const contactedProspects = prospectsData.prospects.filter((p) => {
+      if (p.status === "contacted") return true;
+      // Les prospects 'new' (identifiés) qui ont reçu une demande de connexion
+      // via une campagne search_and_connection sont éligibles à la vérification d'acceptation
+      if (
+        (p.status === "new" || p.status === "identified") &&
+        p.name &&
+        sentNames.has(p.name.toLowerCase().trim())
+      )
+        return true;
+      return false;
+    });
+
+    if (contactedProspects.length === 0) {
+      console.log(
+        "[CONNECTIONS] Aucun prospect avec demande de connexion en attente"
+      );
+      isCheckingConnections = false;
+      return;
+    }
+
+    console.log(
+      `[CONNECTIONS] ${contactedProspects.length} prospects à vérifier`
+    );
+
+    // Ouvrir la page "Mon réseau" de LinkedIn pour voir les connexions récentes
+    networkTab = await new Promise((resolve, reject) => {
+      chrome.tabs.create(
+        {
+          url: "https://www.linkedin.com/mynetwork/invite-connect/connections/",
+          active: false
+        },
+        (tab) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(tab);
+          }
+        }
+      );
+    });
+
+    // Attendre le chargement
+    await new Promise((resolve) => {
+      function onUpdated(tabId, changeInfo) {
+        if (tabId === networkTab.id && changeInfo.status === "complete") {
+          chrome.tabs.onUpdated.removeListener(onUpdated);
+          resolve();
+        }
+      }
+      chrome.tabs.onUpdated.addListener(onUpdated);
+      setTimeout(() => {
+        chrome.tabs.onUpdated.removeListener(onUpdated);
+        resolve();
+      }, 15000);
+    });
+
+    await delay(3000);
+
+    // Scraper les noms des connexions récentes
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: networkTab.id },
+      func: () => {
+        const connections = [];
+        // LinkedIn affiche les connexions récentes avec leur nom
+        const cards = document.querySelectorAll(
+          ".mn-connection-card, .artdeco-list__item, li.mn-connection-card"
+        );
+        for (const card of cards) {
+          const nameEl = card.querySelector(
+            '.mn-connection-card__name, .artdeco-entity-lockup__title span, a[data-control-name="connection_profile"] span'
+          );
+          if (nameEl) {
+            const name = nameEl.textContent.trim();
+            if (name) connections.push(name.toLowerCase());
+          }
+        }
+        // Fallback: chercher dans les éléments de liste génériques
+        if (connections.length === 0) {
+          const allSpans = document.querySelectorAll(
+            '[class*="connection"] span[aria-hidden="true"], .entity-result__title-text a span'
+          );
+          for (const span of allSpans) {
+            const name = span.textContent.trim();
+            if (name && name.length > 2) connections.push(name.toLowerCase());
+          }
+        }
+        return connections;
+      }
+    });
+
+    const recentConnections = results?.[0]?.result || [];
+    console.log(
+      `[CONNECTIONS] ${recentConnections.length} connexions trouvées sur la page`
+    );
+
+    // Helper: tokenize a name (strip accents, periods, punctuation; lowercase)
+    const tokenize = (s) =>
+      String(s || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // strip accents
+        .replace(/[.,;:!?'"()\[\]]/g, " ") // strip punctuation
+        .replace(/\s+/g, " ")
+        .trim()
+        .split(" ")
+        .filter(Boolean);
+
+    // Helper: matches "Cyril P." → "Cyril Pradal" (token-by-token prefix match)
+    // prospect tokens must each be a prefix of corresponding conn token, in same order
+    const namesMatch = (prospectName, connName) => {
+      const pt = tokenize(prospectName);
+      const ct = tokenize(connName);
+      if (pt.length === 0 || ct.length === 0) return false;
+      // Try direct includes first (full match)
+      const ptStr = pt.join(" ");
+      const ctStr = ct.join(" ");
+      if (ctStr.includes(ptStr) || ptStr.includes(ctStr)) return true;
+      // Match by first+last token prefix (handles "Cyril P." vs "Cyril Pradal")
+      // First name must match exactly, last initial must be prefix of last name
+      if (pt.length >= 2 && ct.length >= 2) {
+        const pFirst = pt[0];
+        const pLast = pt[pt.length - 1];
+        const cFirst = ct[0];
+        const cLast = ct[ct.length - 1];
+        if (pFirst === cFirst && cLast.startsWith(pLast)) return true;
+        if (pFirst === cFirst && pLast.startsWith(cLast)) return true;
+      }
+      return false;
+    };
+
+    // Comparer avec les prospects contactés
+    let accepted = 0;
+    for (const prospect of contactedProspects) {
+      const prospectName = (prospect.name || "").toLowerCase().trim();
+      if (!prospectName) continue;
+
+      // Vérifier si le nom du prospect apparaît dans les connexions récentes
+      const isConnected = recentConnections.some((connName) =>
+        namesMatch(prospectName, connName)
+      );
+
+      if (isConnected) {
+        console.log(
+          `[CONNECTIONS] ✅ ${prospect.name} a accepté la connexion !`
+        );
+        accepted++;
+
+        // Mettre à jour le statut du prospect
+        try {
+          await fetch(`${API_BASE_URL}/prospects/${prospect.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "connected" })
+          });
+        } catch (e) {
+          console.log(
+            `[CONNECTIONS] Erreur mise à jour prospect: ${e.message}`
+          );
+        }
+
+        // Incrémenter connections_accepted dans la campagne liée
+        try {
+          await fetch(`${API_BASE_URL}/campaigns/update-stats`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prospect_id: prospect.id,
+              stat: "connections_accepted"
+            })
+          });
+        } catch (e) {
+          console.log(`[CONNECTIONS] Erreur update stats: ${e.message}`);
+        }
+      }
+    }
+
+    console.log(
+      `[CONNECTIONS] ✅ Vérification terminée — ${accepted} connexions acceptées détectées`
+    );
+  } catch (error) {
+    console.error(
+      "[CONNECTIONS] Erreur vérification connexions:",
+      error.message
+    );
+  } finally {
+    if (networkTab?.id) {
+      chrome.tabs.remove(networkTab.id).catch(() => {});
+    }
+    isCheckingConnections = false;
   }
 }
 
@@ -395,7 +740,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "SEARCH_RESULTS") {
     // Si c'est une action search_and_message, le listener local dans executeSearchAndMessage gère déjà
-    if (searchAndMessageActionIds.has(message.actionId)) {
+    if (
+      searchAndMessageActionIds.has(message.actionId) ||
+      searchAndConnectionActionIds.has(message.actionId)
+    ) {
       console.log(
         "[Extension] SEARCH_RESULTS pour search_and_message #" +
           message.actionId +
@@ -435,7 +783,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "ACTION_FAILED") {
     // Si c'est une action search_and_message, le listener local gère déjà
-    if (searchAndMessageActionIds.has(message.actionId)) {
+    if (
+      searchAndMessageActionIds.has(message.actionId) ||
+      searchAndConnectionActionIds.has(message.actionId)
+    ) {
       console.log(
         "[Extension] ACTION_FAILED pour search_and_message #" +
           message.actionId +
@@ -527,7 +878,8 @@ async function pollAndExecuteActions() {
                 : action.result || {};
             if (
               result.last_action === "continue" &&
-              !searchAndMessageActionIds.has(action.id)
+              !searchAndMessageActionIds.has(action.id) &&
+              !searchAndConnectionActionIds.has(action.id)
             ) {
               console.log(`[POLL] Action #${action.id} à reprendre (continue)`);
               actionsToExecute.push(action);
@@ -621,6 +973,9 @@ async function executeAction(action) {
       break;
     case "search_and_message":
       await executeSearchAndMessage(action);
+      break;
+    case "search_and_connection":
+      await executeSearchAndConnection(action);
       break;
     case "check_connection":
       await executeCheckConnection(action);
@@ -1594,6 +1949,508 @@ async function executeSearchAndMessage(action) {
     } catch (e) {
       console.error("[SEARCH&MSG] Erreur filet de sécurité:", e.message);
     }
+  }
+}
+
+async function executeSearchAndConnection(action) {
+  let searchTab;
+  // Enregistrer l'ID pour que le listener global SEARCH_RESULTS ne traite PAS cette action
+  searchAndConnectionActionIds.add(action.id);
+  try {
+    console.log("[SEARCH&CONN] === DÉBUT === Action #" + action.id);
+    console.log(
+      "[SEARCH&CONN] Status:",
+      action.status,
+      "| Type:",
+      action.action_type
+    );
+    console.log("[SEARCH&CONN] URL:", action.target_url);
+    console.log("[SEARCH&CONN] Payload type:", typeof action.payload);
+
+    if (!action.payload) {
+      await updateActionStatus(
+        action.id,
+        "failed",
+        null,
+        "Payload manquant ou null dans l'action"
+      );
+      return;
+    }
+
+    const payload =
+      typeof action.payload === "string"
+        ? JSON.parse(action.payload)
+        : action.payload;
+    const campaignId = payload.campaign_id || action.campaign_id || null;
+
+    if (campaignId) {
+      console.log(
+        `[SEARCH&CONN] Campagne liée: #${campaignId} (${payload.campaign_name || "N/A"})`
+      );
+    }
+
+    // Vérifier si c'est une reprise après stop (profiles_data sauvegardés dans le résultat)
+    const prevResult =
+      typeof action.result === "string"
+        ? JSON.parse(action.result || "{}")
+        : action.result || {};
+    const isResume =
+      prevResult.profiles_data && prevResult.profiles_data.length > 0;
+    let profiles;
+    const prospectIdMap = {};
+
+    if (isResume) {
+      console.log(
+        `[SEARCH&CONN] 🔄 Reprise après stop — ${prevResult.profiles_data.length} profils sauvegardés, ${(prevResult.sent_profiles || []).length} déjà contactés`
+      );
+      profiles = prevResult.profiles_data;
+    } else {
+      // PHASE 1: RECHERCHE — ouvrir la page et scraper les profils
+      searchTab = await openLinkedInTab(action.target_url);
+
+      const stoppedDuringSearch = await checkIfActionStopped(action.id);
+      if (stoppedDuringSearch) {
+        console.log(
+          `[SEARCH&CONN] ⏸️ Action #${action.id} arrêtée pendant la phase de recherche`
+        );
+        if (searchTab?.id) chrome.tabs.remove(searchTab.id).catch(() => {});
+        await updateActionStatus(action.id, "stopped", {
+          profiles_found: 0,
+          connections_sent: 0
+        });
+        return;
+      }
+
+      await delay(2000);
+      await ensureContentScript(searchTab.id);
+
+      profiles = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(
+          () => reject(new Error("Timeout: scraping recherche après 30s")),
+          30000
+        );
+
+        function searchListener(message, sender, sendResponse) {
+          if (
+            message.type === "SEARCH_RESULTS" &&
+            message.actionId === action.id
+          ) {
+            clearTimeout(timeout);
+            chrome.runtime.onMessage.removeListener(searchListener);
+            sendResponse({ success: true });
+            resolve(message.data || []);
+            return true;
+          }
+          if (
+            message.type === "ACTION_FAILED" &&
+            message.actionId === action.id
+          ) {
+            clearTimeout(timeout);
+            chrome.runtime.onMessage.removeListener(searchListener);
+            sendResponse({ success: true });
+            reject(new Error(message.error || "Erreur scraping recherche"));
+            return true;
+          }
+        }
+        chrome.runtime.onMessage.addListener(searchListener);
+
+        chrome.tabs.sendMessage(
+          searchTab.id,
+          {
+            type: "SCRAPE_SEARCH_RESULTS",
+            actionId: action.id,
+            payload: action.payload
+          },
+          (resp) => {
+            if (chrome.runtime.lastError) {
+              clearTimeout(timeout);
+              chrome.runtime.onMessage.removeListener(searchListener);
+              reject(new Error(chrome.runtime.lastError.message));
+            }
+          }
+        );
+      });
+
+      if (searchTab?.id) {
+        chrome.tabs.remove(searchTab.id).catch(() => {});
+        searchTab = null;
+      }
+
+      console.log("[SEARCH&CONN] Profils trouvés:", profiles.length);
+
+      if (!profiles || profiles.length === 0) {
+        await updateActionStatus(
+          action.id,
+          "failed",
+          { profiles: [] },
+          "Aucun profil trouvé dans la recherche"
+        );
+        return;
+      }
+
+      // Sauvegarder les prospects en DB
+      try {
+        const bulkPayload = {
+          prospects: profiles,
+          source: "linkedin_search",
+          search_action_id: action.id
+        };
+        if (campaignId) bulkPayload.campaign_id = campaignId;
+        const bulkRes = await fetch(`${API_BASE_URL}/prospects/bulk`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bulkPayload)
+        });
+        const bulkData = await bulkRes.json();
+        if (bulkData.success && bulkData.prospects) {
+          for (const p of bulkData.prospects) {
+            if (p.linkedin_url) prospectIdMap[p.linkedin_url] = p.id;
+          }
+          console.log(
+            `[SEARCH&CONN] 💾 ${bulkData.saved_count} prospects sauvegardés en DB`
+          );
+        }
+      } catch (e) {
+        console.log(
+          "[SEARCH&CONN] Erreur sauvegarde prospects (non bloquante):",
+          e.message
+        );
+      }
+    }
+
+    // Résoudre les IDs des prospects si pas encore dans le map
+    if (Object.keys(prospectIdMap).length === 0 && profiles.length > 0) {
+      try {
+        const bulkRes = await fetch(`${API_BASE_URL}/prospects/bulk`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prospects: profiles,
+            source: "linkedin_search",
+            search_action_id: action.id
+          })
+        });
+        const bulkData = await bulkRes.json();
+        if (bulkData.success && bulkData.prospects) {
+          for (const p of bulkData.prospects) {
+            if (p.linkedin_url) prospectIdMap[p.linkedin_url] = p.id;
+          }
+        }
+      } catch (e) {
+        console.log(
+          "[SEARCH&CONN] Erreur résolution IDs prospects:",
+          e.message
+        );
+      }
+    }
+
+    // PHASE 2: Envoyer des demandes de connexion (sans message)
+    const dailyLimit = payload.daily_limit || 20;
+    const alreadySentProfiles = new Set(prevResult.sent_profiles || []);
+    let connectionsSent = 0;
+    let results = [];
+
+    console.log(
+      `[SEARCH&CONN] 🚀 Début envoi connexions — limite quotidienne: ${dailyLimit}`
+    );
+
+    for (let i = 0; i < profiles.length; i++) {
+      const profile = profiles[i];
+      const profileUrl = profile.linkedin_url;
+
+      // Vérifier stop avant chaque envoi
+      const stopped = await checkIfActionStopped(action.id);
+      if (stopped) {
+        console.log(
+          `[SEARCH&CONN] ⏸️ Action #${action.id} arrêtée pendant l'envoi des connexions`
+        );
+        await updateActionStatus(action.id, "stopped", {
+          profiles_found: profiles.length,
+          connections_sent: connectionsSent,
+          profiles_data: profiles,
+          sent_profiles: Array.from(alreadySentProfiles),
+          last_action: "continue"
+        });
+        return;
+      }
+
+      // Vérifier limite quotidienne
+      const dailyCount = dailyCounters["send_connection"] || 0;
+      if (dailyCount >= DAILY_LIMITS["send_connection"]) {
+        console.log(
+          `[SEARCH&CONN] ⚠️ Limite quotidienne atteinte (${dailyCount}/${DAILY_LIMITS["send_connection"]})`
+        );
+        break;
+      }
+
+      // Skip si déjà envoyé
+      if (alreadySentProfiles.has((profile.name || "").toLowerCase())) {
+        continue;
+      }
+
+      // Envoyer demande de connexion sans message
+      const sendResult = await sendConnectionRequest(profileUrl, action.id);
+
+      if (sendResult.success) {
+        connectionsSent++;
+        incrementCounter("send_connection");
+        alreadySentProfiles.add((profile.name || "").toLowerCase());
+        results.push({ name: profile.name, status: "sent" });
+        console.log(`[SEARCH&CONN] ✅ Connexion envoyée à ${profile.name}`);
+
+        // NE PAS changer le status du prospect — il reste 'identified'.
+        // Le status passera à 'connected' uniquement si la personne accepte la connexion
+        // (géré par checkAcceptedConnections qui tourne toutes les 15 min).
+
+        // Incrémenter connections_sent dans la campagne
+        if (campaignId) {
+          try {
+            await fetch(`${API_BASE_URL}/campaigns/update-stats`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                campaign_id: campaignId,
+                stat: "connections_sent"
+              })
+            });
+          } catch (e) {
+            console.log("[SEARCH&CONN] Erreur update stats:", e.message);
+          }
+        }
+
+        // Délai entre les connexions
+        const delayMs = getRandomDelay("send_connection");
+        console.log(
+          `[SEARCH&CONN] ⏱️ Attente ${Math.round(delayMs / 1000)}s avant prochaine connexion...`
+        );
+        await delay(delayMs);
+      } else {
+        results.push({
+          name: profile.name,
+          status: "failed",
+          error: sendResult.error
+        });
+        console.log(
+          `[SEARCH&CONN] ❌ Échec pour ${profile.name}: ${sendResult.error}`
+        );
+      }
+
+      // Sauvegarder la progression périodiquement
+      if (connectionsSent % 5 === 0) {
+        await updateActionStatus(action.id, "processing", {
+          profiles_found: profiles.length,
+          connections_sent: connectionsSent,
+          profiles_data: profiles,
+          sent_profiles: Array.from(alreadySentProfiles),
+          last_action: "continue"
+        });
+      }
+    }
+
+    await updateActionStatus(action.id, "completed", {
+      profiles_found: profiles.length,
+      connections_sent: connectionsSent,
+      profiles_data: profiles,
+      sent_profiles: Array.from(alreadySentProfiles)
+    });
+
+    console.log(
+      `[SEARCH&CONN] ✅ Terminé — ${connectionsSent}/${profiles.length} connexions envoyées`
+    );
+  } catch (error) {
+    console.error("[SEARCH&CONN] Erreur globale:", error);
+    if (searchTab?.id) chrome.tabs.remove(searchTab.id).catch(() => {});
+    await updateActionStatus(action.id, "failed", null, error.message);
+  } finally {
+    searchAndConnectionActionIds.delete(action.id);
+    try {
+      const checkResp = await fetch(
+        `${API_BASE_URL}/linkedin-actions?id=${action.id}`
+      );
+      if (checkResp.ok) {
+        const checkData = await checkResp.json();
+        const actionData = checkData.actions?.[0];
+        const currentStatus = actionData?.status;
+        if (currentStatus === "processing") {
+          const resultData =
+            typeof actionData.result === "string"
+              ? JSON.parse(actionData.result || "{}")
+              : actionData.result || {};
+          if (resultData.last_action === "continue") {
+            console.log(
+              `[SEARCH&CONN] Action #${action.id} en attente de reprise — pas de forçage`
+            );
+          } else {
+            await updateActionStatus(action.id, "completed", {
+              safety_net: true,
+              message: "Action finalisée par le filet de sécurité"
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[SEARCH&CONN] Erreur filet de sécurité:", e.message);
+    }
+  }
+}
+
+// Envoyer une demande de connexion sans message
+async function sendConnectionRequest(profileUrl, actionId = null) {
+  let tab;
+  try {
+    tab = await openLinkedInTab(profileUrl);
+    console.log("[SEND_CONN] Profil ouvert, tab", tab.id);
+
+    if (actionId) {
+      const stopped = await checkIfActionStopped(actionId);
+      if (stopped) {
+        if (tab?.id) chrome.tabs.remove(tab.id).catch(() => {});
+        return { success: false, stopped: true, error: "Action arrêtée" };
+      }
+    }
+
+    // Cliquer sur le bouton "Plus" ou "Connecter"
+    const result = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: async () => {
+        function wait(ms) {
+          return new Promise((r) => setTimeout(r, ms));
+        }
+        function isVisible(el) {
+          return el && el.offsetParent !== null;
+        }
+
+        for (let i = 0; i < 15; i++) {
+          const h1 = document.querySelector("h1");
+          if (h1 && h1.textContent.trim().length > 0) break;
+          await wait(1000);
+        }
+        await wait(2000);
+
+        // Chercher le bouton "Connecter" directement ou via "Plus"
+        const clickables = document.querySelectorAll(
+          'button, a[role="button"], div[role="button"]'
+        );
+        let connectBtn = null;
+        let moreBtn = null;
+
+        for (const el of clickables) {
+          if (!isVisible(el)) continue;
+          const txt = (el.innerText || "").trim().toLowerCase();
+          const aria = (el.getAttribute("aria-label") || "")
+            .trim()
+            .toLowerCase();
+
+          // Bouton Connecter direct
+          if (
+            txt === "connect" ||
+            txt === "se connecter" ||
+            txt === "connecter" ||
+            aria === "connect" ||
+            aria === "se connecter" ||
+            (aria.includes("invite") && aria.includes("connect")) ||
+            aria.includes("envoyer une invitation")
+          ) {
+            connectBtn = el;
+            break;
+          }
+          // Bouton "Plus" / "More" pour accéder au menu
+          if (
+            txt === "plus" ||
+            txt === "more" ||
+            aria === "more" ||
+            aria === "plus"
+          ) {
+            moreBtn = el;
+          }
+        }
+
+        // Si pas de bouton direct, essayer via "Plus"
+        if (!connectBtn && moreBtn) {
+          moreBtn.click();
+          await wait(1500);
+
+          const menuItems = document.querySelectorAll(
+            'button, a[role="button"], div[role="menuitem"], li[role="menuitem"] button'
+          );
+          for (const el of menuItems) {
+            if (!isVisible(el)) continue;
+            const txt = (el.innerText || "").trim().toLowerCase();
+            const aria = (el.getAttribute("aria-label") || "")
+              .trim()
+              .toLowerCase();
+            if (
+              txt === "connect" ||
+              txt === "se connecter" ||
+              txt === "connecter" ||
+              aria.includes("connect") ||
+              aria.includes("connecter")
+            ) {
+              connectBtn = el;
+              break;
+            }
+          }
+        }
+
+        if (!connectBtn) {
+          return { success: false, error: "Bouton Connecter non trouvé" };
+        }
+
+        connectBtn.click();
+        await wait(2000);
+
+        // Vérifier si un modal de connexion s'est ouvert
+        // Chercher le bouton "Envoyer sans note" / "Send without a note" / "Envoyer"
+        const modalBtns = document.querySelectorAll(
+          "button[aria-label], button"
+        );
+        for (const el of modalBtns) {
+          if (!isVisible(el)) continue;
+          const txt = (el.innerText || "").trim().toLowerCase();
+          const aria = (el.getAttribute("aria-label") || "")
+            .trim()
+            .toLowerCase();
+          if (
+            txt === "send" ||
+            txt === "envoyer" ||
+            txt === "send without a note" ||
+            txt === "envoyer sans note" ||
+            txt.includes("envoyer") ||
+            aria === "send now" ||
+            aria === "envoyer"
+          ) {
+            el.click();
+            await wait(1000);
+            return { success: true };
+          }
+        }
+
+        return { success: true }; // Connexion peut-être déjà envoyée directement
+      }
+    });
+
+    const p1 = result?.[0]?.result;
+    if (!p1?.success) {
+      if (tab?.id) chrome.tabs.remove(tab.id).catch(() => {});
+      return {
+        success: false,
+        error: p1?.error || "Bouton Connecter non trouvé"
+      };
+    }
+
+    if (p1?.stopped) {
+      if (tab?.id) chrome.tabs.remove(tab.id).catch(() => {});
+      return { success: false, stopped: true };
+    }
+
+    setTimeout(() => {
+      if (tab?.id) chrome.tabs.remove(tab.id).catch(() => {});
+    }, 2000);
+
+    return { success: true };
+  } catch (error) {
+    if (tab?.id) chrome.tabs.remove(tab.id).catch(() => {});
+    return { success: false, error: error.message };
   }
 }
 

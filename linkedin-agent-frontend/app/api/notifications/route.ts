@@ -22,10 +22,10 @@ export async function GET(request: NextRequest) {
        WHERE last_seen > NOW() - INTERVAL '5 minutes'`
     );
 
-    // Get new replies count (messages with status replied, clicked, converted from last 24h)
+    // Get new replies count (messages with status replied, converted from last 24h)
     const newRepliesResult = await query(
       `SELECT COUNT(*) as count FROM messages 
-       WHERE status IN ('replied', 'clicked', 'converted') 
+       WHERE status IN ('replied', 'converted') 
        AND created_at > NOW() - INTERVAL '24 hours'`
     );
 
@@ -66,6 +66,20 @@ export async function POST(request: NextRequest) {
     console.error('Error creating notification:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to create notification' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/notifications - Delete all notifications
+export async function DELETE() {
+  try {
+    await query(`DELETE FROM notifications`);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting notifications:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete notifications' },
       { status: 500 }
     );
   }

@@ -40,6 +40,11 @@ export async function POST(request: Request) {
       industry: data.industry,
       location: data.location,
       company_size: data.company_size,
+      objective: data.objective,
+      seniority: data.seniority,
+      campaign_type: data.campaign_type || 'messages',
+      daily_limit: data.daily_limit,
+      follow_up_days: data.follow_up_days,
     });
 
     return NextResponse.json({ success: true, campaign });

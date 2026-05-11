@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LayoutDashboard, Users, Target, Settings, Activity, Menu, X, Bot, Clock } from "lucide-react";
+import { LayoutDashboard, Users, Target, Activity, Menu, X, Bot, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@/contexts/SettingsContext";
 
@@ -31,7 +31,6 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: "campaigns", label: t("Campagnes", "Campaigns"), icon: Target },
     { id: "approval", label: t("Approbations", "Approvals"), icon: Clock },
     { id: "agent", label: t("Agent IA", "AI Agent"), icon: Bot },
-    { id: "settings", label: t("Paramètres", "Settings"), icon: Settings },
   ];
 
   const handleTabClick = (tabId: string) => {

@@ -113,6 +113,10 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
   const [addError, setAddError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
+  // Drag and drop state
+  const [draggedProspect, setDraggedProspect] = useState<Prospect | null>(null);
+  const [dragOverStage, setDragOverStage] = useState<string | null>(null);
+
   // Contact info popup state
   const [contactPopup, setContactPopup] = useState<{type: 'email' | 'phone', value: string | null, prospectName: string} | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{prospectId: number, prospectName: string} | null>(null);
@@ -177,6 +181,17 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
         iconBg: "bg-red-200",
         icon: Eye,
         description: "Prospects identifiés"
+      },
+      {
+        id: "connected",
+        status: "Connectés",
+        count: prospects.filter((p: Prospect) => p.status === 'connected').length,
+        prospects: filtered.filter((p: Prospect) => p.status === 'connected').slice(0, displayLimit),
+        gradient: "bg-yellow-100 border-yellow-400",
+        textColor: "text-yellow-800",
+        iconBg: "bg-yellow-200",
+        icon: UserPlus,
+        description: "Connexion acceptée"
       },
       {
         id: "contacted",
@@ -274,6 +289,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
       const stageToStatus: Record<string, string> = {
         new: "new",
         identified: "new",
+        connected: "connected",
         contacted: "contacted",
         responded: "responded",
         qualified: "qualified",
@@ -332,6 +348,60 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, prospect: Prospect) => {
+    setDraggedProspect(prospect);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(prospect.id));
+  };
+
+  const handleDragOver = (e: React.DragEvent, stageId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverStage !== stageId) setDragOverStage(stageId);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverStage(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetStageId: string) => {
+    e.preventDefault();
+    setDragOverStage(null);
+
+    if (!draggedProspect) return;
+    if (draggedProspect.status === targetStageId) {
+      setDraggedProspect(null);
+      return;
+    }
+
+    // Optimistic update
+    const updatedProspects = allProspects.map(p =>
+      p.id === draggedProspect.id ? { ...p, status: targetStageId } : p
+    );
+    setAllProspects(updatedProspects);
+    organizeProspects(updatedProspects);
+    setDraggedProspect(null);
+
+    // Persist to API
+    try {
+      await fetch(`/api/prospects/${draggedProspect.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: targetStageId }),
+      });
+    } catch (error) {
+      console.error('Error updating prospect status:', error);
+      // Revert on error
+      fetchProspects(true);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedProspect(null);
+    setDragOverStage(null);
   };
 
   // Delete prospect
@@ -488,7 +558,16 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
               </div>
 
               {/* Cards container */}
-              <div className="bg-gray-50/80 rounded-lg flex-1 p-1.5 space-y-1.5 min-h-32 border border-gray-100">
+              <div 
+                className={`bg-gray-50/80 rounded-lg flex-1 p-1.5 space-y-1.5 min-h-32 border transition-all duration-200 ${
+                  dragOverStage === stage.id 
+                    ? 'border-blue-400 bg-blue-50/50 ring-2 ring-blue-200' 
+                    : 'border-gray-100'
+                }`}
+                onDragOver={(e) => handleDragOver(e, stage.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, stage.id)}
+              >
                 <AnimatePresence>
                   {stage.prospects.slice(0, displayLimit).map((prospect, idx) => {
                     const ScoreIcon = getScoreIcon(prospect.score);
@@ -502,9 +581,12 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9 }}
                         transition={{ delay: idx * 0.05 }}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e as any, prospect)}
+                        onDragEnd={handleDragEnd}
                         onMouseEnter={() => setHoveredCard(prospect.id)}
                         onMouseLeave={() => setHoveredCard(null)}
-                        className={`bg-white rounded-lg p-2 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-100 ${isHovered ? "ring-2 ring-blue-500/20 -translate-y-0.5" : ""}`}
+                        className={`bg-white rounded-lg p-2 shadow-sm hover:shadow-md transition-all duration-200 cursor-grab active:cursor-grabbing border border-gray-100 ${isHovered ? "ring-2 ring-blue-500/20 -translate-y-0.5" : ""} ${draggedProspect?.id === prospect.id ? "opacity-50 scale-95" : ""}`}
                       >
                         {/* Header avec avatar et nom */}
                         <div className="flex items-center gap-2 mb-1.5">

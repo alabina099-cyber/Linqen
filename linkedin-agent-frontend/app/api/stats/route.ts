@@ -35,7 +35,6 @@ export async function GET() {
           COUNT(*) FILTER (WHERE status = 'completed') as completed,
           SUM(contacted) as total_contacted,
           SUM(replied) as total_replied,
-          SUM(clicked) as total_clicked,
           SUM(converted) as total_converted
         FROM campaigns
       `),
@@ -85,12 +84,6 @@ export async function GET() {
           'Replied' as stage,
           COUNT(*) FILTER (WHERE status IN ('responded', 'qualified', 'converted')) as count,
           'rgba(196, 181, 253, 0.7)' as color
-        FROM prospects
-        UNION ALL
-        SELECT 
-          'Clicked' as stage,
-          COUNT(*) FILTER (WHERE status IN ('qualified', 'converted')) as count,
-          'rgba(134, 239, 172, 0.7)' as color
         FROM prospects
         UNION ALL
         SELECT 

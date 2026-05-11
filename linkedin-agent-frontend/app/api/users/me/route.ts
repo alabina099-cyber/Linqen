@@ -84,11 +84,11 @@ export async function PUT(request: NextRequest) {
       if (value !== undefined) {
         paramCount++;
         if (key === 'settings') {
-          updates.push(`${key} = $${paramCount}::jsonb`);
+          updates.push(`${key} = COALESCE(${key}, '{}'::jsonb) || $${paramCount}::jsonb`);
         } else {
           updates.push(`${key} = $${paramCount}`);
         }
-        values.push(value);
+        values.push(key === 'settings' ? JSON.stringify(value) : value);
       }
     });
 
