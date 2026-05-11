@@ -855,7 +855,7 @@ export default function Settings() {
                 <div className="grid grid-cols-3 gap-4">
                   {[
                     { 
-                      value: "light", 
+                      value: "light" as const, 
                       label: "Clair", 
                       desc: "Interface lumineuse et épurée",
                       icon: Sun,
@@ -864,7 +864,7 @@ export default function Settings() {
                       textColor: "text-gray-900"
                     },
                     { 
-                      value: "dark", 
+                      value: "dark" as const, 
                       label: "Sombre", 
                       desc: "Mode nuit, plus doux pour les yeux",
                       icon: Moon,
@@ -873,7 +873,7 @@ export default function Settings() {
                       textColor: "text-white"
                     },
                     { 
-                      value: "auto", 
+                      value: "auto" as const, 
                       label: "Automatique", 
                       desc: "S'adapte à l'heure du jour",
                       icon: Monitor,
@@ -887,7 +887,7 @@ export default function Settings() {
                     return (
                       <button
                         key={t.value}
-                        onClick={() => setAppearance({ ...appearance, theme: t.value })}
+                        onClick={() => setAppearance({ ...appearance, theme: t.value as typeof appearance.theme })}
                         className={`group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 ${
                           isSelected 
                             ? "border-blue-500 shadow-lg shadow-blue-500/20" 
