@@ -48,10 +48,10 @@ export default function Header({ activeTab, setActiveTab }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100 shadow-sm">
-      <div className="flex items-center justify-between px-4 lg:px-6 h-16">
+      <div className="flex items-center justify-between px-4 lg:px-6 h-[80px]">
         {/* Logo */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200/50">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200/50">
             <Activity className="w-5 h-5 text-white" />
           </div>
           <div className="hidden sm:block">
@@ -61,7 +61,7 @@ export default function Header({ activeTab, setActiveTab }: HeaderProps) {
         </div>
 
         {/* Navigation — Center */}
-        <nav className="flex items-center gap-1 px-1.5 py-1.5 bg-gray-50/80 rounded-2xl border border-gray-100">
+        <nav className="flex items-center gap-1 px-2 py-2 bg-gray-50/80 rounded-2xl border border-gray-100">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -73,7 +73,7 @@ export default function Header({ activeTab, setActiveTab }: HeaderProps) {
                   window.location.hash = item.id;
                 }}
                 className={`
-                  relative flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 ease-out whitespace-nowrap
+                  relative flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ease-out whitespace-nowrap
                   ${isActive
                     ? "bg-white text-blue-700 shadow-md shadow-blue-100/50"
                     : "text-gray-500 hover:text-gray-800 hover:bg-white/60"

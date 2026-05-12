@@ -188,9 +188,9 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
         status: "Connectés",
         count: prospects.filter((p: Prospect) => p.status === 'connected').length,
         prospects: filtered.filter((p: Prospect) => p.status === 'connected').slice(0, displayLimit),
-        gradient: "bg-yellow-100 border-yellow-400",
-        textColor: "text-yellow-800",
-        iconBg: "bg-yellow-200",
+        gradient: "bg-slate-100 border-slate-400",
+        textColor: "text-slate-800",
+        iconBg: "bg-slate-200",
         icon: UserPlus,
         description: "Connexion acceptée"
       },
@@ -221,9 +221,9 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
         status: "Intéressés",
         count: prospects.filter((p: Prospect) => p.status === 'qualified').length,
         prospects: filtered.filter((p: Prospect) => p.status === 'qualified').slice(0, displayLimit),
-        gradient: "bg-orange-100 border-orange-400",
-        textColor: "text-orange-800",
-        iconBg: "bg-orange-200",
+        gradient: "bg-yellow-100 border-yellow-400",
+        textColor: "text-yellow-800",
+        iconBg: "bg-yellow-200",
         icon: Star,
         description: "Intérêt confirmé"
       },
@@ -520,9 +520,9 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
           {/* Stats globales - style cohérent avec Campaigns */}
           <div className="grid grid-cols-4 gap-3 mt-3">
             {[
-              { label: "Total", value: totalProspects, icon: Users, color: "text-blue-600", bgColor: "bg-blue-50" },
-              { label: "Contactés", value: allProspects.filter((p: Prospect) => p.status === 'contacted').length, icon: Mail, color: "text-purple-600", bgColor: "bg-purple-50" },
-              { label: "Réponses", value: allProspects.filter((p: Prospect) => p.status === 'responded').length, icon: MessageIcon, color: "text-amber-600", bgColor: "bg-amber-50" },
+              { label: "Total", value: totalProspects, icon: Users, color: "text-orange-600", bgColor: "bg-orange-50" },
+              { label: "Contactés", value: allProspects.filter((p: Prospect) => p.status === 'contacted').length, icon: Mail, color: "text-blue-600", bgColor: "bg-blue-50" },
+              { label: "Réponses", value: allProspects.filter((p: Prospect) => p.status === 'responded').length, icon: MessageIcon, color: "text-purple-600", bgColor: "bg-purple-50" },
               { label: "Convertis", value: totalConverted, icon: CheckSquare, color: "text-green-600", bgColor: "bg-green-50" },
             ].map((stat) => (
               <Card key={stat.label} className="border border-gray-100 shadow-sm">
