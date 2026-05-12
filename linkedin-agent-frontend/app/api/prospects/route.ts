@@ -15,7 +15,7 @@ const prospectSchema = z.object({
   email: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
   status: z.enum(["new", "contacted", "responded", "qualified", "converted", "lost"]).default("new"),
-  score: z.number().min(0).max(100).default(50),
+  score: z.number().min(0).max(100).default(0),
   notes: z.string().optional().nullable(),
 });
 

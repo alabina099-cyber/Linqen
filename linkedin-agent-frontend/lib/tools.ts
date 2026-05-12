@@ -498,7 +498,7 @@ export const saveProspectTool = new DynamicStructuredTool({
            notes = COALESCE(EXCLUDED.notes, prospects.notes),
            updated_at = NOW()
          RETURNING id, name, score, status`,
-        [name, role, company, linkedin_url, industry || null, location || null, company_size || null, email || null, score || 50, notes || null]
+        [name, role, company, linkedin_url, industry || null, location || null, company_size || null, email || null, score || 0, notes || null]
       );
 
       return JSON.stringify({

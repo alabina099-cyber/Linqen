@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS prospects (
   company_size VARCHAR(50),
   email VARCHAR(255),
   phone VARCHAR(50),
-  score INTEGER DEFAULT 50,
+  score INTEGER DEFAULT 0,
   status VARCHAR(50) DEFAULT 'new',
   notes TEXT,
   last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
