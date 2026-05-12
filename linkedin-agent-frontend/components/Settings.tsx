@@ -855,7 +855,7 @@ export default function Settings() {
                 <div className="grid grid-cols-3 gap-4">
                   {[
                     { 
-                      value: "light" as const, 
+                      value: "light", 
                       label: "Clair", 
                       desc: "Interface lumineuse et épurée",
                       icon: Sun,
@@ -864,7 +864,7 @@ export default function Settings() {
                       textColor: "text-gray-900"
                     },
                     { 
-                      value: "dark" as const, 
+                      value: "dark", 
                       label: "Sombre", 
                       desc: "Mode nuit, plus doux pour les yeux",
                       icon: Moon,
@@ -873,7 +873,7 @@ export default function Settings() {
                       textColor: "text-white"
                     },
                     { 
-                      value: "auto" as const, 
+                      value: "auto", 
                       label: "Automatique", 
                       desc: "S'adapte à l'heure du jour",
                       icon: Monitor,
@@ -887,7 +887,7 @@ export default function Settings() {
                     return (
                       <button
                         key={t.value}
-                        onClick={() => setAppearance({ ...appearance, theme: t.value as typeof appearance.theme })}
+                        onClick={() => setAppearance({ ...appearance, theme: t.value as "light" | "dark" | "auto" })}
                         className={`group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 ${
                           isSelected 
                             ? "border-blue-500 shadow-lg shadow-blue-500/20" 
@@ -956,7 +956,7 @@ export default function Settings() {
                     ].map((lang) => (
                       <button
                         key={lang.value}
-                        onClick={() => setAppearance({ ...appearance, language: lang.value })}
+                        onClick={() => setAppearance({ ...appearance, language: lang.value as "fr" | "en" })}
                         className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border-2 text-sm font-medium transition-all duration-200 ${
                           appearance.language === lang.value
                             ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm shadow-blue-100"
