@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { z } from "zod";
+import { calculateProspectScore } from "@/lib/prospectScore";
 
 // Schema validation
 const prospectSchema = z.object({
@@ -119,6 +120,18 @@ export async function POST(request: NextRequest) {
       RETURNING *
     `;
     
+    // Si le score est explicitement fourni, l'utiliser ; sinon calculer automatiquement
+    const computedScore = (body.score !== undefined && body.score !== null)
+      ? validated.score
+      : calculateProspectScore({
+          role: validated.role,
+          company: validated.company,
+          email: validated.email,
+          phone: validated.phone,
+          location: validated.location,
+          linkedin_url: validated.linkedin_url,
+        });
+
     const params = [
       validated.linkedin_url || null,
       validated.name,
@@ -130,7 +143,7 @@ export async function POST(request: NextRequest) {
       validated.email || null,
       validated.phone || null,
       validated.status,
-      validated.score,
+      computedScore,
       validated.notes || null,
     ];
 

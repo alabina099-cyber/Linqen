@@ -121,6 +121,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
   const [contactPopup, setContactPopup] = useState<{type: 'email' | 'phone', value: string | null, prospectName: string} | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{prospectId: number, prospectName: string} | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -404,6 +405,22 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
     setDragOverStage(null);
   };
 
+  // Recalculate scores for all existing prospects
+  const handleRecalculateScores = async () => {
+    setRecalculating(true);
+    try {
+      const res = await fetch('/api/prospects/recalculate-scores', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        await fetchProspects(true);
+      }
+    } catch (e) {
+      console.error('Recalculate scores error:', e);
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
   // Delete prospect
   const handleDeleteProspect = async () => {
     if (!deleteConfirm) return;
@@ -470,8 +487,8 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
               </div>
               
               {/* Search bar aligned with title */}
-              <div className="flex-1 max-w-md">
-                <div className="relative">
+              <div className="flex items-center gap-2 flex-1 max-w-lg">
+                <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
                     type="text"
@@ -481,6 +498,15 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                     className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                   />
                 </div>
+                <button
+                  onClick={handleRecalculateScores}
+                  disabled={recalculating}
+                  title="Recalculer les scores de tous les prospects"
+                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 text-xs font-medium transition-colors disabled:opacity-50 shrink-0"
+                >
+                  <Flame className="w-4 h-4" />
+                  {recalculating ? 'Calcul...' : 'Scores'}
+                </button>
               </div>
             </div>
             

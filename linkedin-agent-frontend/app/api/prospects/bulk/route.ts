@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { calculateProspectScore } from "@/lib/prospectScore";
 
 // POST /api/prospects/bulk - Import batch de prospects depuis l'extension (résultats de recherche)
 export async function POST(request: NextRequest) {
@@ -26,18 +27,29 @@ export async function POST(request: NextRequest) {
       // Normaliser l'URL LinkedIn (enlever trailing slashes)
       const normalizedUrl = p.linkedin_url.replace(/\/+$/, "");
 
+      const computedScore = calculateProspectScore({
+          role: p.role,
+          company: p.company,
+          email: p.email,
+          phone: p.phone,
+          location: p.location,
+          linkedin_url: normalizedUrl,
+          connections: p.connections,
+        });
+
       try {
         // UPSERT: insérer ou mettre à jour si l'URL existe déjà
         const result = await query(
           `INSERT INTO prospects (linkedin_url, name, role, company, location, status, score, notes, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, 'new', 50, $6, NOW(), NOW())
+           VALUES ($1, $2, $3, $4, $5, 'new', $7, $6, NOW(), NOW())
            ON CONFLICT (linkedin_url) DO UPDATE SET
              name = COALESCE(EXCLUDED.name, prospects.name),
              role = COALESCE(EXCLUDED.role, prospects.role),
              company = COALESCE(EXCLUDED.company, prospects.company),
              location = COALESCE(EXCLUDED.location, prospects.location),
+             score = GREATEST(EXCLUDED.score, prospects.score),
              updated_at = NOW()
-           RETURNING id, name, linkedin_url, role, company, status`,
+           RETURNING id, name, linkedin_url, role, company, status, score`,
           [
             normalizedUrl,
             p.name,
@@ -45,6 +57,7 @@ export async function POST(request: NextRequest) {
             p.company || null,
             p.location || null,
             source ? `Source: ${source}${search_action_id ? ` (action #${search_action_id})` : ""}` : null,
+            computedScore,
           ]
         );
         saved.push(result.rows[0]);
