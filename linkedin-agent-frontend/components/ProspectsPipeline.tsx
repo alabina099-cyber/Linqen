@@ -1049,18 +1049,23 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
 
             {/* Content */}
             <div className="p-4">
-              <p className="text-sm text-gray-600 text-center">
-                Êtes-vous sûr de vouloir supprimer ce prospect ?<br />
-                <span className="text-xs text-gray-400">Cette action est irréversible.</span>
-              </p>
+              <div className="text-center py-3">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Trash2 className="w-6 h-6 text-red-500" />
+                </div>
+                <p className="text-sm font-medium text-gray-700">
+                  Êtes-vous sûr de vouloir supprimer ce prospect ?
+                </p>
+                <p className="text-xs text-gray-400 mt-1">Cette action est irréversible.</p>
+              </div>
             </div>
 
             {/* Footer */}
-            <div className="px-4 py-3 border-t border-gray-100 flex gap-2">
+            <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 flex gap-2">
               <button
                 onClick={() => setDeleteConfirm(null)}
                 disabled={deleting}
-                className="flex-1 py-2 text-xs text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors disabled:opacity-50"
+                className="flex-1 py-2 text-xs text-gray-600 hover:text-gray-900 font-medium transition-colors disabled:opacity-50"
               >
                 Annuler
               </button>

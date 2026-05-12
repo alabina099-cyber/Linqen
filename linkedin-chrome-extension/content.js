@@ -266,12 +266,24 @@
           const locEl =
             container.querySelector(".entity-result__secondary-subtitle") ||
             container.querySelector("[class*='secondary']");
-          const location = locEl ? locEl.textContent.trim() : "";
+          const secondaryText2 = locEl ? locEl.textContent.trim() : "";
+          let company2 = "";
+          let location2 = secondaryText2;
+          if (secondaryText2.includes(" · ")) {
+            const parts2 = secondaryText2.split(" · ");
+            company2 = parts2[0].trim();
+            location2 = parts2.slice(1).join(" · ").trim();
+          }
+          if (!company2 && role) {
+            const m = role.match(/ chez (.+)$/i) || role.match(/ at (.+)$/i);
+            if (m) company2 = m[1].trim();
+          }
 
           profiles.push({
             name: cleanScrapedName(name),
             role,
-            location,
+            company: company2,
+            location: location2,
             linkedin_url: href
           });
         }
@@ -315,12 +327,27 @@
           card.querySelector(".t-14.t-normal:not(.t-black--light)");
         const subtitle = subtitleEl ? subtitleEl.textContent.trim() : "";
 
-        // Localisation
+        // Localisation + Entreprise
+        // LinkedIn affiche souvent "Entreprise · Ville, Pays" dans le secondary subtitle
         const secondaryEl =
           card.querySelector(".entity-result__secondary-subtitle") ||
           card.querySelector("[class*='secondary-subtitle']") ||
           card.querySelector(".t-14.t-normal.t-black--light");
-        const location = secondaryEl ? secondaryEl.textContent.trim() : "";
+        const secondaryText = secondaryEl ? secondaryEl.textContent.trim() : "";
+        let company = "";
+        let location = secondaryText;
+        if (secondaryText.includes(" · ")) {
+          const parts = secondaryText.split(" · ");
+          company = parts[0].trim();
+          location = parts.slice(1).join(" · ").trim();
+        }
+        // Fallback: extraire l'entreprise du titre (ex: "Ingénieur chez Google")
+        if (!company && subtitle) {
+          const chezMatch = subtitle.match(/ chez (.+)$/i);
+          const atMatch = subtitle.match(/ at (.+)$/i);
+          if (chezMatch) company = chezMatch[1].trim();
+          else if (atMatch) company = atMatch[1].trim();
+        }
 
         // URL LinkedIn — UNIQUEMENT depuis le titre du résultat
         // NE PAS utiliser de fallback générique 'a[href*="/in/"]' car cela
@@ -343,6 +370,7 @@
           profiles.push({
             name: cleanName,
             role: subtitle,
+            company,
             location,
             linkedin_url: linkedinUrl
           });
