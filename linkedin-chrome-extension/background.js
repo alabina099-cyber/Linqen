@@ -459,6 +459,19 @@ async function checkInboxForReplies() {
   }
 }
 
+// Helper global: normaliser une URL LinkedIn en chemin /in/xxx
+function normalizeLinkedInUrl(url) {
+  if (!url) return null;
+  try {
+    const path = new URL(url).pathname;
+    const m = path.match(/\/in\/[^/?#]+/);
+    return m ? m[0].toLowerCase().replace(/\/$/, "") : null;
+  } catch {
+    const m = String(url).match(/\/in\/[^/?#]+/);
+    return m ? m[0].toLowerCase().replace(/\/$/, "") : null;
+  }
+}
+
 // =============================================
 // VÉRIFICATION CONNEXIONS ACCEPTÉES
 // =============================================
@@ -468,12 +481,14 @@ async function checkAcceptedConnections() {
 
   let networkTab = null;
   try {
-    // 1) Récupérer les noms envoyés via search_and_connection (campagnes)
-    //    Ces prospects restent en status='identified' jusqu'à acceptation
-    const sentNames = new Set();
+    // 1) Récupérer les profils envoyés via search_and_connection (campagnes)
+    //    sent_profiles est maintenant [{name, url, id}] (ou anciennement [string])
+    const sentProspects = []; // {name, url, id}
+    const sentUrls = new Set();
+    const sentNames = new Set(); // fallback pour l'ancien format
     try {
       const actionsRes = await fetch(
-        `${API_BASE_URL}/linkedin-actions?status=completed&limit=100`
+        `${API_BASE_URL}/linkedin-actions?status=completed&limit=200`
       );
       const actionsData = await actionsRes.json();
       if (actionsData.success && Array.isArray(actionsData.actions)) {
@@ -490,8 +505,22 @@ async function checkAcceptedConnections() {
                 })()
               : act.result;
           if (result?.sent_profiles && Array.isArray(result.sent_profiles)) {
-            for (const n of result.sent_profiles) {
-              if (n) sentNames.add(String(n).toLowerCase().trim());
+            for (const item of result.sent_profiles) {
+              if (!item) continue;
+              if (typeof item === "object") {
+                const key = item.url || item.name || "";
+                if (key && !sentUrls.has(key)) {
+                  sentUrls.add(key);
+                  sentProspects.push(item);
+                  if (item.name) sentNames.add(item.name.toLowerCase().trim());
+                }
+              } else if (typeof item === "string") {
+                const name = item.toLowerCase().trim();
+                if (!sentNames.has(name)) {
+                  sentNames.add(name);
+                  sentProspects.push({ name, url: null, id: null });
+                }
+              }
             }
           }
         }
@@ -499,6 +528,9 @@ async function checkAcceptedConnections() {
     } catch (e) {
       console.log("[CONNECTIONS] Erreur fetch actions:", e.message);
     }
+    console.log(
+      `[CONNECTIONS] ${sentProspects.length} profils envoyés trouvés dans les actions`
+    );
 
     // 2) Récupérer les prospects à vérifier:
     //    - Tous les prospects 'identified' dont le nom est dans sentNames (campagne)
@@ -516,16 +548,31 @@ async function checkAcceptedConnections() {
       return;
     }
 
+    // IDs des prospects dont on a envoyé une connexion (source la plus fiable)
+    const sentProspectIds = new Set(
+      sentProspects.filter((sp) => sp.id).map((sp) => Number(sp.id))
+    );
+    // URLs LinkedIn des prospects dont on a envoyé une connexion
+    const sentProspectUrls = new Set(
+      sentProspects
+        .filter((sp) => sp.url)
+        .map((sp) => normalizeLinkedInUrl(sp.url))
+    );
+
     const contactedProspects = prospectsData.prospects.filter((p) => {
       if (p.status === "contacted") return true;
-      // Les prospects 'new' (identifiés) qui ont reçu une demande de connexion
-      // via une campagne search_and_connection sont éligibles à la vérification d'acceptation
-      if (
-        (p.status === "new" || p.status === "identified") &&
-        p.name &&
-        sentNames.has(p.name.toLowerCase().trim())
-      )
-        return true;
+      if (p.status === "new" || p.status === "identified") {
+        // 1. Match par ID (le plus fiable)
+        if (p.id && sentProspectIds.has(Number(p.id))) return true;
+        // 2. Match par URL LinkedIn
+        if (
+          p.linkedin_url &&
+          sentProspectUrls.has(normalizeLinkedInUrl(p.linkedin_url))
+        )
+          return true;
+        // 3. Match par nom (fallback)
+        if (p.name && sentNames.has(p.name.toLowerCase().trim())) return true;
+      }
       return false;
     });
 
@@ -575,42 +622,104 @@ async function checkAcceptedConnections() {
 
     await delay(3000);
 
-    // Scraper les noms des connexions récentes
+    // Scraper les connexions récentes (nom + URL)
     const results = await chrome.scripting.executeScript({
       target: { tabId: networkTab.id },
       func: () => {
         const connections = [];
-        // LinkedIn affiche les connexions récentes avec leur nom
-        const cards = document.querySelectorAll(
-          ".mn-connection-card, .artdeco-list__item, li.mn-connection-card"
-        );
-        for (const card of cards) {
-          const nameEl = card.querySelector(
-            '.mn-connection-card__name, .artdeco-entity-lockup__title span, a[data-control-name="connection_profile"] span'
-          );
-          if (nameEl) {
-            const name = nameEl.textContent.trim();
-            if (name) connections.push(name.toLowerCase());
+        const seenUrls = new Set();
+
+        const normUrl = (href) => {
+          try {
+            const path = new URL(href).pathname;
+            const m = path.match(/\/in\/[^/?#]+/);
+            return m ? m[0].toLowerCase().replace(/\/$/, "") : null;
+          } catch {
+            return null;
           }
-        }
-        // Fallback: chercher dans les éléments de liste génériques
+        };
+
+        const pushConn = (name, url) => {
+          const key = url || name;
+          if (!key || seenUrls.has(key)) return;
+          seenUrls.add(key);
+          if (name && name.length > 1)
+            connections.push({
+              name: name.replace(/\s+/g, " ").trim().toLowerCase(),
+              url
+            });
+        };
+
+        // Stratégie 1: cartes de connexion standard LinkedIn
+        document.querySelectorAll(".mn-connection-card").forEach((card) => {
+          const nameEl =
+            card.querySelector(".mn-connection-card__name") ||
+            card.querySelector(".artdeco-entity-lockup__title");
+          const linkEl = card.querySelector("a[href*='/in/']");
+          if (nameEl)
+            pushConn(nameEl.textContent, linkEl ? normUrl(linkEl.href) : null);
+        });
+
+        // Stratégie 2: items de liste avec lockup entity
         if (connections.length === 0) {
-          const allSpans = document.querySelectorAll(
-            '[class*="connection"] span[aria-hidden="true"], .entity-result__title-text a span'
-          );
-          for (const span of allSpans) {
-            const name = span.textContent.trim();
-            if (name && name.length > 2) connections.push(name.toLowerCase());
-          }
+          document.querySelectorAll(".artdeco-list__item").forEach((item) => {
+            const linkEl = item.querySelector("a[href*='/in/']");
+            if (!linkEl) return;
+            const url = normUrl(linkEl.href);
+            const titleEl = item.querySelector(".artdeco-entity-lockup__title");
+            const nameEl =
+              (titleEl && titleEl.querySelector("span:first-child")) ||
+              linkEl.querySelector("span[aria-hidden='true']") ||
+              titleEl;
+            if (nameEl) pushConn(nameEl.textContent, url);
+          });
         }
+
+        // Stratégie 3: tout lien /in/ sur la page avec un span de nom visible
+        if (connections.length === 0) {
+          document.querySelectorAll("a[href*='/in/']").forEach((link) => {
+            if (link.closest("nav, header, footer, [class*='nav']")) return;
+            const url = normUrl(link.href);
+            if (!url) return;
+            // Chercher le span de nom le plus pertinent
+            const spans = Array.from(link.querySelectorAll("span"));
+            const nameSpan = spans.find(
+              (s) =>
+                s.textContent.trim().length > 1 &&
+                s.textContent.trim().length < 80 &&
+                !/^\d+$/.test(s.textContent.trim())
+            );
+            if (nameSpan) pushConn(nameSpan.textContent, url);
+          });
+        }
+
+        // Stratégie 4: data-member-id ou attributs LinkedIn spécifiques
+        if (connections.length === 0) {
+          document
+            .querySelectorAll("[data-member-id], [data-urn*='member']")
+            .forEach((el) => {
+              const linkEl =
+                el.querySelector("a[href*='/in/']") ||
+                (el.tagName === "A" ? el : null);
+              const url = linkEl ? normUrl(linkEl.href) : null;
+              const nameEl = el.querySelector(
+                ".name, [class*='name'], .t-16, .t-bold"
+              );
+              if (nameEl) pushConn(nameEl.textContent, url);
+            });
+        }
+
         return connections;
       }
     });
 
     const recentConnections = results?.[0]?.result || [];
     console.log(
-      `[CONNECTIONS] ${recentConnections.length} connexions trouvées sur la page`
+      `[CONNECTIONS] ${recentConnections.length} connexions trouvées sur la page LinkedIn`
     );
+    if (recentConnections.length > 0) {
+      console.log("[CONNECTIONS] Exemples:", recentConnections.slice(0, 3));
+    }
 
     // Helper: tokenize a name (strip accents, periods, punctuation; lowercase)
     const tokenize = (s) =>
@@ -647,16 +756,25 @@ async function checkAcceptedConnections() {
       return false;
     };
 
-    // Comparer avec les prospects contactés
+    // Comparer chaque prospect avec les connexions récentes
     let accepted = 0;
     for (const prospect of contactedProspects) {
       const prospectName = (prospect.name || "").toLowerCase().trim();
       if (!prospectName) continue;
 
-      // Vérifier si le nom du prospect apparaît dans les connexions récentes
-      const isConnected = recentConnections.some((connName) =>
-        namesMatch(prospectName, connName)
+      const prospectUrl = normalizeLinkedInUrl(prospect.linkedin_url);
+      const sentEntry = sentProspects.find(
+        (sp) => sp.id && Number(sp.id) === Number(prospect.id)
       );
+      const sentUrl = normalizeLinkedInUrl(sentEntry?.url);
+
+      const isConnected = recentConnections.some((conn) => {
+        if (conn.url) {
+          if (prospectUrl && conn.url === prospectUrl) return true;
+          if (sentUrl && conn.url === sentUrl) return true;
+        }
+        return namesMatch(prospectName, conn.name || "");
+      });
 
       if (isConnected) {
         console.log(
@@ -664,7 +782,6 @@ async function checkAcceptedConnections() {
         );
         accepted++;
 
-        // Mettre à jour le statut du prospect
         try {
           await fetch(`${API_BASE_URL}/prospects/${prospect.id}`, {
             method: "PATCH",
@@ -677,7 +794,6 @@ async function checkAcceptedConnections() {
           );
         }
 
-        // Incrémenter connections_accepted dans la campagne liée
         try {
           await fetch(`${API_BASE_URL}/campaigns/update-stats`, {
             method: "POST",
@@ -2146,7 +2262,16 @@ async function executeSearchAndConnection(action) {
 
     // PHASE 2: Envoyer des demandes de connexion (sans message)
     const dailyLimit = payload.daily_limit || 20;
-    const alreadySentProfiles = new Set(prevResult.sent_profiles || []);
+    // Support both old format (array of strings) and new format (array of {name,url,id})
+    const alreadySentProfiles = new Map(); // keyed by url or name
+    for (const item of prevResult.sent_profiles || []) {
+      if (typeof item === "object" && item !== null) {
+        const key = item.url || item.name || "";
+        if (key) alreadySentProfiles.set(key, item);
+      } else if (typeof item === "string") {
+        alreadySentProfiles.set(item, { name: item, url: null, id: null });
+      }
+    }
     let connectionsSent = 0;
     let results = [];
 
@@ -2168,7 +2293,7 @@ async function executeSearchAndConnection(action) {
           profiles_found: profiles.length,
           connections_sent: connectionsSent,
           profiles_data: profiles,
-          sent_profiles: Array.from(alreadySentProfiles),
+          sent_profiles: Array.from(alreadySentProfiles.values()),
           last_action: "continue"
         });
         return;
@@ -2183,8 +2308,11 @@ async function executeSearchAndConnection(action) {
         break;
       }
 
-      // Skip si déjà envoyé
-      if (alreadySentProfiles.has((profile.name || "").toLowerCase())) {
+      // Skip si déjà envoyé (vérifier par URL d'abord, puis par nom)
+      if (
+        alreadySentProfiles.has(profileUrl) ||
+        alreadySentProfiles.has((profile.name || "").toLowerCase())
+      ) {
         continue;
       }
 
@@ -2194,7 +2322,12 @@ async function executeSearchAndConnection(action) {
       if (sendResult.success) {
         connectionsSent++;
         incrementCounter("send_connection");
-        alreadySentProfiles.add((profile.name || "").toLowerCase());
+        const prospectId = prospectIdMap[profileUrl] || null;
+        alreadySentProfiles.set(profileUrl, {
+          name: (profile.name || "").toLowerCase(),
+          url: profileUrl,
+          id: prospectId
+        });
         results.push({ name: profile.name, status: "sent" });
         console.log(`[SEARCH&CONN] ✅ Connexion envoyée à ${profile.name}`);
 
@@ -2241,7 +2374,7 @@ async function executeSearchAndConnection(action) {
           profiles_found: profiles.length,
           connections_sent: connectionsSent,
           profiles_data: profiles,
-          sent_profiles: Array.from(alreadySentProfiles),
+          sent_profiles: Array.from(alreadySentProfiles.values()),
           last_action: "continue"
         });
       }
@@ -2251,7 +2384,7 @@ async function executeSearchAndConnection(action) {
       profiles_found: profiles.length,
       connections_sent: connectionsSent,
       profiles_data: profiles,
-      sent_profiles: Array.from(alreadySentProfiles)
+      sent_profiles: Array.from(alreadySentProfiles.values())
     });
 
     console.log(

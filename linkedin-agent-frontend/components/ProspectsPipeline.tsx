@@ -10,7 +10,7 @@ import {
   Filter, MoreHorizontal, Mail, Phone, Calendar, ArrowRight,
   Sparkles, Zap, Trophy, Flame, Crown, Award, TrendingDown,
   Users, BarChart3, Clock, CheckCircle2, Search, Telescope, Eye, CheckSquare,
-  X, Rocket, ChevronRight, ChevronLeft, UserPlus, Trash2
+  X, Rocket, ChevronRight, ChevronLeft, UserPlus, Trash2, Send, MessageSquare
 } from "lucide-react";
 
 function cleanDisplayName(name: string): string {
@@ -495,9 +495,9 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
           <div className="grid grid-cols-4 gap-3 mt-3">
             {[
               { label: "Total", value: totalProspects, icon: Users, color: "text-blue-600", bgColor: "bg-blue-50" },
-              { label: "Convertis", value: totalConverted, icon: Trophy, color: "text-green-600", bgColor: "bg-green-50" },
-              { label: "Taux", value: `${globalConversionRate}%`, icon: TrendingUp, color: "text-purple-600", bgColor: "bg-purple-50" },
-              { label: "En cours", value: totalProspects - totalConverted, icon: Clock, color: "text-amber-600", bgColor: "bg-amber-50" },
+              { label: "Contactés", value: allProspects.filter((p: Prospect) => p.status === 'contacted').length, icon: Mail, color: "text-purple-600", bgColor: "bg-purple-50" },
+              { label: "Réponses", value: allProspects.filter((p: Prospect) => p.status === 'responded').length, icon: MessageIcon, color: "text-amber-600", bgColor: "bg-amber-50" },
+              { label: "Convertis", value: totalConverted, icon: CheckSquare, color: "text-green-600", bgColor: "bg-green-50" },
             ].map((stat) => (
               <Card key={stat.label} className="border border-gray-100 shadow-sm">
                 <CardContent className="p-3">
