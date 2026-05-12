@@ -1076,10 +1076,10 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
             {/* Content */}
             <div className="p-4">
               <div className="text-center py-3">
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Trash2 className="w-6 h-6 text-red-500" />
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <Trash2 className="w-6 h-6 text-red-400" />
                 </div>
-                <p className="text-sm font-medium text-gray-700">
+                <p className="text-gray-500 font-medium text-sm">
                   Êtes-vous sûr de vouloir supprimer ce prospect ?
                 </p>
                 <p className="text-xs text-gray-400 mt-1">Cette action est irréversible.</p>
