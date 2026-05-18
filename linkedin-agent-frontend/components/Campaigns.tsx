@@ -9,10 +9,10 @@ import { Button } from "./ui/button";
 import { Dropdown } from "./ui/dropdown";
 import {
   Plus, Play, Pause, Trash2, Settings, Users, MessageSquare, TrendingUp, X,
-  ChevronRight, Calendar, Target, Sparkles, Rocket, Zap, CheckCircle,
+  ChevronRight, Calendar, Target, Star, Rocket, CheckCircle,
   ChevronLeft, Globe, Clock, Mail, BarChart3, Filter, Search,
-  Edit3, Copy, Eye, Award, Crown, Star, Flame, Compass, 
-  MapPin, Building2, UserCircle, UserPlus, Send, Bell, LayoutGrid, List, MousePointerClick, Activity, Radio,
+  Edit3, Copy, Eye, Award, Crown, Flame, Compass,
+  MapPin, Building2, UserCircle, UserPlus, Send, Bell, LayoutGrid, List, MousePointerClick, Activity, Radio, AlertCircle,
 } from "lucide-react";
 
 // Icon Link custom
@@ -158,7 +158,7 @@ const emptyForm: CampaignForm = {
   name: "", description: "", target: "", template: "",
   industry: "Toutes industries", location: "France entière", companySize: "Toutes tailles",
   dailyLimit: 20, followUpDays: 3, objective: "", seniority: [],
-  campaignType: "messages",
+  campaignType: "",
 };
 
 const seniorityOptions = [
@@ -184,13 +184,15 @@ export default function Campaigns() {
   const [form, setForm] = useState<CampaignForm>(emptyForm);
   const [selected, setSelected] = useState<Campaign | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(0);
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isHovered, setIsHovered] = useState<number | null>(null);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{campaignId: number, campaignName: string} | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { 
@@ -248,7 +250,6 @@ export default function Campaigns() {
   }
 
   const [executingCampaignId, setExecutingCampaignId] = useState<number | null>(null);
-  const [executeMessage, setExecuteMessage] = useState<string | null>(null);
 
   const toggleStatus = async (id: number) => {
     const campaign = campaigns.find(c => c.id === id);
@@ -267,6 +268,18 @@ export default function Campaigns() {
         // Si la campagne passe à "active", lancer l'exécution automatique
         if (newStatus === "active") {
           await executeCampaign(id);
+          // Approuver automatiquement l'action créée
+          try {
+            await fetch('/api/linkedin-actions/auto-approve', { method: 'POST' });
+          } catch (error) {
+            console.error('Error auto-approving action:', error);
+          }
+          // Vérifier et planifier les relances automatiques
+          try {
+            await fetch(`/api/campaigns/${id}/check-followups`, { method: 'POST' });
+          } catch (error) {
+            console.error('Error checking follow-ups:', error);
+          }
         }
       }
     } catch (error) {
@@ -276,36 +289,40 @@ export default function Campaigns() {
 
   const executeCampaign = async (id: number) => {
     setExecutingCampaignId(id);
-    setExecuteMessage(null);
     try {
       const res = await fetch(`/api/campaigns/${id}/execute`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
-        setExecuteMessage(data.message || "Action de prospection créée ! Vérifiez la file d'approbation.");
-        // Masquer le message après 5s
-        setTimeout(() => setExecuteMessage(null), 5000);
+        // Action exécutée avec succès
       } else {
-        setExecuteMessage(data.error || "Erreur lors du lancement de la campagne");
-        setTimeout(() => setExecuteMessage(null), 5000);
+        console.error('Error executing campaign:', data.error);
       }
     } catch (error) {
       console.error('Error executing campaign:', error);
-      setExecuteMessage("Erreur réseau lors du lancement");
-      setTimeout(() => setExecuteMessage(null), 5000);
     } finally {
       setExecutingCampaignId(null);
     }
   };
 
-  const deleteCampaign = async (id: number) => {
+  const deleteCampaign = (id: number, name: string) => {
+    setDeleteConfirm({ campaignId: id, campaignName: name });
+  };
+
+  const handleDeleteCampaign = async () => {
+    if (!deleteConfirm) return;
+
+    setDeleting(true);
     try {
-      const res = await fetch(`/api/campaigns/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/campaigns/${deleteConfirm.campaignId}`, { method: 'DELETE' });
       if (res.ok) {
-        setCampaigns((prev) => prev.filter((c) => c.id !== id));
-        if (selected?.id === id) setSelected(null);
+        setCampaigns((prev) => prev.filter((c) => c.id !== deleteConfirm.campaignId));
+        if (selected?.id === deleteConfirm.campaignId) setSelected(null);
+        setDeleteConfirm(null);
       }
     } catch (error) {
       console.error('Error deleting campaign:', error);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -470,11 +487,11 @@ export default function Campaigns() {
     setForm(emptyForm);
     setShowModal(false);
     setEditingCampaign(null);
-    setCurrentStep(1);
+    setCurrentStep(0);
   };
 
-  const openModal = () => { setForm(emptyForm); setEditingCampaign(null); setCurrentStep(1); setShowModal(true); };
-  const closeModal = () => { setForm(emptyForm); setEditingCampaign(null); setShowModal(false); setCurrentStep(1); };
+  const openModal = () => { setForm(emptyForm); setEditingCampaign(null); setCurrentStep(0); setShowModal(true); };
+  const closeModal = () => { setForm(emptyForm); setEditingCampaign(null); setShowModal(false); setCurrentStep(0); };
   const openEditModal = (campaign: Campaign) => {
     setEditingCampaign(campaign);
     setForm({
@@ -491,11 +508,14 @@ export default function Campaigns() {
       seniority: campaign.seniority || [],
       campaignType: campaign.campaignType || 'messages',
     });
-    setCurrentStep(1);
+    setCurrentStep(0);
     setShowModal(true);
   };
-  const nextStep = () => { if (currentStep < 4) setCurrentStep(currentStep + 1); };
-  const prevStep = () => { if (currentStep > 1) setCurrentStep(currentStep - 1); };
+  const nextStep = () => {
+    const maxStep = form.campaignType === 'connections_only' ? 3 : 4;
+    if (currentStep < maxStep) setCurrentStep(currentStep + 1);
+  };
+  const prevStep = () => { if (currentStep > 0) setCurrentStep(currentStep - 1); };
   const rate = (a: number, b: number) => b === 0 ? "0%" : `${Math.round((a / b) * 100)}%`;
 
   const filteredCampaigns = campaigns.filter((c) => {
@@ -504,11 +524,20 @@ export default function Campaigns() {
     return matchesStatus && matchesSearch;
   });
 
+  // Calculer le nombre de campagnes par statut
+  const statusCounts = {
+    all: campaigns.length,
+    active: campaigns.filter(c => c.status === "active").length,
+    paused: campaigns.filter(c => c.status === "paused").length,
+    draft: campaigns.filter(c => c.status === "draft").length,
+    completed: campaigns.filter(c => c.status === "completed").length,
+  };
+
   const totalConnectionsSent = campaigns.reduce((s, c) => s + c.connectionsSent, 0);
   const totalConnectionsAccepted = campaigns.reduce((s, c) => s + c.connectionsAccepted, 0);
   const stats = [
     { label: "Campagnes actives", value: campaigns.filter((c) => c.status === "active").length, icon: Radio, color: "from-green-500 to-emerald-600", bgColor: "bg-green-50", textColor: "text-green-600" },
-    { label: "Connexions envoyées", value: totalConnectionsSent, icon: UserPlus, color: "from-cyan-500 to-blue-600", bgColor: "bg-cyan-50", textColor: "text-cyan-600" },
+    { label: "Connexions envoyées", value: totalConnectionsSent, icon: UserPlus, color: "from-gray-500 to-gray-600", bgColor: "bg-gray-50", textColor: "text-gray-600" },
     { label: "Connexions acceptées", value: totalConnectionsAccepted, icon: UserCircle, color: "from-amber-500 to-orange-600", bgColor: "bg-amber-50", textColor: "text-amber-600" },
     { label: "Total contactés", value: campaigns.reduce((s, c) => s + c.contacted, 0), icon: Users, color: "from-blue-500 to-indigo-600", bgColor: "bg-blue-50", textColor: "text-blue-600" },
     { label: "Total réponses", value: campaigns.reduce((s, c) => s + c.replied, 0), icon: MessageSquare, color: "from-purple-500 to-violet-600", bgColor: "bg-purple-50", textColor: "text-purple-600" },
@@ -533,10 +562,6 @@ export default function Campaigns() {
           <p className="text-gray-600 mt-1">Gérez vos campagnes de prospection</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg text-sm border border-green-200">
-            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span className="font-medium text-green-700">{campaigns.filter(c => c.status === "active").length} actives</span>
-          </div>
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -548,29 +573,6 @@ export default function Campaigns() {
           </motion.button>
         </div>
       </div>
-
-      {/* Notification de lancement de campagne */}
-      <AnimatePresence>
-        {executeMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium ${
-              executeMessage.includes("Erreur") || executeMessage.includes("erreur")
-                ? "bg-red-50 border-red-200 text-red-700"
-                : "bg-green-50 border-green-200 text-green-700"
-            }`}
-          >
-            {executeMessage.includes("Erreur") || executeMessage.includes("erreur") ? (
-              <X className="w-4 h-4 shrink-0" />
-            ) : (
-              <Rocket className="w-4 h-4 shrink-0 animate-bounce" />
-            )}
-            <span>{executeMessage}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Stats Cards compactes - icônes colorées sur fond blanc */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
@@ -613,30 +615,65 @@ export default function Campaigns() {
           <div ref={dropdownRef} className="relative">
             <button
               onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex items-center gap-3 pl-4 pr-8 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:border-blue-300 transition-all shadow-sm w-44"
+              className="flex items-center gap-3 pl-4 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:border-blue-400 hover:shadow-md transition-all duration-300 w-56"
             >
-              <span className={`w-2.5 h-2.5 rounded-full ${statusOptions.find(s => s.value === filterStatus)?.color}`}></span>
+              <span className={`w-2.5 h-2.5 rounded-full ${statusOptions.find(s => s.value === filterStatus)?.color} shadow-sm`}></span>
               <span>{filterStatus === 'all' ? 'Tous les statuts' : statusOptions.find(s => s.value === filterStatus)?.label}</span>
+              <span className={`ml-auto px-2.5 py-0.5 rounded-lg text-xs font-bold shadow-sm transition-all duration-300 ${
+                filterStatus === 'all' 
+                  ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
+                  : filterStatus === 'active' 
+                    ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                    : filterStatus === 'paused' 
+                      ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                      : filterStatus === 'draft' 
+                        ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' 
+                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+              }`}>
+                {statusCounts[filterStatus as keyof typeof statusCounts]}
+              </span>
             </button>
             <div className="absolute right-2.5 top-1/2 transform -translate-y-1/2 pointer-events-none">
-              <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-3 h-3 text-gray-400 transition-transform duration-300 ${dropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
               </svg>
             </div>
             
             {dropdownOpen && (
-              <div className="absolute top-full right-0 mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
-                {statusOptions.map((status) => (
-                  <button
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="absolute top-full right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 overflow-hidden"
+              >
+                {statusOptions.map((status, index) => (
+                  <motion.button
                     key={status.value}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
                     onClick={() => { setFilterStatus(status.value); setDropdownOpen(false); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-gray-50 hover:to-white transition-all duration-200 group"
                   >
-                    <span className={`w-2 h-2 rounded-full ${status.color}`}></span>
-                    <span>{status.label}</span>
-                  </button>
+                    <span className={`w-2.5 h-2.5 rounded-full ${status.color} shadow-sm group-hover:scale-110 transition-transform duration-200`}></span>
+                    <span className="flex-1 text-left font-medium">{status.label}</span>
+                    <span className={`px-2.5 py-0.5 rounded-lg text-xs font-bold shadow-sm transition-all duration-200 group-hover:scale-110 ${
+                      status.value === 'all' 
+                        ? 'bg-purple-100 text-purple-700 group-hover:bg-purple-200' 
+                        : status.value === 'active' 
+                          ? 'bg-green-100 text-green-700 group-hover:bg-green-200' 
+                          : status.value === 'paused' 
+                            ? 'bg-red-100 text-red-700 group-hover:bg-red-200' 
+                            : status.value === 'draft' 
+                              ? 'bg-slate-100 text-slate-700 group-hover:bg-slate-200' 
+                              : 'bg-blue-100 text-blue-700 group-hover:bg-blue-200'
+                    }`}>
+                      {statusCounts[status.value as keyof typeof statusCounts]}
+                    </span>
+                  </motion.button>
                 ))}
-              </div>
+              </motion.div>
             )}
           </div>
         </div>
@@ -679,7 +716,7 @@ export default function Campaigns() {
                                   {campaign.status === "draft" && (
                                     <button onClick={(e) => { e.stopPropagation(); toggleStatus(campaign.id); }} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors" title="Lancer"><Play className="w-3.5 h-3.5" /></button>
                                   )}
-                                  <button onClick={(e) => { e.stopPropagation(); deleteCampaign(campaign.id); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Supprimer"><Trash2 className="w-3.5 h-3.5" /></button>
+                                  <button onClick={(e) => { e.stopPropagation(); deleteCampaign(campaign.id, campaign.name); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Supprimer"><Trash2 className="w-3.5 h-3.5" /></button>
                                 </div>
                               </div>
                             </div>
@@ -833,7 +870,7 @@ export default function Campaigns() {
                         <div>
                           <h4 className="text-[10px] font-semibold text-gray-500 uppercase mb-1 flex items-center gap-1"><Compass className="w-3 h-3" />Objectif</h4>
                           <div className="bg-indigo-50 rounded-md px-2 py-1 flex items-center gap-1.5">
-                            <Sparkles className="w-3 h-3 text-indigo-500" />
+                            <Star className="w-3 h-3 text-indigo-500" />
                             <span className="text-xs font-medium text-indigo-700 truncate">{selected.objective}</span>
                           </div>
                         </div>
@@ -932,29 +969,11 @@ export default function Campaigns() {
                     </>)}
                   </div>
 
-                  {/* Lancer la prospection */}
-                  {selected.status === "active" && (
-                    <div className="pt-3 border-t border-gray-100">
-                      <Button
-                        size="sm"
-                        className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-xs font-semibold shadow-md"
-                        onClick={() => executeCampaign(selected.id)}
-                        disabled={executingCampaignId === selected.id}
-                      >
-                        {executingCampaignId === selected.id ? (
-                          <><Clock className="w-3.5 h-3.5 mr-1 animate-spin" />Lancement en cours...</>
-                        ) : (
-                          <><Rocket className="w-3.5 h-3.5 mr-1" />Lancer la prospection</>
-                        )}
-                      </Button>
-                    </div>
-                  )}
-
                   {/* Actions */}
                   <div className="grid grid-cols-3 gap-2 pt-3 border-t border-gray-100">
                     <Button variant="outline" size="sm" className="text-xs" onClick={() => duplicateCampaign(selected)}><Copy className="w-3.5 h-3.5 mr-1" />Dupliquer</Button>
                     <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs" onClick={() => openEditModal(selected)}><Edit3 className="w-3.5 h-3.5 mr-1" />Modifier</Button>
-                    <Button variant="outline" size="sm" className="text-xs text-red-500 border-red-200 hover:bg-red-50" onClick={() => deleteCampaign(selected.id)}><Trash2 className="w-3.5 h-3.5 mr-1" />Supprimer</Button>
+                    <Button variant="outline" size="sm" className="text-xs text-red-500 border-red-200 hover:bg-red-50" onClick={() => deleteCampaign(selected.id, selected.name)}><Trash2 className="w-3.5 h-3.5 mr-1" />Supprimer</Button>
                   </div>
                 </CardContent>
               </Card>
@@ -985,27 +1004,62 @@ export default function Campaigns() {
               {/* Stepper */}
               <div className="flex items-center justify-center gap-2">
                 {[
+                  { step: 0, label: "Type" },
                   { step: 1, label: "Général" },
                   { step: 2, label: "Ciblage" },
                   { step: 3, label: "Template" },
                   { step: 4, label: "Paramètres" },
-                ].map(({ step, label }) => (
-                  <div key={step} className="flex items-center">
-                    <div className="flex flex-col items-center gap-1">
-                      <motion.div className={`w-9 h-9 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${currentStep === step ? "bg-blue-600 text-white shadow-md shadow-blue-200" : currentStep > step ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"}`}>
-                        {currentStep > step ? <CheckCircle className="w-4 h-4" /> : step}
-                      </motion.div>
-                      <span className={`text-[10px] font-medium ${currentStep === step ? "text-blue-600" : currentStep > step ? "text-green-600" : "text-gray-400"}`}>{label}</span>
+                ].filter(s => {
+                  if (s.step === 0) return true; // Toujours afficher l'étape Type
+                  if (s.step === 3) return form.campaignType && form.campaignType !== 'connections_only'; // Template seulement si type défini et pas connections_only
+                  return true; // Autres étapes toujours affichées
+                }).map(({ step, label }) => {
+                  const isStepCompleted = step === 0 ? form.campaignType !== '' : currentStep > step;
+                  const isStepActive = currentStep === step;
+                  return (
+                    <div key={step} className="flex items-center">
+                      <div className="flex flex-col items-center gap-1">
+                        <motion.div className={`w-9 h-9 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${isStepActive ? "bg-blue-600 text-white shadow-md shadow-blue-200" : isStepCompleted ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"}`}>
+                          {isStepCompleted ? <CheckCircle className="w-4 h-4" /> : step}
+                        </motion.div>
+                        <span className={`text-[10px] font-medium ${isStepActive ? "text-blue-600" : isStepCompleted ? "text-green-600" : "text-gray-400"}`}>{label}</span>
+                      </div>
+                      {step < (form.campaignType && form.campaignType !== 'connections_only' ? 4 : 3) && <div className={`w-12 h-0.5 mx-1.5 mb-4 rounded-full transition-colors ${currentStep > step ? "bg-green-300" : "bg-gray-200"}`} />}
                     </div>
-                    {step < 4 && <div className={`w-12 h-0.5 mx-1.5 mb-4 rounded-full transition-colors ${currentStep > step ? "bg-green-300" : "bg-gray-200"}`} />}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
             {/* Contenu des étapes */}
             <div className="p-6">
               <AnimatePresence mode="wait">
+                {currentStep === 0 && (
+                  <motion.div key="step0" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+                    <div className="text-center mb-6">
+                      <h3 className="text-xl font-bold text-gray-900">Type de campagne</h3>
+                      <p className="text-gray-500">Choisissez comment vous souhaitez contacter vos prospects</p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 max-w-md mx-auto">
+                      {[
+                        { icon: MessageSquare, label: "Messages", desc: "Envoyer des messages directs", value: "messages", color: "bg-blue-500" },
+                        { icon: Users, label: "Connexions", desc: "Envoyer des demandes de connexion", value: "connections_only", color: "bg-purple-500" },
+                        { icon: Send, label: "ConnexionsMessages", desc: "Connexions puis messages après acceptation", value: "messages_and_connections", color: "bg-green-500" },
+                      ].map((type) => (
+                        <button key={type.label} onClick={() => setForm({ ...form, campaignType: type.value })} className={`p-4 border-2 rounded-xl text-left transition-all ${form.campaignType === type.value ? "border-blue-500 bg-blue-50 shadow-lg shadow-blue-500/20" : "border-gray-200 hover:border-gray-300 hover:shadow-md"}`}>
+                          <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 ${type.color} rounded-xl flex items-center justify-center shrink-0`}><type.icon className="w-6 h-6 text-white" /></div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`font-bold text-sm ${form.campaignType === type.value ? "text-blue-900" : "text-gray-900"}`}>{type.label}</p>
+                              <p className="text-xs text-gray-500">{type.desc}</p>
+                            </div>
+                            {form.campaignType === type.value && <CheckCircle className="w-5 h-5 text-blue-600 shrink-0" />}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
                 {currentStep === 1 && (
                   <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
                     <div className="text-center mb-6">
@@ -1032,25 +1086,14 @@ export default function Campaigns() {
                             { icon: Globe, label: "Étendre le réseau", desc: "Connexions" },
                             { icon: TrendingUp, label: "Croissance", desc: "Acquisition" },
                           ].map((obj) => (
-                            <button key={obj.label} onClick={() => setForm({ ...form, objective: obj.label })} className={`p-4 border-2 rounded-xl text-left transition-all ${form.objective === obj.label ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"}`}>
-                              <obj.icon className={`w-6 h-6 mb-2 ${form.objective === obj.label ? "text-blue-600" : "text-gray-400"}`} />
-                              <p className={`font-semibold text-sm ${form.objective === obj.label ? "text-blue-900" : "text-gray-900"}`}>{obj.label}</p>
-                              <p className="text-xs text-gray-500">{obj.desc}</p>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Type de campagne</label>
-                        <div className="grid grid-cols-2 gap-3">
-                          {[
-                            { icon: MessageSquare, label: "Messages", desc: "Envoyer des messages", value: "messages" },
-                            { icon: Users, label: "Connexions", desc: "Demandes sans message", value: "connections_only" },
-                          ].map((type) => (
-                            <button key={type.label} onClick={() => setForm({ ...form, campaignType: type.value })} className={`p-4 border-2 rounded-xl text-left transition-all ${form.campaignType === type.value ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"}`}>
-                              <type.icon className={`w-6 h-6 mb-2 ${form.campaignType === type.value ? "text-blue-600" : "text-gray-400"}`} />
-                              <p className={`font-semibold text-sm ${form.campaignType === type.value ? "text-blue-900" : "text-gray-900"}`}>{type.label}</p>
-                              <p className="text-xs text-gray-500">{type.desc}</p>
+                            <button key={obj.label} onClick={() => setForm({ ...form, objective: obj.label })} className={`p-3 border-2 rounded-xl text-left transition-all ${form.objective === obj.label ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"}`}>
+                              <div className="flex items-center gap-3">
+                                <obj.icon className={`w-5 h-5 shrink-0 ${form.objective === obj.label ? "text-blue-600" : "text-gray-400"}`} />
+                                <div className="flex-1 min-w-0">
+                                  <p className={`font-semibold text-sm ${form.objective === obj.label ? "text-blue-900" : "text-gray-900"}`}>{obj.label}</p>
+                                  <p className="text-xs text-gray-500">{obj.desc}</p>
+                                </div>
+                              </div>
                             </button>
                           ))}
                         </div>
@@ -1131,13 +1174,15 @@ export default function Campaigns() {
                       {templates.map((template) => {
                         const isSelected = form.template === template.name;
                         return (
-                          <motion.button key={template.name} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setForm({ ...form, template: template.name })} className={`p-5 border-2 rounded-2xl text-left transition-all ${isSelected ? "border-blue-500 bg-blue-50 shadow-lg shadow-blue-500/20" : "border-gray-200 hover:border-gray-300 hover:shadow-md"}`}>
-                            <div className="flex items-start justify-between mb-3">
-                              <div className={`w-12 h-12 ${template.color} rounded-xl flex items-center justify-center`}><template.icon className="w-6 h-6 text-white" /></div>
-                              {isSelected && <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center"><CheckCircle className="w-4 h-4 text-white" /></motion.div>}
+                          <motion.button key={template.name} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setForm({ ...form, template: template.name })} className={`p-4 border-2 rounded-2xl text-left transition-all ${isSelected ? "border-blue-500 bg-blue-50 shadow-lg shadow-blue-500/20" : "border-gray-200 hover:border-gray-300 hover:shadow-md"}`}>
+                            <div className="flex items-center gap-3">
+                              <div className={`w-10 h-10 ${template.color} rounded-xl flex items-center justify-center shrink-0`}><template.icon className="w-5 h-5 text-white" /></div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className={`font-bold text-sm ${isSelected ? "text-blue-900" : "text-gray-900"}`}>{template.name}</h4>
+                                <p className="text-xs text-gray-500">{template.desc}</p>
+                              </div>
+                              {isSelected && <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shrink-0"><CheckCircle className="w-3 h-3 text-white" /></motion.div>}
                             </div>
-                            <h4 className={`font-bold ${isSelected ? "text-blue-900" : "text-gray-900"}`}>{template.name}</h4>
-                            <p className="text-sm text-gray-500 mt-1">{template.desc}</p>
                           </motion.button>
                         );
                       })}
@@ -1153,14 +1198,14 @@ export default function Campaigns() {
                     </div>
                     <div className="grid grid-cols-2 gap-6">
                       <div className="bg-gray-50 rounded-2xl p-5">
-                        <label className="block text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><Zap className="w-4 h-4 text-yellow-500" />Limite quotidienne</label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><Activity className="w-4 h-4 text-blue-500" />Limite quotidienne</label>
                         <div className="flex items-center justify-center">
                           <div className="relative">
                             <span className="w-24 text-center text-3xl font-bold text-gray-900 border-b-2 border-gray-300 py-2 inline-block">{form.dailyLimit}</span>
                             <span className="absolute right-0 bottom-3 text-sm text-gray-400">/jour</span>
                           </div>
                         </div>
-                        <input type="range" min="5" max="100" value={form.dailyLimit} onChange={(e) => setForm({ ...form, dailyLimit: parseInt(e.target.value) })} className="w-full mt-4 accent-blue-600" />
+                        <input type="range" min="5" max="20" value={form.dailyLimit} onChange={(e) => setForm({ ...form, dailyLimit: parseInt(e.target.value) })} className="w-full mt-4 accent-blue-600" />
                       </div>
                       <div className="bg-gray-50 rounded-2xl p-5">
                         <label className="block text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><Clock className="w-4 h-4 text-blue-500" />Délai de relance</label>
@@ -1173,28 +1218,93 @@ export default function Campaigns() {
                         <input type="range" min="1" max="14" value={form.followUpDays} onChange={(e) => setForm({ ...form, followUpDays: parseInt(e.target.value) })} className="w-full mt-4 accent-blue-600" />
                       </div>
                     </div>
-                    <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-5 border border-blue-100">
-                      <h4 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><CheckCircle className="w-5 h-5 text-green-600" />Récapitulatif</h4>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="flex items-center gap-2"><span className="text-gray-500">Nom:</span><span className="font-medium text-gray-900">{form.name || "—"}</span></div>
-                        <div className="flex items-center gap-2"><span className="text-gray-500">Cible:</span><span className="font-medium text-gray-900">{form.target || "—"}</span></div>
-                        <div className="flex items-center gap-2"><span className="text-gray-500">Template:</span><span className="font-medium text-gray-900">{form.template || "—"}</span></div>
-                        <div className="flex items-center gap-2"><span className="text-gray-500">Limite:</span><span className="font-medium text-gray-900">{form.dailyLimit} / jour</span></div>
-                      </div>
-                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
 
               {/* Boutons de navigation */}
               <div className="flex justify-between pt-6 mt-6 border-t border-gray-100">
-                <button onClick={prevStep} disabled={currentStep === 1} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-colors ${currentStep === 1 ? "text-gray-300 cursor-not-allowed" : "text-gray-600 hover:bg-gray-100"}`}><ChevronLeft className="w-5 h-5" />Précédent</button>
-                {currentStep < 4 ? (
-                  <button onClick={nextStep} disabled={currentStep === 1 && !form.name.trim()} className={`flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/30 transition-all ${currentStep === 1 && !form.name.trim() ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700 hover:shadow-xl"}`}>Suivant<ChevronRight className="w-5 h-5" /></button>
+                <button onClick={prevStep} disabled={currentStep === 0} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-colors ${currentStep === 0 ? "text-gray-300 cursor-not-allowed" : "text-gray-600 hover:bg-gray-100"}`}><ChevronLeft className="w-5 h-5" />Précédent</button>
+                {currentStep < (form.campaignType === 'connections_only' ? 3 : 4) ? (
+                  <button onClick={nextStep} disabled={currentStep === 0 && !form.campaignType || (currentStep === 1 && !form.name.trim())} className={`flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/30 transition-all ${((currentStep === 0 && !form.campaignType) || (currentStep === 1 && !form.name.trim())) ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700 hover:shadow-xl"}`}>Suivant<ChevronRight className="w-5 h-5" /></button>
                 ) : (
                   <button onClick={createCampaign} className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold shadow-lg shadow-purple-500/30 hover:shadow-xl transition-all">{editingCampaign ? 'Enregistrer' : 'Créer la campagne'}</button>
                 )}
               </div>
+            </div>
+          </motion.div>
+        </div>,
+        document.body
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {mounted && deleteConfirm && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setDeleteConfirm(null)}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="relative w-full max-w-xs bg-white rounded-2xl shadow-xl overflow-hidden"
+          >
+            {/* Header */}
+            <div className="bg-red-50 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center shrink-0">
+                  <Trash2 className="w-4 h-4 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-sm text-gray-900">Supprimer la campagne</h3>
+                  <p className="text-xs text-gray-500">{deleteConfirm.campaignName}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-4">
+              <div className="text-center py-3">
+                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <Trash2 className="w-6 h-6 text-gray-400" />
+                </div>
+                <p className="text-sm font-medium text-gray-900">
+                  Supprimer définitivement cette campagne ?
+                </p>
+                <p className="text-xs text-gray-400 mt-1">Cette action est irréversible</p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 flex gap-2">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={deleting}
+                className="flex-1 py-2 text-xs text-gray-600 hover:text-gray-900 font-medium transition-colors disabled:opacity-50"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleDeleteCampaign}
+                disabled={deleting}
+                className="flex-1 py-2 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
+              >
+                {deleting ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Suppression...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3 h-3" />
+                    Supprimer
+                  </>
+                )}
+              </button>
             </div>
           </motion.div>
         </div>,

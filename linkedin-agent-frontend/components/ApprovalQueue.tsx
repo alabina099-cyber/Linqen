@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   Check,
+  CheckCircle,
   CheckSquare,
   X,
   Clock,
@@ -176,53 +177,78 @@ export default function ApprovalQueue() {
   const getActionIcon = (type: string) => {
     switch (type) {
       case "search":
-        return <Search className="w-5 h-5 text-blue-600" />;
+        return <Search className="w-5 h-5" />;
       case "search_and_message":
-        return <MessageSquare className="w-5 h-5 text-purple-600" />;
+        return <MessageSquare className="w-5 h-5" />;
       case "search_and_connection":
-        return <UserPlus className="w-5 h-5 text-green-600" />;
+        return <UserPlus className="w-5 h-5" />;
       case "visit_profile":
-        return <User className="w-5 h-5 text-amber-600" />;
+        return <User className="w-5 h-5" />;
       case "send_connection":
-        return <LinkIcon className="w-5 h-5 text-green-600" />;
+        return <LinkIcon className="w-5 h-5" />;
       case "send_message":
-        return <MessageSquare className="w-5 h-5 text-purple-600" />;
+        return <MessageSquare className="w-5 h-5" />;
       case "check_connection":
-        return <CheckSquare className="w-5 h-5 text-cyan-600" />;
+        return <CheckSquare className="w-5 h-5" />;
       default:
-        return <AlertCircle className="w-5 h-5 text-gray-600" />;
+        return <AlertCircle className="w-5 h-5" />;
     }
   };
 
   const getActionLabel = (type: string) => {
     const labels: Record<string, string> = {
       search: "Recherche LinkedIn",
-      search_and_message: "Envoyer un message",
-      search_and_connection: "Envoi de connexion",
+      search_and_message: "Recherche et Envoi de message",
+      search_and_connection: "Recherche et Envoi de connexion",
       visit_profile: "Visiter profil",
       send_connection: "Demande de connexion",
-      send_message: "Envoyer message",
+      send_message: "Envoyer un message",
       check_connection: "Vérification réseau",
     };
     return labels[type] || type;
   };
 
-  const getActionBadgeColor = (type: string) => {
-    switch (type) {
-      case "search":
-        return "bg-blue-100 text-blue-700 border-blue-200";
-      case "search_and_message":
-        return "bg-purple-100 text-purple-700 border-purple-200";
-      case "search_and_connection":
-        return "bg-green-100 text-green-700 border-green-200";
-      case "visit_profile":
+  const getActionBadgeColor = (status: string) => {
+    switch (status) {
+      case "pending_approval":
         return "bg-yellow-100 text-yellow-700 border-yellow-200";
-      case "send_connection":
+      case "approved":
         return "bg-green-100 text-green-700 border-green-200";
-      case "send_message":
-        return "bg-purple-100 text-purple-700 border-purple-200";
+      case "processing":
+        return "bg-indigo-100 text-indigo-700 border-indigo-200";
+      case "completed":
+        return "bg-blue-100 text-blue-700 border-blue-200";
+      case "rejected":
+      case "failed":
+        return "bg-red-100 text-red-700 border-red-200";
+      case "stopped":
+        return "bg-orange-100 text-orange-700 border-orange-200";
+      case "paused":
+        return "bg-amber-100 text-amber-700 border-amber-200";
       default:
         return "bg-gray-100 text-gray-700 border-gray-200";
+    }
+  };
+
+  const getStatusIconColor = (status: string) => {
+    switch (status) {
+      case "pending_approval":
+        return "text-yellow-600";
+      case "approved":
+        return "text-green-600";
+      case "processing":
+        return "text-indigo-600";
+      case "completed":
+        return "text-blue-600";
+      case "rejected":
+      case "failed":
+        return "text-red-600";
+      case "stopped":
+        return "text-orange-600";
+      case "paused":
+        return "text-amber-600";
+      default:
+        return "text-gray-600";
     }
   };
 
@@ -276,11 +302,11 @@ export default function ApprovalQueue() {
       case "pending_approval":
         return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-[10px]">En attente</Badge>;
       case "approved":
-        return <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-[10px]">Approuvée</Badge>;
+        return <Badge className="bg-green-100 text-green-800 border-green-300 text-[10px]">Approuvée</Badge>;
       case "processing":
         return <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300 text-[10px]">En cours</Badge>;
       case "completed":
-        return <Badge className="bg-green-100 text-green-800 border-green-300 text-[10px]">Terminée</Badge>;
+        return <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-[10px]">Terminée</Badge>;
       case "rejected":
         return <Badge className="bg-red-100 text-red-800 border-red-300 text-[10px]">Rejetée</Badge>;
       case "failed":
@@ -451,23 +477,23 @@ export default function ApprovalQueue() {
           </CardContent>
         </Card>
 
-        {/* Approuvées = BLEU */}
+        {/* Approuvées = VERT */}
         <Card 
-          className={`border-0 bg-gradient-to-br from-blue-100 to-sky-100 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
-            selectedStatus === "approved" ? "ring-2 ring-blue-500 ring-offset-2 shadow-md" : "shadow-sm"
+          className={`border-0 bg-gradient-to-br from-green-100 to-emerald-100 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
+            selectedStatus === "approved" ? "ring-2 ring-green-500 ring-offset-2 shadow-md" : "shadow-sm"
           }`}
           onClick={() => filterByStatus("approved")}
         >
           <CardContent className="p-3 flex items-center justify-between">
             <div>
-              <p className="text-xs text-blue-700 font-medium">
+              <p className="text-xs text-green-700 font-medium">
                 Approuvées
               </p>
-              <p className="text-xl font-bold text-blue-800">
+              <p className="text-xl font-bold text-green-800">
                 {approvedCount}
               </p>
             </div>
-            <Check className="w-7 h-7 text-blue-500" />
+            <Check className="w-7 h-7 text-green-500" />
           </CardContent>
         </Card>
 
@@ -491,23 +517,23 @@ export default function ApprovalQueue() {
           </CardContent>
         </Card>
 
-        {/* Terminées = VERT */}
+        {/* Terminées = BLEU (cohérent avec campaigns) */}
         <Card 
-          className={`border-0 bg-gradient-to-br from-green-100 to-emerald-100 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
-            selectedStatus === "completed" ? "ring-2 ring-green-500 ring-offset-2 shadow-md" : "shadow-sm"
+          className={`border-0 bg-gradient-to-br from-blue-100 to-sky-100 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
+            selectedStatus === "completed" ? "ring-2 ring-blue-500 ring-offset-2 shadow-md" : "shadow-sm"
           }`}
           onClick={() => filterByStatus("completed")}
         >
           <CardContent className="p-3 flex items-center justify-between">
             <div>
-              <p className="text-xs text-green-700 font-medium">
+              <p className="text-xs text-blue-700 font-medium">
                 Terminées
               </p>
-              <p className="text-xl font-bold text-green-800">
+              <p className="text-xl font-bold text-blue-800">
                 {completedCount}
               </p>
             </div>
-            <CheckSquare className="w-7 h-7 text-green-500" />
+            <CheckCircle className="w-7 h-7 text-blue-500" />
           </CardContent>
         </Card>
 
@@ -656,10 +682,12 @@ export default function ApprovalQueue() {
                   <div className="flex items-start gap-4">
                     <div
                       className={`p-2.5 rounded-xl border-0 shadow-sm ${getActionBadgeColor(
-                        action.action_type
+                        action.status
                       )}`}
                     >
-                      {getActionIcon(action.action_type)}
+                      <div className={`w-5 h-5 ${getStatusIconColor(action.status)}`}>
+                        {getActionIcon(action.action_type)}
+                      </div>
                     </div>
 
                     <div className="flex-1 min-w-0">

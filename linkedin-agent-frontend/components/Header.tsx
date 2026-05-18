@@ -48,7 +48,7 @@ export default function Header({ activeTab, setActiveTab }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100 shadow-sm">
-      <div className="flex items-center justify-between px-4 lg:px-6 h-[80px]">
+      <div className="flex items-center justify-between px-4 lg:px-6 h-[75px]">
         {/* Logo */}
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200/50">
@@ -107,7 +107,7 @@ export default function Header({ activeTab, setActiveTab }: HeaderProps) {
           </div>
 
           {/* Separator */}
-          <div className="w-px h-7 bg-gray-200 mx-1 hidden sm:block" />
+          <div className="w-px h-15 bg-gray-200 mx-1 hidden sm:block" />
 
           {/* User */}
           <div className="flex items-center gap-2.5">

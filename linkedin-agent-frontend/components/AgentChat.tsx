@@ -7,7 +7,7 @@ import {
   Send, 
   Bot, 
   User, 
-  Sparkles, 
+  HelpCircle, 
   Loader2, 
   Trash2,
   Target,
@@ -17,13 +17,19 @@ import {
   CheckCircle2,
   AlertTriangle,
   Link2,
+  Link as LinkIcon,
   Search,
   UserRound,
+  UserPlus,
+  CheckSquare,
   RefreshCw,
   Rocket,
   Megaphone,
+  Radio,
+  Scan,
+  PenTool,
+  Lightbulb,
   History,
-  Zap,
   Check,
   X,
   ClipboardList,
@@ -104,96 +110,178 @@ function formatTimeAgo(dateString: string) {
 function getActivityIcon(actionType: string) {
   if (actionType === "search" || actionType === "linkedin_search") return Search;
   if (actionType === "search_and_message") return MessageSquare;
-  if (actionType === "visit_profile" || actionType === "linkedin_visit_profile") return UserRound;
-  if (actionType === "send_connection" || actionType === "linkedin_send_connection") return Link2;
+  if (actionType === "visit_profile" || actionType === "linkedin_visit_profile") return User;
+  if (actionType === "send_connection" || actionType === "linkedin_send_connection") return LinkIcon;
   if (actionType === "send_message" || actionType === "linkedin_send_message") return MessageSquare;
+  if (actionType === "search_and_connection") return UserPlus;
+  if (actionType === "check_connection") return CheckSquare;
   if (actionType === "scheduled_followup" || actionType === "schedule_followup") return Clock;
-  if (actionType === "create_campaign" || actionType === "update_campaign") return Megaphone;
-  if (actionType === "analyze_prospect" || actionType === "generate_message" || actionType === "suggest_strategy") return Zap;
-  if (actionType === "save_prospect" || actionType === "search_prospects_db") return UserRound;
-  if (actionType === "check_network_connections") return Link2;
+  if (actionType === "create_campaign" || actionType === "update_campaign") return Radio;
+  if (actionType === "analyze_prospect") return Scan;
+  if (actionType === "generate_message") return PenTool;
+  if (actionType === "suggest_strategy") return Lightbulb;
+  if (actionType === "save_prospect" || actionType === "search_prospects_db") return User;
+  if (actionType === "check_network_connections") return LinkIcon;
   if (actionType === "get_campaign_stats" || actionType === "get_rate_limits") return TrendingUp;
-  return Sparkles;
+  return HelpCircle;
+}
+
+function getActionLabel(actionType: string) {
+  const labels: Record<string, string> = {
+    search: "Recherche LinkedIn",
+    linkedin_search: "Recherche LinkedIn",
+    search_and_message: "Recherche et Envoi de message",
+    search_and_connection: "Recherche et Envoi de connexion",
+    visit_profile: "Visiter profil",
+    linkedin_visit_profile: "Visiter profil",
+    send_connection: "Demande de connexion",
+    linkedin_send_connection: "Demande de connexion",
+    send_message: "Envoyer un message",
+    linkedin_send_message: "Envoyer un message",
+    check_connection: "Vérification réseau",
+    scheduled_followup: "Suivi programmé",
+    schedule_followup: "Suivi programmé",
+    create_campaign: "Créer une campagne",
+    update_campaign: "Mettre à jour une campagne",
+    analyze_prospect: "Analyser un prospect",
+    generate_message: "Générer un message",
+    suggest_strategy: "Suggérer une stratégie",
+    save_prospect: "Enregistrer un prospect",
+    search_prospects_db: "Rechercher dans la base",
+    check_network_connections: "Vérifier le réseau",
+    get_campaign_stats: "Voir les statistiques",
+    get_rate_limits: "Voir les limites",
+  };
+  return labels[actionType] || actionType;
+}
+
+function getActionBadgeColor(status: string) {
+  switch (status) {
+    case "pending_approval":
+      return "bg-yellow-100 text-yellow-700 border-yellow-200";
+    case "approved":
+      return "bg-green-100 text-green-700 border-green-200";
+    case "processing":
+      return "bg-indigo-100 text-indigo-700 border-indigo-200";
+    case "completed":
+    case "sent":
+      return "bg-blue-100 text-blue-700 border-blue-200";
+    case "success":
+      return "bg-green-100 text-green-700 border-green-200";
+    case "stopped":
+      return "bg-orange-100 text-orange-700 border-orange-200";
+    case "failed":
+    case "rejected":
+    case "cancelled":
+      return "bg-red-100 text-red-700 border-red-200";
+    case "draft":
+      return "bg-slate-100 text-slate-700 border-slate-200";
+    case "active":
+      return "bg-green-100 text-green-700 border-green-200";
+    case "paused":
+      return "bg-amber-100 text-amber-700 border-amber-200";
+    default:
+      return "bg-gray-100 text-gray-700 border-gray-200";
+  }
 }
 
 function getStatusStyles(status: string) {
   if (status === "pending_approval") {
     return {
-      badge: "bg-amber-50 text-amber-700 border-amber-200",
-      dot: "bg-amber-400",
-      border: "border-amber-200/80",
-      panel: "bg-amber-50/70",
+      badge: "bg-yellow-100 text-yellow-800 border-yellow-300",
+      dot: "bg-yellow-400",
+      border: "border-yellow-200/80",
+      panel: "bg-yellow-50/70",
       icon: Clock,
+      iconColor: "text-yellow-600",
     };
   }
 
   if (status === "approved") {
     return {
-      badge: "bg-blue-50 text-blue-700 border-blue-200",
-      dot: "bg-blue-400",
-      border: "border-blue-200/80",
-      panel: "bg-blue-50/70",
-      icon: RefreshCw,
+      badge: "bg-green-100 text-green-800 border-green-300",
+      dot: "bg-green-400",
+      border: "border-green-200/80",
+      panel: "bg-green-50/70",
+      icon: Check,
+      iconColor: "text-green-600",
     };
   }
 
   if (status === "processing") {
     return {
-      badge: "bg-indigo-50 text-indigo-700 border-indigo-200 animate-pulse",
+      badge: "bg-indigo-100 text-indigo-800 border-indigo-300 animate-pulse",
       dot: "bg-indigo-500 animate-pulse",
       border: "border-indigo-200/80",
       panel: "bg-indigo-50/70",
       icon: RefreshCw,
+      iconColor: "text-indigo-600",
     };
   }
 
   if (status === "completed" || status === "sent") {
     return {
-      badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      dot: "bg-emerald-400",
-      border: "border-emerald-200/80",
-      panel: "bg-emerald-50/70",
+      badge: "bg-blue-100 text-blue-800 border-blue-300",
+      dot: "bg-blue-400",
+      border: "border-blue-200/80",
+      panel: "bg-blue-50/70",
       icon: CheckCircle2,
+      iconColor: "text-blue-600",
+    };
+  }
+
+  if (status === "success") {
+    return {
+      badge: "bg-green-100 text-green-800 border-green-300",
+      dot: "bg-green-400",
+      border: "border-green-200/80",
+      panel: "bg-green-50/70",
+      icon: CheckCircle2,
+      iconColor: "text-green-600",
     };
   }
 
   if (status === "stopped") {
     return {
-      badge: "bg-orange-50 text-orange-700 border-orange-200",
+      badge: "bg-orange-100 text-orange-800 border-orange-300",
       dot: "bg-orange-400",
       border: "border-orange-200/80",
       panel: "bg-orange-50/70",
       icon: Square,
+      iconColor: "text-orange-600",
     };
   }
 
   if (status === "failed" || status === "rejected" || status === "cancelled") {
     return {
-      badge: "bg-rose-50 text-rose-700 border-rose-200",
-      dot: "bg-rose-400",
-      border: "border-rose-200/80",
-      panel: "bg-rose-50/70",
+      badge: "bg-red-100 text-red-800 border-red-300",
+      dot: "bg-red-400",
+      border: "border-red-200/80",
+      panel: "bg-red-50/70",
       icon: AlertTriangle,
+      iconColor: "text-red-600",
     };
   }
 
   if (status === "draft") {
     return {
-      badge: "bg-indigo-50 text-indigo-700 border-indigo-200",
-      dot: "bg-indigo-400",
-      border: "border-indigo-200/80",
-      panel: "bg-indigo-50/70",
+      badge: "bg-slate-100 text-slate-800 border-slate-300",
+      dot: "bg-slate-400",
+      border: "border-slate-200/80",
+      panel: "bg-slate-50/70",
       icon: Megaphone,
+      iconColor: "text-slate-600",
     };
   }
 
   if (status === "active") {
     return {
-      badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      dot: "bg-emerald-400",
-      border: "border-emerald-200/80",
-      panel: "bg-emerald-50/70",
+      badge: "bg-green-100 text-green-800 border-green-300",
+      dot: "bg-green-400",
+      border: "border-green-200/80",
+      panel: "bg-green-50/70",
       icon: CheckCircle2,
+      iconColor: "text-green-600",
     };
   }
 
@@ -204,6 +292,7 @@ function getStatusStyles(status: string) {
       border: "border-amber-200/80",
       panel: "bg-amber-50/70",
       icon: Clock,
+      iconColor: "text-amber-600",
     };
   }
 
@@ -799,14 +888,14 @@ export default function AgentChat() {
                             className={cn("rounded-2xl border bg-white p-4 shadow-sm transition-all hover:shadow-md", styles.border)}
                           >
                             <div className="flex items-start gap-3">
-                              <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border", styles.panel, styles.border)}>
-                                <Icon className="w-5 h-5 text-slate-700" />
+                              <div className={cn("p-2.5 rounded-xl border-0 shadow-sm", getActionBadgeColor(item.status))}>
+                                <Icon className="w-5 h-5" />
                               </div>
 
                               <div className="min-w-0 flex-1">
                                 {/* Row 1: Title + Status badge — min-h matches icon height */}
                                 <div className="flex min-h-10 flex-wrap items-center gap-2">
-                                  <h4 className="text-sm font-semibold text-slate-900">{item.title}</h4>
+                                  <h4 className="text-sm font-semibold text-slate-900">{item.itemType === "linkedin_action" ? getActionLabel(item.actionType) : item.title}</h4>
                                   <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-medium", styles.badge)}>
                                     {item.statusLabel}
                                   </span>
@@ -984,56 +1073,71 @@ export default function AgentChat() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
             onClick={() => setDeleteTarget(null)}
           >
+            <div className="absolute inset-0 bg-black/50" />
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              transition={{ type: "spring", duration: 0.35 }}
-              className="mx-4 w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
+              className="relative w-full max-w-xs bg-white rounded-2xl shadow-xl overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex flex-col items-center text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-100">
-                  <Trash2 className="h-5 w-5 text-rose-600" />
+              {/* Header */}
+              <div className="bg-red-50 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-sm text-gray-900">Supprimer la conversation</h3>
+                    <p className="text-xs text-gray-500">{deleteTarget.preview.substring(0, 30)}...</p>
+                  </div>
                 </div>
+              </div>
 
-                <h3 className="mt-4 text-base font-semibold text-slate-900">
-                  Supprimer cette conversation ?
-                </h3>
-                <p className="mt-2 text-sm text-slate-500 leading-relaxed">
-                  Cette action est irr&eacute;versible. La conversation et tous ses messages seront supprim&eacute;s d&eacute;finitivement.
-                </p>
-
-                <div className="mt-2 w-full rounded-xl bg-slate-50 border border-slate-100 px-3 py-2">
-                  <p className="text-xs text-slate-600 italic line-clamp-2">
-                    &laquo; {deleteTarget.preview} &raquo;
+              {/* Content */}
+              <div className="p-4">
+                <div className="text-center py-3">
+                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <Trash2 className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <p className="text-gray-500 font-medium text-sm">
+                    Supprimer cette conversation ?
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Cette action est irréversible. La conversation et tous ses messages seront supprimés définitivement.
                   </p>
                 </div>
+              </div>
 
-                <div className="mt-5 flex w-full gap-3">
-                  <button
-                    onClick={() => setDeleteTarget(null)}
-                    disabled={isDeleting}
-                    className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    onClick={confirmDelete}
-                    disabled={isDeleting}
-                    className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
-                  >
-                    {isDeleting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                    Supprimer
-                  </button>
-                </div>
+              {/* Footer */}
+              <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 flex gap-2">
+                <button
+                  onClick={() => setDeleteTarget(null)}
+                  disabled={isDeleting}
+                  className="flex-1 py-2 text-xs text-gray-600 hover:text-gray-900 font-medium transition-colors disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  disabled={isDeleting}
+                  className="flex-1 py-2 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
+                >
+                  {isDeleting ? (
+                    <>
+                      <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Suppression...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3 h-3" />
+                      Supprimer
+                    </>
+                  )}
+                </button>
               </div>
             </motion.div>
           </motion.div>

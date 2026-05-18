@@ -16,10 +16,11 @@ export async function GET() {
       pool.query(`
         SELECT 
           COUNT(*) as total,
-          COUNT(*) FILTER (WHERE status = 'new') as new,
+          COUNT(*) FILTER (WHERE status = 'identified') as identified,
+          COUNT(*) FILTER (WHERE status = 'connected') as connected,
           COUNT(*) FILTER (WHERE status = 'contacted') as contacted,
           COUNT(*) FILTER (WHERE status = 'responded') as responded,
-          COUNT(*) FILTER (WHERE status = 'qualified') as qualified,
+          COUNT(*) FILTER (WHERE status = 'interested') as interested,
           COUNT(*) FILTER (WHERE status = 'converted') as converted,
           AVG(score) as avg_score
         FROM prospects
@@ -76,13 +77,13 @@ export async function GET() {
         UNION ALL
         SELECT 
           'Contacted' as stage,
-          COUNT(*) FILTER (WHERE status IN ('contacted', 'responded', 'qualified', 'converted')) as count,
+          COUNT(*) FILTER (WHERE status IN ('contacted', 'responded', 'interested', 'converted')) as count,
           'rgba(147, 197, 253, 0.7)' as color
         FROM prospects
         UNION ALL
         SELECT 
           'Replied' as stage,
-          COUNT(*) FILTER (WHERE status IN ('responded', 'qualified', 'converted')) as count,
+          COUNT(*) FILTER (WHERE status IN ('responded', 'interested', 'converted')) as count,
           'rgba(196, 181, 253, 0.7)' as color
         FROM prospects
         UNION ALL
@@ -100,7 +101,7 @@ export async function GET() {
         )
         SELECT 
           'Day ' || day_offset as day,
-          COUNT(*) FILTER (WHERE status IN ('new', 'contacted', 'responded') AND created_at <= NOW() - INTERVAL '1 day' * day_offset) as qualified,
+          COUNT(*) FILTER (WHERE status IN ('identified', 'contacted', 'responded') AND created_at <= NOW() - INTERVAL '1 day' * day_offset) as qualified,
           COUNT(*) FILTER (WHERE status IN ('contacted', 'responded') AND created_at <= NOW() - INTERVAL '1 day' * day_offset) as sent,
           (day_offset / 30.0 * 230)::int as target
         FROM days

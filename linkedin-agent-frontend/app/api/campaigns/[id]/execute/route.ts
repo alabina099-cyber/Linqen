@@ -63,11 +63,19 @@ export async function POST(
 
     // Déterminer le type d'action selon campaign_type
     const campaignType = campaign.campaign_type || 'messages';
-    const actionType = campaignType === 'connections_only' ? 'search_and_connection' : 'search_and_message';
+    let actionType: string;
+    if (campaignType === 'connections_only') {
+      actionType = 'search_and_connection';
+    } else if (campaignType === 'messages_and_connections') {
+      actionType = 'search_and_connection'; // D'abord envoyer les connexions
+    } else {
+      actionType = 'search_and_message';
+    }
+    const dailyLimit = campaign.daily_limit || 20;
 
-    // Construire le template de message (uniquement pour type messages)
+    // Construire le template de message (uniquement pour type messages ou messages_and_connections)
     let messageTemplate = null;
-    if (campaignType === 'messages') {
+    if (campaignType === 'messages' || campaignType === 'messages_and_connections') {
       messageTemplate = campaign.template_invitation;
       
       if (!messageTemplate) {
@@ -104,12 +112,33 @@ export async function POST(
       });
     }
 
+    // Vérifier la limite journalière de la campagne
+    const todayCampaignActions = await query(
+      `SELECT COUNT(*) as count
+       FROM linkedin_actions_queue
+       WHERE campaign_id = $1
+         AND status = 'completed'
+         AND executed_at >= CURRENT_DATE`,
+      [id]
+    );
+    const todayCount = parseInt(todayCampaignActions.rows[0].count);
+
+    if (todayCount >= dailyLimit) {
+      return NextResponse.json({
+        success: false,
+        message: `Limite journalière atteinte pour cette campagne (${todayCount}/${dailyLimit}). Réessayez demain.`,
+        daily_limit: dailyLimit,
+        today_count: todayCount,
+      }, { status: 429 });
+    }
+
     // Créer l'action dans la queue selon le type de campagne
-    const dailyLimit = campaign.daily_limit || 20;
+    // L'utilisateur a exécuté manuellement la campagne, donc l'action est automatiquement approuvée
+    const actionStatus = 'approved';
     const actionResult = await query(
-      `INSERT INTO linkedin_actions_queue 
+      `INSERT INTO linkedin_actions_queue
        (action_type, target_url, target_name, payload, status, campaign_id, created_at)
-       VALUES ($1, $2, $3, $4, 'pending_approval', $5, NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
        RETURNING *`,
       [
         actionType,
@@ -124,17 +153,22 @@ export async function POST(
           industry: campaign.industry,
           location: campaign.location,
           company_size: campaign.company_size,
+          seniority: campaign.seniority,
           daily_limit: dailyLimit,
           follow_up_days: campaign.follow_up_days || 3,
+          template_type: campaign.template || 'Premier contact',
+          objective: campaign.objective || 'Générer des leads',
         }),
+        actionStatus,
         id,
       ]
     );
 
-    // Si la campagne a aussi un template de follow-up, planifier un follow-up
+    // Si la campagne a aussi un template de follow-up, planifier automatiquement les relances
     if (campaign.template_followup && campaign.follow_up_days) {
-      // Le follow-up sera géré après que les premiers messages soient envoyés
-      // On le note dans le payload pour référence future
+      // Planifier la vérification des relances pour après l'envoi des premiers messages
+      // Cette vérification se fera automatiquement via le cron job
+      console.log(`Campagne ${campaign.name}: Relances automatiques activées (J+${campaign.follow_up_days})`);
     }
 
     const actionLabel = campaignType === 'connections_only' ? "d'envoi de connexions" : "de prospection";

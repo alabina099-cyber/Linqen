@@ -8,7 +8,7 @@ import { createPortal } from "react-dom";
 import { 
   User, Building2, MapPin, Star, Plus, TrendingUp, Target, 
   Filter, MoreHorizontal, Mail, Phone, Calendar, ArrowRight,
-  Sparkles, Zap, Trophy, Flame, Crown, Award, TrendingDown,
+  Trophy, Flame, Crown, Award, TrendingDown,
   Users, BarChart3, Clock, CheckCircle2, Search, Telescope, Eye, CheckSquare,
   X, Rocket, ChevronRight, ChevronLeft, UserPlus, Trash2, Send, MessageSquare
 } from "lucide-react";
@@ -98,7 +98,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
 
   // Add prospect modal state
   const [showAddModal, setShowAddModal] = useState(false);
-  const [addStage, setAddStage] = useState<string>("new");
+  const [addStage, setAddStage] = useState<string>("identified");
   const [formData, setFormData] = useState({
     name: "",
     role: "",
@@ -107,7 +107,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
     location: "",
     email: "",
     phone: "",
-    score: 0,
+    linkedin_url: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
@@ -121,7 +121,6 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
   const [contactPopup, setContactPopup] = useState<{type: 'email' | 'phone', value: string | null, prospectName: string} | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{prospectId: number, prospectName: string} | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [recalculating, setRecalculating] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -173,15 +172,15 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
     
     const stages: PipelineStage[] = [
       {
-        id: "new",
+        id: "identified",
         status: "Identifiés",
-        count: prospects.filter((p: Prospect) => p.status === 'new').length,
-        prospects: filtered.filter((p: Prospect) => p.status === 'new').slice(0, displayLimit),
+        count: prospects.filter((p: Prospect) => p.status === 'identified').length,
+        prospects: filtered.filter((p: Prospect) => p.status === 'identified').slice(0, displayLimit),
         gradient: "bg-red-100 border-red-400",
         textColor: "text-red-800",
         iconBg: "bg-red-200",
         icon: Eye,
-        description: "Prospects identifiés"
+        description: "Demande de connexion envoyée"
       },
       {
         id: "connected",
@@ -217,10 +216,10 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
         description: "Réponse reçue"
       },
       {
-        id: "qualified",
+        id: "interested",
         status: "Intéressés",
-        count: prospects.filter((p: Prospect) => p.status === 'qualified').length,
-        prospects: filtered.filter((p: Prospect) => p.status === 'qualified').slice(0, displayLimit),
+        count: prospects.filter((p: Prospect) => p.status === 'interested').length,
+        prospects: filtered.filter((p: Prospect) => p.status === 'interested').slice(0, displayLimit),
         gradient: "bg-yellow-100 border-yellow-400",
         textColor: "text-yellow-800",
         iconBg: "bg-yellow-200",
@@ -265,45 +264,67 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
       location: "",
       email: "",
       phone: "",
-      score: 50,
+      linkedin_url: "",
     });
   };
 
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    // For phone field, only allow digits
+    if (name === 'phone') {
+      const digitsOnly = value.replace(/\D/g, '');
+      setFormData(prev => ({ ...prev, [name]: digitsOnly }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
+
+  // Validation regex patterns
+  const emailPattern = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/;
+  const urlPattern = /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/\S*)?$/;
+  const phonePattern = /^\d+$/;
 
   // Submit new prospect to API
   const handleAddProspect = async () => {
     if (!formData.name.trim()) return;
     
+    // Validate email
+    if (formData.email && !emailPattern.test(formData.email)) {
+      setAddError('Email invalide');
+      return;
+    }
+
+    // Validate LinkedIn URL
+    if (formData.linkedin_url && !urlPattern.test(formData.linkedin_url)) {
+      setAddError('URL LinkedIn invalide');
+      return;
+    }
+
+    // Validate phone (only digits)
+    if (formData.phone && !phonePattern.test(formData.phone)) {
+      setAddError('Téléphone invalide (uniquement chiffres)');
+      return;
+    }
+    
     setSubmitting(true);
     setAddError(null);
     try {
-      // Parse score properly
-      const scoreValue = parseInt(String(formData.score), 10);
-      const validScore = isNaN(scoreValue) ? 50 : Math.max(0, Math.min(100, scoreValue));
-      
       // Map pipeline stage ID to valid DB status
       const stageToStatus: Record<string, string> = {
-        new: "new",
-        identified: "new",
+        identified: "identified",
         connected: "connected",
         contacted: "contacted",
         responded: "responded",
-        qualified: "qualified",
+        interested: "interested",
         converted: "converted",
-        lost: "lost",
       };
-      const dbStatus = stageToStatus[addStage] || "new";
+      const dbStatus = stageToStatus[addStage] || "identified";
       
-      // Build payload with proper type conversion
+      // Build payload — score is auto-calculated by the API
       const payload: any = {
         name: formData.name.trim(),
         status: dbStatus,
-        score: validScore,
       };
       
       // Only add optional fields if they have value
@@ -313,6 +334,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
       const location = formData.location?.trim();
       const phone = formData.phone?.trim();
       const email = formData.email?.trim();
+      const linkedin_url = formData.linkedin_url?.trim();
       
       if (role) payload.role = role;
       if (company) payload.company = company;
@@ -320,6 +342,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
       if (location) payload.location = location;
       if (phone) payload.phone = phone;
       if (email && email.includes('@')) payload.email = email;
+      if (linkedin_url) payload.linkedin_url = linkedin_url;
       
       const response = await fetch('/api/prospects', {
         method: 'POST',
@@ -405,22 +428,6 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
     setDragOverStage(null);
   };
 
-  // Recalculate scores for all existing prospects
-  const handleRecalculateScores = async () => {
-    setRecalculating(true);
-    try {
-      const res = await fetch('/api/prospects/recalculate-scores', { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        await fetchProspects(true);
-      }
-    } catch (e) {
-      console.error('Recalculate scores error:', e);
-    } finally {
-      setRecalculating(false);
-    }
-  };
-
   // Delete prospect
   const handleDeleteProspect = async () => {
     if (!deleteConfirm) return;
@@ -498,15 +505,6 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                     className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                   />
                 </div>
-                <button
-                  onClick={handleRecalculateScores}
-                  disabled={recalculating}
-                  title="Recalculer les scores de tous les prospects"
-                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 text-xs font-medium transition-colors disabled:opacity-50 shrink-0"
-                >
-                  <Flame className="w-4 h-4" />
-                  {recalculating ? 'Calcul...' : 'Scores'}
-                </button>
               </div>
             </div>
             
@@ -578,7 +576,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                 <div className={`flex items-center gap-2 text-[10px] ${stage.textColor} opacity-80`}>
                   <span className="flex items-center gap-0.5">
                     <TrendingUp className="w-3 h-3" />
-                    {stage.count > 0 ? Math.round((stage.prospects.length / stage.count) * 100) : 0}%
+                    {totalProspects > 0 ? Math.round((stage.count / totalProspects) * 100) : 0}%
                   </span>
                 </div>
               </div>
@@ -636,27 +634,23 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                           </div>
                         </div>
 
-                        {/* Industry */}
-                        {prospect.industry && (
-                          <div className="flex flex-wrap gap-1 mb-1.5">
-                            <span className="text-[9px] px-1 py-0.5 bg-gray-100 text-gray-600 rounded">
-                              {prospect.industry}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Company & Location */}
-                        <div className="flex items-center gap-1 text-[10px] text-gray-500 mb-1">
-                          <Building2 className="w-3 h-3 shrink-0 text-gray-400" />
-                          <span className="truncate">{prospect.company}</span>
+                        {/* Location */}
+                        <div className="flex items-center gap-1 text-[10px] text-gray-400 mb-1">
+                          <MapPin className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{prospect.location}</span>
                         </div>
 
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1 text-[10px] text-gray-400">
-                            <MapPin className="w-3 h-3" />
-                            {prospect.location}
+                        {/* Company + Industry inline */}
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="flex items-center gap-1 text-[10px] text-gray-500 min-w-0">
+                            <Building2 className="w-3 h-3 shrink-0 text-gray-400" />
+                            <span className="truncate">{prospect.company}</span>
                           </div>
-                          <span className="text-[9px] text-gray-400">Score: {prospect.score}</span>
+                          {prospect.industry && (
+                            <span className="text-[9px] px-1 py-0.5 bg-gray-100 text-gray-600 rounded shrink-0">
+                              {prospect.industry}
+                            </span>
+                          )}
                         </div>
 
                         {/* Actions rapides (visible au hover) */}
@@ -843,21 +837,6 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Score (0-100)</label>
-                  <input
-                    type="number"
-                    name="score"
-                    min="0"
-                    max="100"
-                    value={formData.score}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
                   <input
                     type="email"
@@ -868,6 +847,9 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Téléphone</label>
                   <input
@@ -875,29 +857,21 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
-                    placeholder="+33 6 12 34 56 78"
+                    placeholder="06 12 34 56 78"
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-              </div>
-
-              {/* Score preview */}
-              <div className="bg-gray-50 rounded-lg p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Score du prospect</span>
-                  <span className={`text-lg font-bold ${formData.score >= 75 ? 'text-emerald-600' : formData.score >= 50 ? 'text-blue-600' : 'text-amber-600'}`}>
-                    {formData.score}/100
-                  </span>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">LinkedIn</label>
+                  <input
+                    type="url"
+                    name="linkedin_url"
+                    value={formData.linkedin_url}
+                    onChange={handleInputChange}
+                    placeholder="https://linkedin.com/in/username"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
-                <input
-                  type="range"
-                  name="score"
-                  min="0"
-                  max="100"
-                  value={formData.score}
-                  onChange={handleInputChange}
-                  className="w-full mt-2 accent-blue-600"
-                />
               </div>
             </div>
 
@@ -1082,7 +1056,9 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                 <p className="text-gray-500 font-medium text-sm">
                   Supprimer définitivement ce prospect ?
                 </p>
-                <p className="text-xs text-gray-400 mt-1">Cette action est irréversible</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Cette action est irréversible
+                </p>
               </div>
             </div>
 

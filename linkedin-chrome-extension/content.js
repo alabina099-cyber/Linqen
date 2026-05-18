@@ -93,9 +93,23 @@
       );
       const connections = connectionsEl ? connectionsEl.textContent.trim() : "";
 
-      // Secteur/industrie
-      const aboutSection = document.querySelector("#about");
-      const industry = ""; // LinkedIn ne montre plus toujours l'industrie directement
+      // Secteur/industrie — essayer plusieurs sélecteurs LinkedIn puis inférer
+      let industry = "";
+      const industrySelectors = [
+        ".pv-top-card--list-bullet span.t-14:not(.t-black--light)",
+        ".pv-text-details__left-panel .t-14.t-black.t-normal",
+        ".top-card-layout__card .industry",
+        ".pv-top-card-v2-ctas .t-14.t-black.t-normal",
+        "[data-field='industry'] span"
+      ];
+      for (const sel of industrySelectors) {
+        const el = document.querySelector(sel);
+        if (el) {
+          industry = el.textContent.trim();
+          break;
+        }
+      }
+      if (!industry) industry = inferIndustry(role, company);
 
       const profileData = {
         name: name || "Inconnu",
@@ -123,6 +137,69 @@
         error: error.message || "Erreur lors du scraping du profil"
       });
     }
+  }
+
+  // =============================================
+  // UTILITAIRE: Inférer le secteur/industrie depuis le rôle + entreprise
+  // =============================================
+  function inferIndustry(role, company) {
+    const text = ((role || "") + " " + (company || "")).toLowerCase();
+    if (
+      /\bsaas\b|\bsoftware\b|\btech\b|\b(ai|ia)\b|\bml\b|\bcloud\b|\bdevelop|\bdata\b|\bcyber\b|\binfra\b/.test(
+        text
+      )
+    )
+      return "Tech/SaaS";
+    if (
+      /\bmarketing\b|\bseo\b|\bcontent\b|\bgrowth\b|\bads\b|\bbrand\b|\bcommunication\b/.test(
+        text
+      )
+    )
+      return "Marketing";
+    if (
+      /\bfinance\b|\bfintech\b|\bbanking\b|\binvestment\b|\b(vc|fond|fund)\b|\bassurance\b|\binsurance\b/.test(
+        text
+      )
+    )
+      return "Finance";
+    if (/\bconsulting\b|\bconseil\b|\baudit\b|\bstrateg/.test(text))
+      return "Consulting";
+    if (
+      /\bhealth\b|\bsanté\b|\bmedical\b|\bpharma\b|\bhospital\b|\bclinic\b/.test(
+        text
+      )
+    )
+      return "Santé";
+    if (
+      /\beducation\b|\bformation\b|\btraining\b|\blearning\b|\bschool\b|\buniversit/.test(
+        text
+      )
+    )
+      return "Education";
+    if (
+      /\be-commerce\b|\bretail\b|\bcommerce\b|\bshop\b|\bmarketplace\b/.test(
+        text
+      )
+    )
+      return "E-commerce";
+    if (
+      /\b(hr|rh)\b|\brecrutement\b|\brecruitment\b|\btalent\b|\bpeople ops\b/.test(
+        text
+      )
+    )
+      return "RH";
+    if (/\blegal\b|\bjuridique\b|\bdroit\b|\blaw\b|\bavocat\b/.test(text))
+      return "Juridique";
+    if (/\bdesign\b|\bux\b|\bui\b|\bcreative\b|\bstudio\b/.test(text))
+      return "Design";
+    if (/\bsales\b|\bcommercial\b|\baccount exec|\bbusiness dev\b/.test(text))
+      return "Sales";
+    if (/\breal estate\b|\bimmobilier\b|\bproperty\b/.test(text))
+      return "Immobilier";
+    if (/\blogisti|\bsupply chain\b|\btransport\b/.test(text))
+      return "Logistique";
+    if (/\benerg|\bénergi|\brenewable\b/.test(text)) return "Énergie";
+    return "";
   }
 
   // =============================================
@@ -284,6 +361,7 @@
             role,
             company: company2,
             location: location2,
+            industry: inferIndustry(role, company2),
             linkedin_url: href
           });
         }
@@ -372,6 +450,7 @@
             role: subtitle,
             company,
             location,
+            industry: inferIndustry(subtitle, company),
             linkedin_url: linkedinUrl
           });
         }

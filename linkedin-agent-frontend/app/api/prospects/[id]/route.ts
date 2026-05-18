@@ -13,7 +13,7 @@ const prospectUpdateSchema = z.object({
   company_size: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
   phone: z.string().optional(),
-  status: z.enum(["new", "contacted", "responded", "qualified", "converted", "lost"]).optional(),
+  status: z.enum(["identified", "connected", "contacted", "responded", "interested", "converted"]).optional(),
   score: z.number().min(0).max(100).optional(),
   notes: z.string().optional(),
 });

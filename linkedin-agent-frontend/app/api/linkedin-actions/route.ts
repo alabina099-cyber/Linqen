@@ -125,11 +125,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/linkedin-actions - Créer une action manuellement
+// POST /api/linkedin-actions - Créer une action (agent ou manuelle)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action_type, target_url, target_name, payload, campaign_id } = body;
+    const { action_type, target_url, target_name, payload, campaign_id, source } = body;
 
     if (!action_type) {
       return NextResponse.json(
@@ -138,11 +138,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Seules les actions créées par l'agent nécessitent une approbation
+    // Les actions manuelles sont automatiquement approuvées
+    const status = source === 'agent' ? 'pending_approval' : 'approved';
+
     const result = await query(
       `INSERT INTO linkedin_actions_queue (action_type, target_url, target_name, payload, status, campaign_id, created_at)
-       VALUES ($1, $2, $3, $4, 'pending_approval', $5, NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
        RETURNING *`,
-      [action_type, target_url || null, target_name || null, JSON.stringify(payload || {}), campaign_id || null]
+      [action_type, target_url || null, target_name || null, JSON.stringify(payload || {}), status, campaign_id || null]
     );
 
     return NextResponse.json({

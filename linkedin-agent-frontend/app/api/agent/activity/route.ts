@@ -152,7 +152,7 @@ export async function GET() {
         title: getToolStepTitle(row.tool_name),
         description: getToolStepDescription(row.tool_name, args, row.status),
         detail: buildToolStepDetail(row.tool_name, args, row.result),
-        status: row.status === "success" ? "completed" : "failed",
+        status: row.status === "success" ? "success" : "failed",
         statusLabel: row.status === "success" ? "Succès" : "Erreur",
         targetName: args?.prospect_name || args?.name || null,
         targetUrl: args?.linkedin_url || args?.url || null,

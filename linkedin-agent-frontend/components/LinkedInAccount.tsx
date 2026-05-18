@@ -23,7 +23,6 @@ import {
   Wifi,
   WifiOff,
   ChevronRight,
-  Zap,
   Puzzle,
 } from "lucide-react";
 

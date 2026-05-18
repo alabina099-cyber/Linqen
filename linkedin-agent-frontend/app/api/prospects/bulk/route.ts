@@ -40,16 +40,17 @@ export async function POST(request: NextRequest) {
       try {
         // UPSERT: insérer ou mettre à jour si l'URL existe déjà
         const result = await query(
-          `INSERT INTO prospects (linkedin_url, name, role, company, location, status, score, notes, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, 'new', $7, $6, NOW(), NOW())
+          `INSERT INTO prospects (linkedin_url, name, role, company, location, industry, status, score, notes, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $8, 'new', $7, $6, NOW(), NOW())
            ON CONFLICT (linkedin_url) DO UPDATE SET
              name = COALESCE(EXCLUDED.name, prospects.name),
              role = COALESCE(EXCLUDED.role, prospects.role),
              company = COALESCE(EXCLUDED.company, prospects.company),
              location = COALESCE(EXCLUDED.location, prospects.location),
+             industry = COALESCE(EXCLUDED.industry, prospects.industry),
              score = GREATEST(EXCLUDED.score, prospects.score),
              updated_at = NOW()
-           RETURNING id, name, linkedin_url, role, company, status, score`,
+           RETURNING id, name, linkedin_url, role, company, location, industry, status, score`,
           [
             normalizedUrl,
             p.name,
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
             p.location || null,
             source ? `Source: ${source}${search_action_id ? ` (action #${search_action_id})` : ""}` : null,
             computedScore,
+            p.industry || null,
           ]
         );
         saved.push(result.rows[0]);

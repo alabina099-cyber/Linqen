@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validStatuses = ["new", "contacted", "responded", "qualified", "converted", "lost"];
+    const validStatuses = ["identified", "connected", "contacted", "responded", "interested", "converted"];
     if (!validStatuses.includes(status)) {
       return NextResponse.json(
         { success: false, error: `Status invalide: ${status}. Valeurs acceptées: ${validStatuses.join(", ")}` },

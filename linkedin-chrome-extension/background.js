@@ -150,12 +150,19 @@ chrome.alarms.create("checkInboxReplies", {
 }); // 1ère fois après 30s, puis toutes les 5 min
 let isCheckingInbox = false;
 
-// Alarme pour vérifier les connexions acceptées
+// Alarme pour vérifier les connexions acceptées (page Mon Réseau — fallback)
 chrome.alarms.create("checkAcceptedConnections", {
-  delayInMinutes: 0.5,
-  periodInMinutes: 15
-}); // 1ère fois après 30s, puis toutes les 15 min
+  delayInMinutes: 1,
+  periodInMinutes: 5
+}); // 1ère fois après 1 min, puis toutes les 5 min
 let isCheckingConnections = false;
+
+// Alarme rapide — vérification ciblée profil par profil toutes les 2 min
+chrome.alarms.create("checkPendingConnectionsFast", {
+  delayInMinutes: 0.5,
+  periodInMinutes: 2
+}); // 1ère fois après 30s, puis toutes les 2 min
+let isCheckingPendingFast = false;
 
 // Vérification immédiate au démarrage (après 10s pour laisser LinkedIn se charger)
 setTimeout(() => {
@@ -223,10 +230,22 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     }
   }
 
-  // Vérifier les connexions acceptées
+  // Vérifier les connexions acceptées (fallback réseau)
   if (alarm.name === "checkAcceptedConnections") {
-    if (!isCheckingConnections && !isProcessing && !isCheckingInbox) {
+    if (
+      !isCheckingConnections &&
+      !isProcessing &&
+      !isCheckingInbox &&
+      !isCheckingPendingFast
+    ) {
       await checkAcceptedConnections();
+    }
+  }
+
+  // Vérification rapide ciblée profil par profil
+  if (alarm.name === "checkPendingConnectionsFast") {
+    if (!isCheckingPendingFast && !isProcessing && !isCheckingConnections) {
+      await checkPendingConnectionsFast();
     }
   }
 });
@@ -473,6 +492,274 @@ function normalizeLinkedInUrl(url) {
 }
 
 // =============================================
+// VÉRIFICATION RAPIDE — profil par profil (toutes les 2 min)
+// =============================================
+async function checkPendingConnectionsFast() {
+  isCheckingPendingFast = true;
+  console.log(
+    "[FAST-CONN] 🔍 Vérification rapide des connexions en attente..."
+  );
+
+  try {
+    // 1. Récupérer les actions send_connection complétées
+    const actionsRes = await fetch(
+      `${API_BASE_URL}/linkedin-actions?status=completed&limit=200`
+    );
+    const actionsData = await actionsRes.json();
+    if (!actionsData.success || !Array.isArray(actionsData.actions)) {
+      isCheckingPendingFast = false;
+      return;
+    }
+
+    // Construire ensembles d'URLs et noms pour matching
+    const pendingUrls = new Set();
+    const pendingNames = new Set();
+    for (const act of actionsData.actions) {
+      const result =
+        typeof act.result === "string"
+          ? (() => {
+              try {
+                return JSON.parse(act.result);
+              } catch {
+                return null;
+              }
+            })()
+          : act.result;
+
+      // 1) send_connection direct
+      if (act.action_type === "send_connection" && result?.sent) {
+        if (act.target_url) {
+          const u = normalizeLinkedInUrl(act.target_url);
+          if (u) pendingUrls.add(u);
+        }
+        if (act.target_name)
+          pendingNames.add(act.target_name.toLowerCase().trim());
+      }
+
+      // 2) search_and_connection (campagnes) — sent_profiles[]
+      if (
+        act.action_type === "search_and_connection" &&
+        Array.isArray(result?.sent_profiles)
+      ) {
+        for (const item of result.sent_profiles) {
+          if (!item) continue;
+          if (typeof item === "object") {
+            if (item.url) {
+              const u = normalizeLinkedInUrl(item.url);
+              if (u) pendingUrls.add(u);
+            }
+            if (item.name) pendingNames.add(item.name.toLowerCase().trim());
+          } else if (typeof item === "string") {
+            pendingNames.add(item.toLowerCase().trim());
+          }
+        }
+      }
+    }
+
+    if (pendingUrls.size === 0 && pendingNames.size === 0) {
+      console.log("[FAST-CONN] Aucune demande de connexion envoyée trouvée");
+      isCheckingPendingFast = false;
+      return;
+    }
+
+    console.log(
+      `[FAST-CONN] ${pendingUrls.size} URLs + ${pendingNames.size} noms en attente`
+    );
+
+    // 2. Récupérer TOUS les prospects (on filtrera par status après)
+    const prospectsRes = await fetch(`${API_BASE_URL}/prospects?limit=200`);
+    const prospectsData = await prospectsRes.json();
+    if (!prospectsData.success || !prospectsData.prospects?.length) {
+      isCheckingPendingFast = false;
+      return;
+    }
+
+    // 3. Filtrer prospects 'identified' qui matchent une connexion envoyée
+    const toCheck = [];
+    const skipped = []; // diagnostic
+    const newProspects = prospectsData.prospects.filter(
+      (p) => p.status === "identified"
+    );
+    console.log(
+      `[FAST-CONN] ${newProspects.length} prospect(s) en status 'identified'`
+    );
+
+    for (const p of newProspects) {
+      if (!p.linkedin_url) {
+        skipped.push(`❌ ${p.name} — pas de linkedin_url`);
+        continue;
+      }
+
+      const normP = normalizeLinkedInUrl(p.linkedin_url);
+      const nameKey = (p.name || "").toLowerCase().trim();
+
+      const matchByUrl = normP && pendingUrls.has(normP);
+      const matchByName = nameKey && pendingNames.has(nameKey);
+
+      if (matchByUrl || matchByName) {
+        const reason = matchByUrl ? "URL" : "nom";
+        console.log(
+          `[FAST-CONN] ✓ ${p.name} matché par ${reason} → à vérifier`
+        );
+        toCheck.push({ id: p.id, name: p.name, linkedin_url: p.linkedin_url });
+        if (toCheck.length >= 3) break;
+      } else {
+        skipped.push(
+          `❌ ${p.name} (${normP || "url invalide"}) — aucune action send_connection trouvée`
+        );
+      }
+    }
+
+    if (skipped.length > 0) {
+      console.log("[FAST-CONN] Prospects ignorés:");
+      skipped.forEach((s) => console.log("  " + s));
+    }
+
+    if (toCheck.length === 0) {
+      console.log(
+        "[FAST-CONN] Aucun prospect 'identified' avec connexion en attente"
+      );
+      isCheckingPendingFast = false;
+      return;
+    }
+
+    console.log(
+      `[FAST-CONN] ${toCheck.length} profil(s) à vérifier: ${toCheck.map((p) => p.name).join(", ")}`
+    );
+
+    // 4. Visiter chaque profil et vérifier le degré
+    for (const prospect of toCheck) {
+      let tab = null;
+      try {
+        tab = await new Promise((resolve, reject) => {
+          chrome.tabs.create(
+            { url: prospect.linkedin_url, active: false },
+            (t) => {
+              if (chrome.runtime.lastError)
+                reject(new Error(chrome.runtime.lastError.message));
+              else resolve(t);
+            }
+          );
+        });
+
+        // Attendre chargement
+        await new Promise((resolve) => {
+          function onUpdated(tabId, changeInfo) {
+            if (tabId === tab.id && changeInfo.status === "complete") {
+              chrome.tabs.onUpdated.removeListener(onUpdated);
+              resolve();
+            }
+          }
+          chrome.tabs.onUpdated.addListener(onUpdated);
+          setTimeout(() => {
+            chrome.tabs.onUpdated.removeListener(onUpdated);
+            resolve();
+          }, 12000);
+        });
+        await delay(2500);
+
+        // Injecter et détecter le degré de connexion
+        const results = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: async () => {
+            function wait(ms) {
+              return new Promise((r) => setTimeout(r, ms));
+            }
+            function detectDegree() {
+              // Méthode 1: badge de degré
+              for (const el of document.querySelectorAll("span, .dist-value")) {
+                const t = (el.textContent || "").trim();
+                if (/^1(er|st|°)?(\s*(degré|degree))?$/i.test(t)) return 1;
+                if (/^2(e|nd|°)?(\s*(degré|degree))?$/i.test(t)) return 2;
+              }
+              // Méthode 2: aria-label
+              for (const el of document.querySelectorAll("[aria-label]")) {
+                const label = (
+                  el.getAttribute("aria-label") || ""
+                ).toLowerCase();
+                if (label.includes("1st degree") || label.includes("1er"))
+                  return 1;
+                if (label.includes("2nd degree") || label.includes("2e"))
+                  return 2;
+              }
+              // Méthode 3: bouton "Message" = 1er degré
+              for (const btn of document.querySelectorAll(
+                "button, a[role='button']"
+              )) {
+                const txt = (btn.textContent || "").trim().toLowerCase();
+                if (txt === "message" || txt === "envoyer un message") return 1;
+              }
+              // Méthode 4: bouton "Se connecter" = pas encore connecté
+              for (const btn of document.querySelectorAll(
+                "button, a[role='button']"
+              )) {
+                const txt = (btn.textContent || "").trim().toLowerCase();
+                if (txt === "se connecter" || txt === "connect") return 2;
+              }
+              return null;
+            }
+
+            // Attendre le chargement du profil
+            for (let i = 0; i < 15; i++) {
+              const h1 = document.querySelector("h1");
+              if (h1 && h1.textContent.trim().length > 0) break;
+              await wait(500);
+            }
+            let degree = null;
+            for (let attempt = 0; attempt < 6; attempt++) {
+              degree = detectDegree();
+              if (degree !== null) break;
+              await wait(800);
+            }
+            return { degree: degree || 0, connected: degree === 1 };
+          }
+        });
+
+        const res = results?.[0]?.result;
+        console.log(
+          `[FAST-CONN] ${prospect.name} → degré ${res?.degree ?? "?"}`
+        );
+
+        if (res?.connected) {
+          console.log(
+            `[FAST-CONN] ✅ ${prospect.name} a accepté la connexion !`
+          );
+          await fetch(`${API_BASE_URL}/prospects/${prospect.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "connected" })
+          });
+          // Mettre à jour les stats campagne
+          try {
+            await fetch(`${API_BASE_URL}/campaigns/update-stats`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                prospect_id: prospect.id,
+                stat: "connections_accepted"
+              })
+            });
+          } catch (e) {}
+        }
+      } catch (e) {
+        console.log(`[FAST-CONN] Erreur pour ${prospect.name}: ${e.message}`);
+      } finally {
+        if (tab?.id) chrome.tabs.remove(tab.id).catch(() => {});
+      }
+
+      // Pause entre profils pour ne pas surcharger LinkedIn
+      await delay(2000);
+    }
+
+    console.log("[FAST-CONN] ✅ Vérification rapide terminée");
+  } catch (error) {
+    console.error("[FAST-CONN] Erreur:", error.message);
+  } finally {
+    isCheckingPendingFast = false;
+  }
+}
+
+// =============================================
 // VÉRIFICATION CONNEXIONS ACCEPTÉES
 // =============================================
 async function checkAcceptedConnections() {
@@ -493,7 +780,6 @@ async function checkAcceptedConnections() {
       const actionsData = await actionsRes.json();
       if (actionsData.success && Array.isArray(actionsData.actions)) {
         for (const act of actionsData.actions) {
-          if (act.action_type !== "search_and_connection") continue;
           const result =
             typeof act.result === "string"
               ? (() => {
@@ -504,6 +790,22 @@ async function checkAcceptedConnections() {
                   }
                 })()
               : act.result;
+
+          // Connexions directes (send_connection) — target_url + target_name
+          if (act.action_type === "send_connection" && result?.sent) {
+            const url = act.target_url || null;
+            const name = (act.target_name || "").toLowerCase().trim();
+            const key = url || name;
+            if (key && !sentUrls.has(key)) {
+              sentUrls.add(key);
+              sentProspects.push({ name, url, id: null });
+              if (name) sentNames.add(name);
+            }
+            continue;
+          }
+
+          // Connexions via campagne (search_and_connection) — sent_profiles[]
+          if (act.action_type !== "search_and_connection") continue;
           if (result?.sent_profiles && Array.isArray(result.sent_profiles)) {
             for (const item of result.sent_profiles) {
               if (!item) continue;
@@ -561,7 +863,7 @@ async function checkAcceptedConnections() {
 
     const contactedProspects = prospectsData.prospects.filter((p) => {
       if (p.status === "contacted") return true;
-      if (p.status === "new" || p.status === "identified") {
+      if (p.status === "identified" || p.status === "connected") {
         // 1. Match par ID (le plus fiable)
         if (p.id && sentProspectIds.has(Number(p.id))) return true;
         // 2. Match par URL LinkedIn
@@ -829,6 +1131,13 @@ async function checkAcceptedConnections() {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "GET_STATUS") {
     sendResponse({ isProcessing, isConnected });
+    return true;
+  }
+
+  if (message.type === "CHECK_PENDING_CONNECTIONS") {
+    checkPendingConnectionsFast().then(() => {
+      sendResponse({ success: true });
+    });
     return true;
   }
 
@@ -1383,6 +1692,22 @@ async function executeSendConnection(action) {
     const res = results && results[0] && results[0].result;
     if (res && res.success) {
       await updateActionStatus(action.id, "completed", { sent: true });
+      // Marquer le prospect comme 'identified' (= demande de connexion envoyée)
+      try {
+        await fetch(`${API_BASE_URL}/prospects/update-status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            linkedin_url: action.target_url,
+            status: "identified"
+          })
+        });
+        console.log(
+          `[SEND_CONN] ✅ ${action.target_name || action.target_url} → status 'identified'`
+        );
+      } catch (e) {
+        console.log(`[SEND_CONN] ⚠️ Erreur update status: ${e.message}`);
+      }
     } else {
       await updateActionStatus(
         action.id,
@@ -2331,9 +2656,21 @@ async function executeSearchAndConnection(action) {
         results.push({ name: profile.name, status: "sent" });
         console.log(`[SEARCH&CONN] ✅ Connexion envoyée à ${profile.name}`);
 
-        // NE PAS changer le status du prospect — il reste 'identified'.
-        // Le status passera à 'connected' uniquement si la personne accepte la connexion
-        // (géré par checkAcceptedConnections qui tourne toutes les 15 min).
+        // Marquer le prospect comme 'identified' (= demande de connexion envoyée, en attente)
+        try {
+          await fetch(`${API_BASE_URL}/prospects/update-status`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              linkedin_url: profileUrl,
+              status: "identified"
+            })
+          });
+        } catch (e) {
+          console.log(`[SEARCH&CONN] ⚠️ Erreur update status: ${e.message}`);
+        }
+        // Le status passera à 'connected' quand la personne accepte la connexion
+        // (géré par checkPendingConnectionsFast toutes les 2 min).
 
         // Incrémenter connections_sent dans la campagne
         if (campaignId) {
@@ -3590,6 +3927,22 @@ async function executeSendMessage(action) {
 
     if (res?.success) {
       await updateActionStatus(action.id, "completed", { sent: true });
+      // Marquer le prospect comme 'contacted' (= message envoyé)
+      try {
+        await fetch(`${API_BASE_URL}/prospects/update-status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            linkedin_url: action.target_url,
+            status: "contacted"
+          })
+        });
+        console.log(
+          `[SEND_MSG] ✅ ${action.target_name || action.target_url} → status 'contacted'`
+        );
+      } catch (e) {
+        console.log(`[SEND_MSG] ⚠️ Erreur update status: ${e.message}`);
+      }
     } else {
       await updateActionStatus(
         action.id,

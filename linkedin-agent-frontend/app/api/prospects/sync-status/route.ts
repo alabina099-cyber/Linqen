@@ -14,7 +14,7 @@ export async function POST() {
          p.id = m.prospect_id
          OR LOWER(p.name) = LOWER(m.recipient_name)
        )
-       AND p.status = 'new'
+       AND p.status IN ('identified', 'connected')
        AND m.status = 'sent'
        RETURNING p.id, p.name, p.linkedin_url, p.status`,
       []
