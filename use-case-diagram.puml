@@ -1,0 +1,53 @@
+@startuml
+left to right direction
+
+actor "User" as User
+
+rectangle "LinkedIn Agent Platform" {
+    
+    usecase "Authenticate" as UC_Auth
+    
+    package "Campaign Management" as PK_Campaign {
+        usecase "Manage & Track Campaigns" as UC_Campaigns
+    }
+
+    package "Interactions & Messaging" as PK_Message {
+        usecase "Validate AI Actions & Messages" as UC_Messages
+    }
+
+    package "Analytics & Statistics" as PK_Analytics {
+        usecase "View Dashboard" as UC_Dashboard
+    }
+
+    package "Lead Management" as PK_Prospect {
+        usecase "Manage Lead Database" as UC_Prospects
+    }
+
+    package "Configuration & AI Assistant" as PK_Config {
+        usecase "Configure Platform & AI" as UC_Settings
+        usecase "Interact with Chat Agent" as UC_Chat
+    }
+
+    ' --- Grid layout (3 top, 2 bottom) to maximize width ---
+    PK_Campaign -[hidden]right-> PK_Message
+    PK_Message -[hidden]right-> PK_Analytics
+    PK_Campaign -[hidden]down-> PK_Prospect
+    PK_Prospect -[hidden]right-> PK_Config
+
+    ' User relations
+    User -- UC_Campaigns
+    User -- UC_Messages
+    User -- UC_Dashboard
+    User -- UC_Prospects
+    User -- UC_Settings
+    User -- UC_Chat
+
+    ' Global inclusions to authentication
+    UC_Campaigns ..> UC_Auth : <<include>>
+    UC_Messages ..> UC_Auth : <<include>>
+    UC_Dashboard ..> UC_Auth : <<include>>
+    UC_Prospects ..> UC_Auth : <<include>>
+    UC_Settings ..> UC_Auth : <<include>>
+    UC_Chat ..> UC_Auth : <<include>>
+}
+@enduml

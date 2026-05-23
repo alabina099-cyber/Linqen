@@ -1,0 +1,86 @@
+@startuml
+left to right direction
+
+actor "User" as User
+
+rectangle "LinkedIn Agent Platform" {
+    usecase "Authenticate" as UC_Authenticate
+
+    package "Campaign Creation Workflow" {
+        usecase "Access Dashboard" as UC_AccessDashboard
+        usecase "Navigate to Campaigns" as UC_NavigateCampaigns
+        usecase "Click Create Campaign" as UC_ClickCreate
+        usecase "Enter Campaign Name" as UC_EnterName
+        usecase "Enter Campaign Description" as UC_EnterDescription
+        usecase "Select Target Audience" as UC_SelectTarget
+        usecase "Set Campaign Parameters" as UC_SetParameters
+        usecase "Configure Automation Rules" as UC_ConfigureRules
+        usecase "Review Campaign Settings" as UC_ReviewSettings
+        usecase "Save Campaign" as UC_SaveCampaign
+        usecase "Activate Campaign" as UC_ActivateCampaign
+    }
+
+    package "Target Audience Selection" {
+        usecase "Define Industry Filter" as UC_IndustryFilter
+        usecase "Set Location Filter" as UC_LocationFilter
+        usecase "Specify Company Size" as UC_CompanySize
+        usecase "Set Seniority Level" as UC_Seniority
+        usecase "Configure Job Title Filter" as UC_JobTitle
+        usecase "Set Campaign Type" as UC_CampaignType
+    }
+
+    package "Automation Configuration" {
+        usecase "Set Daily Connection Limit" as UC_DailyLimit
+        usecase "Configure Message Templates" as UC_MessageTemplates
+        usecase "Set Follow-up Schedule" as UC_FollowupSchedule
+        usecase "Enable Human Approval" as UC_HumanApproval
+        usecase "Configure Working Hours" as UC_WorkingHours
+        usecase "Set Random Delays" as UC_RandomDelays
+    }
+
+    package "Message Template Configuration" {
+        usecase "Create Invitation Template" as UC_InvitationTemplate
+        usecase "Create Follow-up Template" as UC_FollowupTemplate
+        usecase "Preview Template" as UC_PreviewTemplate
+        usecase "Test Template" as UC_TestTemplate
+    }
+
+    ' Main workflow relationships
+    User -- UC_AccessDashboard
+    UC_AccessDashboard ..> UC_Authenticate : <<include>>
+
+    User -- UC_NavigateCampaigns
+    User -- UC_ClickCreate
+    User -- UC_EnterName
+    User -- UC_EnterDescription
+    User -- UC_SelectTarget
+    User -- UC_SetParameters
+    User -- UC_ConfigureRules
+    User -- UC_ReviewSettings
+    User -- UC_SaveCampaign
+    User -- UC_ActivateCampaign
+
+    ' Target audience relationships
+    UC_SelectTarget ..> UC_IndustryFilter : <<extend>>
+    UC_SelectTarget ..> UC_LocationFilter : <<extend>>
+    UC_SelectTarget ..> UC_CompanySize : <<extend>>
+    UC_SelectTarget ..> UC_Seniority : <<extend>>
+    UC_SelectTarget ..> UC_JobTitle : <<extend>>
+    UC_SelectTarget ..> UC_CampaignType : <<extend>>
+
+    ' Automation configuration relationships
+    UC_ConfigureRules ..> UC_DailyLimit : <<extend>>
+    UC_ConfigureRules ..> UC_MessageTemplates : <<extend>>
+    UC_ConfigureRules ..> UC_FollowupSchedule : <<extend>>
+    UC_ConfigureRules ..> UC_HumanApproval : <<extend>>
+    UC_ConfigureRules ..> UC_WorkingHours : <<extend>>
+    UC_ConfigureRules ..> UC_RandomDelays : <<extend>>
+
+    ' Message template relationships
+    UC_MessageTemplates ..> UC_InvitationTemplate : <<extend>>
+    UC_MessageTemplates ..> UC_FollowupTemplate : <<extend>>
+    UC_MessageTemplates ..> UC_PreviewTemplate : <<extend>>
+    UC_MessageTemplates ..> UC_TestTemplate : <<extend>>
+}
+
+@enduml

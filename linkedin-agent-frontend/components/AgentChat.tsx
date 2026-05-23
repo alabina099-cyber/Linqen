@@ -655,14 +655,13 @@ export default function AgentChat() {
   })();
 
   return (
-    <div className="h-full flex flex-col min-h-0">
-      <div className="flex-1 min-h-0 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.55fr)_420px]">
-        <Card className="flex flex-col min-h-0 border-0 shadow-xl bg-gradient-to-b from-white to-slate-50/70">
-          <CardHeader className="shrink-0 border-b border-slate-100 bg-white/95 backdrop-blur-sm pb-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                  <Bot className="w-6 h-6 text-white" />
+    <div className="h-full w-full flex flex-col">
+      <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-[1fr_420px] overflow-hidden">
+        <Card className="flex flex-col min-h-0 m-5 rounded-2xl border border-slate-200/60 bg-gradient-to-br from-white via-slate-50/50 to-blue-50/30 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15),0_0_0_1px_rgba(255,255,255,0.5)_inset,0_-2px_0_0_rgba(255,255,255,0.8)_inset] overflow-hidden">
+          <CardHeader className="shrink-0 border-b border-slate-200/80 bg-white px-5 h-[76px] flex flex-row items-center justify-between space-y-0">
+            <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-[#CDDFF2] flex items-center justify-center">
+                  <Bot className="w-6 h-6 text-slate-800" />
                 </div>
                 <div>
                   <CardTitle className="text-xl font-bold text-slate-900 flex items-center gap-1.5">
@@ -671,18 +670,14 @@ export default function AgentChat() {
                   <p className="text-xs text-slate-500">Conversation pilotée par OpenAI et l'extension Chrome</p>
                 </div>
               </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleNewConversation}
-                  className="text-slate-400 hover:text-rose-600"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleNewConversation}
+              className="text-slate-400 hover:text-rose-600 shrink-0"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
           </CardHeader>
 
           <CardContent className="flex flex-1 min-h-0 flex-col p-0 overflow-hidden">
@@ -714,13 +709,13 @@ export default function AgentChat() {
                             "mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl shadow-sm",
                             message.role === "user"
                               ? "bg-gradient-to-br from-blue-500 to-blue-600"
-                              : "bg-gradient-to-br from-violet-500 to-fuchsia-600"
+                              : "bg-[#CDDFF2]"
                           )}
                         >
                           {message.role === "user" ? (
                             <User className="w-4 h-4 text-white" />
                           ) : (
-                            <Bot className="w-4 h-4 text-white" />
+                            <Bot className="w-4 h-4 text-slate-800" />
                           )}
                         </div>
 
@@ -776,7 +771,7 @@ export default function AgentChat() {
             </div>
 
             <div className="border-t border-slate-100 bg-white px-5 py-4">
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-2 shadow-inner">
+              <div className="rounded-3xl border border-slate-200 bg-white p-2 shadow-inner">
                 <div className="flex gap-2">
                   <input
                     ref={inputRef}
@@ -788,37 +783,35 @@ export default function AgentChat() {
                         handleSend();
                       }
                     }}
-                    placeholder="Ex: crée une campagne pour des CEOs SaaS à Paris et prépare les actions LinkedIn"
+                    placeholder="Crée une action..."
                     className="flex-1 rounded-2xl border-0 bg-transparent px-3 py-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={isLoading}
                   />
-                  <Button
+                  <button
+                    type="button"
                     onClick={handleSend}
                     disabled={!input.trim() || isLoading}
-                    className="h-11 rounded-2xl bg-gradient-to-r from-blue-500 to-violet-600 px-4 shadow-lg shadow-blue-500/20 hover:from-blue-600 hover:to-violet-700"
+                    className="h-11 rounded-2xl bg-[#CDDFF2] px-4 text-slate-800 hover:bg-[#B8D4EE] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {isLoading ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <Send className="w-4 h-4" />
                     )}
-                  </Button>
+                  </button>
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="flex flex-col min-h-0 border-0 shadow-xl bg-white">
-          <CardHeader className="shrink-0 border-b border-slate-100 pb-4 bg-gradient-to-r from-slate-50 to-white">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <CardTitle className="text-lg font-bold text-slate-900">
-                  {rightPanelView === "actions" ? "Actions de l'agent" : "Historique des chats"}
-                </CardTitle>
-              </div>
+        <Card className="flex flex-col min-h-0 border-0 shadow-none bg-gradient-to-br from-slate-50 to-white rounded-none">
+          <CardHeader className="shrink-0 border-b border-slate-200/80 px-5 h-[76px] flex flex-row items-center justify-between space-y-0 bg-white">
+            <CardTitle className="text-lg font-bold text-slate-900">
+              {rightPanelView === "actions" ? "Actions de l'agent" : "Historique des chats"}
+            </CardTitle>
 
-              <div className="flex items-center gap-1">
+              <div className="ml-auto flex items-center gap-1">
                 <Button
                   variant={rightPanelView === "actions" ? "default" : "outline"}
                   size="sm"
@@ -850,7 +843,6 @@ export default function AgentChat() {
                   Chats
                 </Button>
               </div>
-            </div>
           </CardHeader>
 
           <CardContent className="flex flex-1 min-h-0 flex-col p-0 overflow-hidden">

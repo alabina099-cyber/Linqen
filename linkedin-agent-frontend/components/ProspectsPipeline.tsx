@@ -132,6 +132,11 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
       // Synchroniser les statuts avant de charger (prospects contactés mais encore en "new")
       await fetch('/api/prospects/sync-status', { method: 'POST' }).catch(() => {});
       const response = await fetch('/api/prospects?limit=100');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to fetch prospects:', response.status, errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       
       if (data.success) {

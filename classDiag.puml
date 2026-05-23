@@ -1,0 +1,229 @@
+@startuml
+
+' Database Entities
+class User {
+    - id: SERIAL
+    - name: VARCHAR(255)
+    - email: VARCHAR(255)
+    - company: VARCHAR(255)
+    - role: VARCHAR(100)
+    - linkedin_connected: BOOLEAN
+    - linkedin_email: VARCHAR(255)
+    - settings: JSONB
+    - created_at: TIMESTAMP
+    - updated_at: TIMESTAMP
+    + authenticate()
+    + updateSettings()
+    + getNotifications()
+}
+
+class Campaign {
+    - id: SERIAL
+    - name: VARCHAR(255)
+    - status: VARCHAR(50)
+    - target: VARCHAR(255)
+    - template: VARCHAR(255)
+    - description: TEXT
+    - industry: VARCHAR(100)
+    - location: VARCHAR(100)
+    - company_size: VARCHAR(50)
+    - target_role: VARCHAR(255)
+    - template_invitation: TEXT
+    - template_followup: TEXT
+    - objective: VARCHAR(100)
+    - seniority: TEXT
+    - campaign_type: VARCHAR(50)
+    - connections_sent: INTEGER
+    - connections_accepted: INTEGER
+    - daily_limit: INTEGER
+    - follow_up_days: INTEGER
+    - contacted: INTEGER
+    - replied: INTEGER
+    - clicked: INTEGER
+    - converted: INTEGER
+    - created_at: TIMESTAMP
+    - updated_at: TIMESTAMP
+    + create()
+    + activate()
+    + pause()
+    + getMetrics()
+}
+
+class Prospect {
+    - id: SERIAL
+    - linkedin_url: VARCHAR(500)
+    - name: VARCHAR(255)
+    - role: VARCHAR(255)
+    - company: VARCHAR(255)
+    - industry: VARCHAR(100)
+    - location: VARCHAR(100)
+    - company_size: VARCHAR(50)
+    - email: VARCHAR(255)
+    - phone: VARCHAR(50)
+    - score: INTEGER
+    - status: VARCHAR(50)
+    - notes: TEXT
+    - last_seen: TIMESTAMP
+    - created_at: TIMESTAMP
+    - updated_at: TIMESTAMP
+    + add()
+    + update()
+    + delete()
+    + calculateScore()
+}
+
+class Message {
+    - id: SERIAL
+    - campaign_id: INTEGER
+    - prospect_id: INTEGER
+    - recipient_name: VARCHAR(255)
+    - recipient_role: VARCHAR(255)
+    - recipient_company: VARCHAR(255)
+    - message_text: TEXT
+    - message_type: VARCHAR(50)
+    - status: VARCHAR(50)
+    - created_at: TIMESTAMP
+    + send()
+    + trackStatus()
+}
+
+class Template {
+    - id: SERIAL
+    - name: VARCHAR(255)
+    - tag: VARCHAR(100)
+    - text: TEXT
+    - usage_count: INTEGER
+    - conversion_rate: INTEGER
+    - created_at: TIMESTAMP
+    - updated_at: TIMESTAMP
+    + create()
+    + update()
+    + trackUsage()
+}
+
+class Notification {
+    - id: SERIAL
+    - user_id: INTEGER
+    - type: VARCHAR(50)
+    - title: VARCHAR(255)
+    - message: TEXT
+    - read: BOOLEAN
+    - data: JSONB
+    - created_at: TIMESTAMP
+    + send()
+    + markAsRead()
+}
+
+class AgentChatHistory {
+    - id: SERIAL
+    - user_id: INTEGER
+    - role: VARCHAR(20)
+    - content: TEXT
+    - context: JSONB
+    - conversation_id: VARCHAR(36)
+    - created_at: TIMESTAMP
+    + save()
+    + retrieve()
+}
+
+class AgentToolSteps {
+    - id: SERIAL
+    - conversation_id: VARCHAR(36)
+    - tool_name: VARCHAR(100)
+    - args: JSONB
+    - result: TEXT
+    - status: VARCHAR(20)
+    - created_at: TIMESTAMP
+    + log()
+    + getHistory()
+}
+
+class LinkedInActionsQueue {
+    - id: SERIAL
+    - action_type: VARCHAR(50)
+    - target_url: VARCHAR(500)
+    - target_name: VARCHAR(255)
+    - payload: JSONB
+    - status: VARCHAR(50)
+    - result: JSONB
+    - error_message: TEXT
+    - campaign_id: INTEGER
+    - prospect_id: INTEGER
+    - created_at: TIMESTAMP
+    - executed_at: TIMESTAMP
+    + queue()
+    + execute()
+    + updateStatus()
+}
+
+class ScheduledFollowups {
+    - id: SERIAL
+    - prospect_id: INTEGER
+    - campaign_id: INTEGER
+    - message_text: TEXT
+    - scheduled_for: TIMESTAMP
+    - status: VARCHAR(50)
+    - created_at: TIMESTAMP
+    + schedule()
+    + execute()
+    + cancel()
+}
+
+' Chrome Extension Components
+class BackgroundServiceWorker {
+    - config: Object
+    - apiEndpoint: String
+    - actionDelays: Object
+    + loadConfig()
+    + communicateWithAPI()
+    + manageActionQueue()
+    + setActionDelays()
+}
+
+class ContentScript {
+    - currentUrl: String
+    + scrapeProfile()
+    + scrapeSearchResults()
+    + sendConnectionRequest()
+    + sendMessage()
+    + listenForMessages()
+}
+
+class BridgeScript {
+    + postMessageToBackground()
+    + receiveMessageFromDashboard()
+    + forwardToExtension()
+}
+
+' AI Service
+class AgentService {
+    - apiKey: String
+    - modelName: String
+    - history: Array
+    + chat()
+    + generateMessage()
+    + analyzeConversation()
+    + addToHistory()
+    + restoreHistory()
+}
+
+' Relationships
+User "1" -- "*" Campaign : manages
+User "1" -- "*" Notification : receives
+User "1" -- "*" AgentChatHistory : has
+Campaign "1" -- "*" Message : contains
+Campaign "1" -- "*" LinkedInActionsQueue : generates
+Campaign "1" -- "*" ScheduledFollowups : schedules
+Prospect "1" -- "*" Message : receives
+Prospect "1" -- "*" ScheduledFollowups : has
+Campaign "1" -- "*" Prospect : targets
+Template "1" -- "*" Campaign : used in
+AgentChatHistory "1" -- "*" AgentToolSteps : logs
+
+' Extension relationships
+BackgroundServiceWorker "1" -- "*" LinkedInActionsQueue : processes
+ContentScript "1" -- "1" BackgroundServiceWorker : communicates with
+BridgeScript "1" -- "1" BackgroundServiceWorker : bridges
+BridgeScript "1" -- "1" AgentService : connects
+
+@enduml

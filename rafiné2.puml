@@ -1,0 +1,80 @@
+@startuml
+left to right direction
+
+actor "User" as User
+
+rectangle "LinkedIn Agent Platform" {
+    usecase "Authenticate" as UC_Authenticate
+
+    package "Approval Queue Access" {
+        usecase "Access Dashboard" as UC_AccessDashboard
+        usecase "Navigate to Approval Queue" as UC_NavigateQueue
+        usecase "View Pending Actions" as UC_ViewPending
+        usecase "Filter Actions by Type" as UC_FilterByType
+        usecase "Filter Actions by Campaign" as UC_FilterByCampaign
+    }
+
+    package "Action Review Process" {
+        usecase "Select Action for Review" as UC_SelectAction
+        usecase "View Action Details" as UC_ViewDetails
+        usecase "View Recipient Profile" as UC_ViewRecipient
+        usecase "Review Generated Message" as UC_ReviewMessage
+        usecase "Check Compliance Rules" as UC_CheckCompliance
+    }
+
+    package "Approval Decision" {
+        usecase "Approve Action" as UC_Approve
+        usecase "Reject Action" as UC_Reject
+        usecase "Edit Message Before Approval" as UC_EditMessage
+        usecase "Add Approval Notes" as UC_AddNotes
+        usecase "Bulk Approve Actions" as UC_BulkApprove
+        usecase "Bulk Reject Actions" as UC_BulkReject
+    }
+
+    package "Execution Monitoring" {
+        usecase "Monitor Execution Status" as UC_MonitorStatus
+        usecase "View Execution Results" as UC_ViewResults
+        usecase "Handle Execution Failures" as UC_HandleFailures
+        usecase "Retry Failed Actions" as UC_RetryAction
+    }
+
+    ' Main workflow relationships
+    User -- UC_AccessDashboard
+    UC_AccessDashboard ..> UC_Authenticate : <<include>>
+
+    User -- UC_NavigateQueue
+    User -- UC_ViewPending
+    User -- UC_FilterByType
+    User -- UC_FilterByCampaign
+    User -- UC_SelectAction
+    User -- UC_ViewDetails
+    User -- UC_ViewRecipient
+    User -- UC_ReviewMessage
+    User -- UC_CheckCompliance
+    User -- UC_Approve
+    User -- UC_Reject
+    User -- UC_EditMessage
+    User -- UC_AddNotes
+    User -- UC_BulkApprove
+    User -- UC_BulkReject
+    User -- UC_MonitorStatus
+    User -- UC_ViewResults
+    User -- UC_HandleFailures
+    User -- UC_RetryAction
+
+    ' Extend relationships
+    UC_ViewPending ..> UC_FilterByType : <<extend>>
+    UC_ViewPending ..> UC_FilterByCampaign : <<extend>>
+    UC_SelectAction ..> UC_ViewDetails : <<extend>>
+    UC_ViewDetails ..> UC_ViewRecipient : <<extend>>
+    UC_ViewDetails ..> UC_ReviewMessage : <<extend>>
+    UC_ViewDetails ..> UC_CheckCompliance : <<extend>>
+    UC_Approve ..> UC_EditMessage : <<extend>>
+    UC_Approve ..> UC_AddNotes : <<extend>>
+    UC_Reject ..> UC_AddNotes : <<extend>>
+    UC_MonitorStatus ..> UC_ViewResults : <<extend>>
+    UC_ViewResults ..> UC_HandleFailures : <<extend>>
+    UC_HandleFailures ..> UC_RetryAction : <<extend>>
+}
+
+@enduml

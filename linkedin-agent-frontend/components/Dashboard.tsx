@@ -152,7 +152,7 @@ export default function Dashboard() {
 
 
           {activeTab === "agent" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full w-full p-3 sm:p-4 lg:p-6">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full w-full">
               <AgentChat />
             </motion.div>
           )}

@@ -23,12 +23,12 @@ export async function GET(request: NextRequest) {
     let result;
     if (campaign_id) {
       result = await query(
-        `SELECT * FROM messages WHERE campaign_id = $1 ORDER BY created_at DESC LIMIT $2`,
+        `SELECT m.*, c.name as campaign_name FROM messages m LEFT JOIN campaigns c ON m.campaign_id = c.id WHERE m.campaign_id = $1 ORDER BY m.created_at DESC LIMIT $2`,
         [parseInt(campaign_id), limit]
       );
     } else {
       result = await query(
-        `SELECT * FROM messages ORDER BY created_at DESC LIMIT $1`,
+        `SELECT m.*, c.name as campaign_name FROM messages m LEFT JOIN campaigns c ON m.campaign_id = c.id ORDER BY m.created_at DESC LIMIT $1`,
         [limit]
       );
     }
