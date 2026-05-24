@@ -251,6 +251,40 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Si l'action est "send_connection" ou "search_and_connection" et a réussi, créer/mettre à jour le prospect en 'identified'
+    if ((action.action_type === 'send_connection' || action.action_type === 'search_and_connection') && status === 'completed') {
+      const profile = actionResult?.profile || {};
+      await query(
+        `INSERT INTO prospects (name, role, company, linkedin_url, industry, location, company_size, score, status, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 50, 'identified', NOW(), NOW())
+         ON CONFLICT (linkedin_url) DO UPDATE SET
+           name = COALESCE(EXCLUDED.name, prospects.name),
+           role = COALESCE(EXCLUDED.role, prospects.role),
+           company = COALESCE(EXCLUDED.company, prospects.company),
+           industry = COALESCE(EXCLUDED.industry, prospects.industry),
+           location = COALESCE(EXCLUDED.location, prospects.location),
+           status = CASE WHEN prospects.status = 'new' THEN 'identified' ELSE prospects.status END,
+           updated_at = NOW()`,
+        [
+          profile.name || action.target_name || null,
+          profile.role || null,
+          profile.company || null,
+          action.target_url,
+          profile.industry || null,
+          profile.location || null,
+          profile.company_size || null,
+        ]
+      );
+    }
+
+    // Si l'action est "connection_accepted" et a réussi, mettre à jour le prospect en 'connected'
+    if (action.action_type === 'connection_accepted' && status === 'completed') {
+      await query(
+        `UPDATE prospects SET status = 'connected', updated_at = NOW() WHERE linkedin_url = $1`,
+        [action.target_url]
+      );
+    }
+
     // Si l'action est "send_connection" ou "send_message" et a réussi, mettre à jour le statut du message
     if ((action.action_type === 'send_connection' || action.action_type === 'send_message') && status === 'completed') {
       await query(

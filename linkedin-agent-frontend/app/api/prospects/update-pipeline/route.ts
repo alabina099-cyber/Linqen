@@ -4,6 +4,34 @@ import { query } from "@/lib/db";
 // POST /api/prospects/update-pipeline — Mettre à jour automatiquement le pipeline des prospects
 export async function POST(request: NextRequest) {
   try {
+    // Mettre à jour les prospects qui ont reçu une demande de connexion en 'identified'
+    await query(`
+      UPDATE prospects p
+      SET status = 'identified',
+          updated_at = NOW()
+      WHERE p.status = 'new'
+        AND EXISTS (
+          SELECT 1 FROM linkedin_actions_queue laq
+          WHERE laq.target_url = p.linkedin_url
+            AND laq.action_type IN ('send_connection', 'search_and_connection')
+            AND laq.status = 'completed'
+        )
+    `);
+
+    // Mettre à jour les prospects qui ont accepté une demande de connexion en 'connected'
+    await query(`
+      UPDATE prospects p
+      SET status = 'connected',
+          updated_at = NOW()
+      WHERE p.status = 'identified'
+        AND EXISTS (
+          SELECT 1 FROM linkedin_actions_queue laq
+          WHERE laq.target_url = p.linkedin_url
+            AND laq.action_type = 'connection_accepted'
+            AND laq.status = 'completed'
+        )
+    `);
+
     // Mettre à jour les prospects qui ont reçu un message mais n'ont pas de statut 'messaged'
     await query(`
       UPDATE prospects p
