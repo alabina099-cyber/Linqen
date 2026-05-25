@@ -1,0 +1,67 @@
+name: Database Backup (Cron)
+
+on:
+  schedule:
+    # Tous les jours à 2h UTC (3h Paris l'hiver, 4h l'été)
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # Permet de lancer un backup manuel
+
+jobs:
+  backup:
+    name: Backup PostgreSQL Database
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: linkedin-agent-frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: linkedin-agent-frontend/package-lock.json
+
+      - name: Install pg dependency
+        run: npm ci --omit=dev
+
+      - name: Run backup script
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_RETENTION_DAYS: '30'
+        run: npm run backup
+
+      - name: Get backup folder name
+        id: backup-info
+        run: |
+          BACKUP_DIR=$(ls -td backups/backup-* | head -1)
+          echo "path=$BACKUP_DIR" >> $GITHUB_OUTPUT
+          echo "name=$(basename $BACKUP_DIR)" >> $GITHUB_OUTPUT
+
+      - name: Upload backup as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ steps.backup-info.outputs.name }}
+          path: linkedin-agent-frontend/${{ steps.backup-info.outputs.path }}
+          retention-days: 30
+
+      - name: Backup summary
+        run: |
+          echo "## ✅ Database Backup Completed" >> $GITHUB_STEP_SUMMARY
+          echo "**Backup name:** \`${{ steps.backup-info.outputs.name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Retention:** 30 days (artifact)" >> $GITHUB_STEP_SUMMARY
+          if [ -f "${{ steps.backup-info.outputs.path }}/_manifest.json" ]; then
+            echo "### Manifest" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat "${{ steps.backup-info.outputs.path }}/_manifest.json" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "## ❌ Backup Failed" >> $GITHUB_STEP_SUMMARY
+          echo "Le backup quotidien a échoué. Vérifier les logs." >> $GITHUB_STEP_SUMMARY
