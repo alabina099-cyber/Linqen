@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { createPortal } from "react-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   User, Building2, MapPin, Star, Plus, TrendingUp, Target, 
   Filter, MoreHorizontal, Mail, Phone, Calendar, ArrowRight,
@@ -49,6 +50,8 @@ interface Prospect {
   industry?: string;
   linkedin_url?: string;
   notes?: string;
+  owner_name?: string | null;
+  owner_id?: number | null;
 }
 
 interface PipelineStage {
@@ -88,6 +91,7 @@ function getScoreIcon(score: number) {
 }
 
 export default function ProspectsPipeline({ fullView = false }: ProspectsPipelineProps) {
+  const { isAdmin } = useAuth();
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
   const [hoveredCard, setHoveredCard] = useState<number | null>(null);
   const [pipelineData, setPipelineData] = useState<PipelineStage[]>([]);
@@ -129,8 +133,6 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
   const fetchProspects = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      // Synchroniser les statuts avant de charger (prospects contactés mais encore en "new")
-      await fetch('/api/prospects/sync-status', { method: 'POST' }).catch(() => {});
       const response = await fetch('/api/prospects?limit=100');
       if (!response.ok) {
         const errorText = await response.text();
@@ -619,7 +621,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                       >
                         {/* Header avec avatar et nom */}
                         <div className="flex items-center gap-2 mb-1.5">
-                          <div className={`w-8 h-8 rounded-full ${stage.iconBg} border ${stage.gradient.split(' ')[1]} flex items-center justify-center shrink-0 text-gray-700 font-bold text-xs`}>
+                          <div className={`w-8 h-8 rounded-full ${stage.iconBg} border ${stage.gradient.split(' ')[1]} flex items-center justify-center shrink-0 ${stage.textColor} font-bold text-xs`}>
                             {prospect.avatar}
                           </div>
                           <div className="min-w-0 flex-1">
@@ -632,6 +634,11 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                               )}
                             </div>
                             <p className="text-[10px] text-gray-500 truncate">{prospect.role}</p>
+                            {isAdmin && prospect.owner_name && (
+                              <span className="inline-flex items-center gap-0.5 mt-0.5 px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[9px] font-medium border border-indigo-100">
+                                <User className="w-2 h-2" />{prospect.owner_name}
+                              </span>
+                            )}
                           </div>
                           <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full ${scoreColor}`}>
                             <ScoreIcon className="w-3 h-3" />

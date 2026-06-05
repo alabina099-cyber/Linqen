@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Settings, LayoutDashboard, Users, Target, Clock, Bot, Activity } from "lucide-react";
+import { Settings, LayoutDashboard, Users, Target, Clock, Bot, Shield, LogOut } from "lucide-react";
 import { useSettings } from "@/contexts/SettingsContext";
+import { useAuth } from "@/contexts/AuthContext";
 import NotificationPanel from "./NotificationPanel";
 
 interface HeaderProps {
@@ -12,6 +13,7 @@ interface HeaderProps {
 
 export default function Header({ activeTab, setActiveTab }: HeaderProps) {
   const { t } = useSettings();
+  const { user, isAdmin, logout } = useAuth();
   const [linkedInUser, setLinkedInUser] = useState<{ connected: boolean; name: string | null; email: string | null }>({ connected: false, name: null, email: null });
 
   useEffect(() => {
@@ -27,37 +29,48 @@ export default function Header({ activeTab, setActiveTab }: HeaderProps) {
     fetchLinkedInAccount();
   }, []);
 
-  const displayName = linkedInUser.name || (linkedInUser.connected ? 'Compte LinkedIn' : 'Non connecté');
-  const displayEmail = linkedInUser.email || '';
-  const initials = linkedInUser.name
-    ? linkedInUser.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-    : linkedInUser.connected ? 'LI' : '?';
+  // Affichage nom/email selon le type d'utilisateur
+  const displayName = user?.name || linkedInUser.name || 'Utilisateur';
+  const displayEmail = user?.email || linkedInUser.email || '';
+  const initials = displayName
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 
   const goToSettings = () => {
     setActiveTab("settings");
     window.location.hash = "settings";
   };
 
-  const navItems = [
-    { id: "dashboard", label: t("Tableau de bord", "Dashboard"), icon: LayoutDashboard },
+  // Navigation adaptative selon le rôle
+  const baseNav = [
     { id: "prospects", label: "Prospects", icon: Users },
     { id: "campaigns", label: t("Campagnes", "Campaigns"), icon: Target },
     { id: "approval", label: t("Approbations", "Approvals"), icon: Clock },
     { id: "agent", label: t("Agent IA", "AI Agent"), icon: Bot },
   ];
 
+  const adminNav = [
+    { id: "dashboard", label: t("Tableau de bord", "Dashboard"), icon: LayoutDashboard },
+    ...baseNav,
+    { id: "users", label: "Users", icon: Shield },
+  ];
+
+  const navItems = isAdmin ? adminNav : baseNav;
+
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100 shadow-sm">
       <div className="flex items-center justify-between px-4 lg:px-6 h-[75px]">
         {/* Logo */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200/50">
-            <Activity className="w-5 h-5 text-white" />
-          </div>
-          <div className="hidden sm:block">
-            <h1 className="text-base font-bold text-gray-900 leading-tight">LinkedIn Agent</h1>
-            <p className="text-[10px] text-gray-400 font-medium tracking-wide">{t("Prospection Autonome", "Autonomous Prospecting")}</p>
-          </div>
+          <img
+            src="/qlinqen-logo.png"
+            alt="Qlinqen"
+            className="h-10 w-auto object-contain"
+          />
+          
         </div>
 
         {/* Navigation — Center */}
@@ -113,11 +126,26 @@ export default function Header({ activeTab, setActiveTab }: HeaderProps) {
           <div className="flex items-center gap-2.5">
             <div className="hidden md:block text-right">
               <p className="text-sm font-semibold text-gray-800 leading-tight">{displayName}</p>
-              {displayEmail && <p className="text-[11px] text-gray-400">{displayEmail}</p>}
+              <div className="flex items-center justify-end gap-1.5">
+                {user?.role && (
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                    isAdmin
+                      ? "bg-blue-50 text-blue-600 border border-blue-100"
+                      : "bg-indigo-50 text-indigo-600 border border-indigo-100"
+                  }`}>
+                    {isAdmin ? "Admin" : "Membre"}
+                  </span>
+                )}
+                {displayEmail && <span className="text-[11px] text-gray-400">{displayEmail}</span>}
+              </div>
             </div>
-            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs ring-2 ring-white shadow-lg shadow-indigo-200/40">
-              {initials}
-            </div>
+            <button
+              onClick={logout}
+              title="Déconnexion"
+              className="p-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
+            >
+              <LogOut className="w-[18px] h-[18px]" />
+            </button>
           </div>
         </div>
       </div>

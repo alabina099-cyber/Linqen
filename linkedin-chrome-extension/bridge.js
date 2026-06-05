@@ -19,12 +19,32 @@
     if (event.source !== window) return;
     const data = event.data;
     if (!data || typeof data !== "object") return;
+
+    // Pass-through auth token from frontend to extension
+    if (data.type === "SET_AUTH_TOKEN") {
+      chrome.runtime.sendMessage(
+        { type: "SET_AUTH_TOKEN", token: data.token },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            console.log(
+              "[Bridge] Erreur SET_AUTH_TOKEN:",
+              chrome.runtime.lastError.message
+            );
+          }
+        }
+      );
+      return;
+    }
+
     if (data.type !== "LINKEDIN_AGENT_REQUEST") return;
 
     const { action, requestId } = data;
     if (!action || !requestId) return;
 
     try {
+      // Ping keep-alive pour réveiller le service worker MV3 (qui s'arrête après 30s)
+      await chrome.runtime.sendMessage({ type: "KEEP_ALIVE" }).catch(() => {});
+
       chrome.runtime.sendMessage({ type: action }, (response) => {
         if (chrome.runtime.lastError) {
           window.postMessage(

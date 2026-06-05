@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Dropdown } from "./ui/dropdown";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Plus, Play, Pause, Trash2, Settings, Users, MessageSquare, TrendingUp, X,
   ChevronRight, Calendar, Target, Star, Rocket, CheckCircle,
@@ -46,6 +47,8 @@ interface Campaign {
   campaignType?: string;
   dailyLimit?: number;
   followUpDays?: number;
+  ownerName?: string | null;
+  ownerId?: number | null;
 }
 
 const initialCampaigns: Campaign[] = [
@@ -178,6 +181,7 @@ const statusOptions = [
 ];
 
 export default function Campaigns() {
+  const { isAdmin } = useAuth();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -239,6 +243,8 @@ export default function Campaigns() {
           campaignType: c.campaign_type || 'messages',
           dailyLimit: c.daily_limit || 20,
           followUpDays: c.follow_up_days || 3,
+          ownerName: c.owner_name || null,
+          ownerId: c.owner_id || null,
         }));
         setCampaigns(mappedCampaigns);
       }
@@ -698,7 +704,14 @@ export default function Campaigns() {
                                   {React.createElement(statusConfig[campaign.status].icon, { className: `w-4 h-4 ${statusConfig[campaign.status].color}` })}
                                 </div>
                                 <div>
-                                  <h3 className="font-semibold text-gray-900 text-sm">{campaign.name}</h3>
+                                  <div className="flex items-center gap-1.5">
+                                    <h3 className="font-semibold text-gray-900 text-sm">{campaign.name}</h3>
+                                    {isAdmin && campaign.ownerName && (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-medium border border-indigo-100">
+                                        <UserCircle className="w-2.5 h-2.5" />{campaign.ownerName}
+                                      </span>
+                                    )}
+                                  </div>
                                   <div className="flex items-center gap-1 text-xs text-gray-500">
                                     <Target className="w-3 h-3" />
                                     {campaign.target}

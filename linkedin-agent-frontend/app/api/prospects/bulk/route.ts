@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { calculateProspectScore } from "@/lib/prospectScore";
+import { ensureOwnershipColumns, getRequestUser } from "@/lib/requestAuth";
 
 // POST /api/prospects/bulk - Import batch de prospects depuis l'extension (résultats de recherche)
 export async function POST(request: NextRequest) {
   try {
+    await ensureOwnershipColumns();
+    const user = await getRequestUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    }
+
     const body = await request.json();
     const { prospects, source, search_action_id } = body;
 
@@ -40,8 +47,8 @@ export async function POST(request: NextRequest) {
       try {
         // UPSERT: insérer ou mettre à jour si l'URL existe déjà
         const result = await query(
-          `INSERT INTO prospects (linkedin_url, name, role, company, location, industry, status, score, notes, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $8, 'new', $7, $6, NOW(), NOW())
+          `INSERT INTO prospects (linkedin_url, name, role, company, location, industry, status, score, notes, user_id, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $8, 'identified', $7, $6, $9, NOW(), NOW())
            ON CONFLICT (linkedin_url) DO UPDATE SET
              name = COALESCE(EXCLUDED.name, prospects.name),
              role = COALESCE(EXCLUDED.role, prospects.role),
@@ -49,6 +56,7 @@ export async function POST(request: NextRequest) {
              location = COALESCE(EXCLUDED.location, prospects.location),
              industry = COALESCE(EXCLUDED.industry, prospects.industry),
              score = GREATEST(EXCLUDED.score, prospects.score),
+             user_id = COALESCE(prospects.user_id, EXCLUDED.user_id),
              updated_at = NOW()
            RETURNING id, name, linkedin_url, role, company, location, industry, status, score`,
           [
@@ -60,6 +68,7 @@ export async function POST(request: NextRequest) {
             source ? `Source: ${source}${search_action_id ? ` (action #${search_action_id})` : ""}` : null,
             computedScore,
             p.industry || null,
+            user.userId,
           ]
         );
         saved.push(result.rows[0]);

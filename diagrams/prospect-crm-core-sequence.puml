@@ -1,0 +1,394 @@
+@startuml
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 220
+
+title DS - Gestion des Prospects CRM (Core)
+
+actor User
+boundary "ProspectsPipeline.tsx" as UI
+collections "useState Hooks" as Hooks
+control "ProspectsAPI\n(/api/prospects)" as API
+control "AuthService\n(lib/requestAuth.ts)" as AUTH
+collections "Zod Schemas\n(prospectSchema,\nprospectUpdateSchema)" as ZOD
+collections "ScoreService\n(lib/prospectScore.ts)" as SCORE
+database "PostgreSQL" as DB
+
+' ============================================================
+' 1. CONSULTATION DU PIPELINE
+' ============================================================
+== 1. Consultation du Pipeline ==
+
+autonumber 1
+User -> UI : Navigue vers /prospects\n(ou affichage du widget)
+activate UI
+
+UI -> Hooks : useEffect() montage
+activate Hooks
+Hooks -> UI : trigger fetchProspects()
+deactivate Hooks
+
+UI -> UI : fetchProspects(silent=false)
+activate UI
+
+UI -> UI : setLoading(true)
+
+UI -> API : GET /api/prospects?limit=100
+activate API
+
+API -> API : ensureOwnershipColumns()
+
+API -> AUTH : getRequestUser(req)
+activate AUTH
+AUTH -> DB : SELECT id, name, role,\nadmin_id, is_active\nFROM users WHERE id = $1\n(JWT Bearer token)
+activate DB
+DB --> AUTH : user row (actif)
+deactivate DB
+AUTH --> API : { userId, role, adminId, name }
+deactivate AUTH
+
+API -> AUTH : buildScopeClause(user,\n"p.user_id", 1)
+activate AUTH
+AUTH --> API : { clause, params, nextIndex }
+alt role == "admin"
+  note right of API
+    clause = "(p.user_id = ANY($1) OR p.user_id IS NULL)"
+    params = [ [adminId, memberIds...] ]
+  end note
+else role == "user"
+  note right of API
+    clause = "p.user_id = $1"
+    params = [ userId ]
+  end note
+end
+deactivate AUTH
+
+API -> DB : SELECT p.*, owner.name,\nowner.id AS owner_id,\nCOUNT(m.id) AS message_count,\nMAX(m.created_at) AS last_contact\nFROM prospects p\nLEFT JOIN messages m ON p.id = m.prospect_id\nLEFT JOIN users owner ON owner.id = p.user_id\nWHERE {scopeClause}\n  [AND p.status = $N]\n  [AND p.industry ILIKE $N]\n  [AND p.location ILIKE $N]\n  [AND p.company_size = $N]\n  [AND (p.name ILIKE $N\n       OR p.company ILIKE $N\n       OR p.role ILIKE $N\n       OR p.email ILIKE $N)]\nGROUP BY p.id, owner.name, owner.id\nORDER BY p.score DESC, p.created_at DESC\nLIMIT $N OFFSET $N
+activate DB
+DB --> API : result.rows (prospects[])
+deactivate DB
+
+API -> DB : SELECT COUNT(*)\nFROM prospects\nWHERE {countScopeClause}
+activate DB
+DB --> API : countResult
+
+database DB
+DB --> API : countResult
+deactivate DB
+
+API --> UI : 200 {\n  success: true,\n  prospects: [...],\n  pagination: {\n    total, limit, offset, hasMore\n  }\n}
+deactivate API
+
+UI -> UI : prospects.map(p => ({\n  ...p,\n  avatar: getInitials(p.name)\n}))
+UI -> UI : setAllProspects(mappedProspects)
+UI -> UI : organizeProspects(mappedProspects)
+activate UI
+
+alt searchQuery != ""
+  UI -> UI : filtered = prospects.filter(p =>\n    p.name?.includes(searchQuery) ||\n    p.company?.includes(searchQuery) ||\n    p.role?.includes(searchQuery))
+else searchQuery == ""
+  UI -> UI : filtered = prospects
+end
+
+UI -> UI : stages = [\n  { id:"identified", count:..., prospects:filtered.filter(...) },\n  { id:"connected", count:..., prospects:filtered.filter(...) },\n  { id:"contacted", count:..., prospects:filtered.filter(...) },\n  { id:"responded", count:..., prospects:filtered.filter(...) },\n  { id:"interested", count:..., prospects:filtered.filter(...) },\n  { id:"converted", count:..., prospects:filtered.filter(...) }\n]
+UI -> UI : setPipelineData(stages)
+
+deactivate UI
+
+UI -> UI : setLoading(false)
+UI --> User : Affichage 6 colonnes CRM\n(Identifiés → Convertis)\n+ barre de recherche + stats globales
+
+deactivate UI
+
+note right of UI
+  useEffect(() => {
+    const interval = setInterval(
+      () => fetchProspects(true), 10000
+    );
+    return () => clearInterval(interval);
+  }, [displayLimit]);
+end note
+
+' ============================================================
+' 2. CREATION MANUELLE D'UN PROSPECT
+' ============================================================
+== 2. Création Manuelle d'un Prospect ==
+
+autonumber 20
+User -> UI : Clic "Ajouter" sur colonne\n(ex: "Connectés")
+activate UI
+
+UI -> UI : openAddModal("connected")\n→ setShowAddModal(true)\n→ setAddStage("connected")
+UI --> User : Affiche modal formulaire\n(name, role, company, industry,\nlocation, email, phone, linkedin_url)
+
+User -> UI : Remplit formulaire +\nClic "Ajouter le prospect"
+
+UI -> UI : handleInputChange(e)\n(phone: replace(/\D/g, ''))
+
+UI -> UI : Validation client
+alt Email invalide
+  UI -> UI : setAddError('Email invalide')
+  UI --> User : Message d'erreur inline
+else URL LinkedIn invalide
+  UI -> UI : setAddError('URL LinkedIn invalide')
+  UI --> User : Message d'erreur inline
+else Téléphone invalide
+  UI -> UI : setAddError('Téléphone invalide')
+  UI --> User : Message d'erreur inline
+else Données valides
+  UI -> UI : setSubmitting(true)\nsetAddError(null)
+
+  UI -> UI : stageToStatus = {\n    identified:"identified",\n    connected:"connected",\n    contacted:"contacted",\n    responded:"responded",\n    interested:"interested",\n    converted:"converted"\n  }
+  UI -> UI : payload = {\n    name: formData.name.trim(),\n    status: stageToStatus[addStage],\n    role, company, industry,\n    location, phone, email,\n    linkedin_url  (si présents)\n  }
+
+  UI -> API : POST /api/prospects\nContent-Type: application/json
+  activate API
+
+  API -> AUTH : getRequestUser(req)
+  activate AUTH
+  AUTH --> API : { userId, role, name }
+  deactivate AUTH
+
+  API -> ZOD : prospectSchema.parse(body)
+  activate ZOD
+  ZOD -> ZOD : SAFE_TEXT = /^[^<>]*$/\nLINKEDIN_URL_REGEX\nemail zod\nphone /^[+\d\s()-]*$/
+
+  alt ZodError
+    ZOD --> API : throw ZodError
+    API --> UI : 400 {\n      error: "Données invalides",\n      details: error.format()\n    }
+    UI -> UI : setAddError(data.details || data.error)
+    UI --> User : Erreurs de validation affichées
+    deactivate ZOD
+    deactivate API
+  else Validation OK
+    ZOD --> API : validatedData
+    deactivate ZOD
+
+    alt body.score fourni
+      API -> API : computedScore = validated.score
+    else Score auto
+      API -> SCORE : calculateProspectScore({\n        role, company, email, phone,\n        location, linkedin_url\n      })
+      activate SCORE
+      SCORE --> API : score (0-100)
+      deactivate SCORE
+    end
+
+    API -> DB : INSERT INTO prospects (\n      linkedin_url, name, role, company,\n      industry, location, company_size,\n      email, phone, status, score, notes,\n      user_id, created_at, updated_at\n    ) VALUES ($1..$13, NOW(), NOW())\n    RETURNING *
+    activate DB
+    DB --> API : result.rows[0] (newProspect)
+    deactivate DB
+
+    API --> UI : 201 {\n      success: true,\n      prospect: newProspect\n    }
+    deactivate API
+
+    UI -> UI : newProspect.avatar =\n      getInitials(newProspect.name)
+    UI -> UI : updatedProspects =\n      [newProspect, ...allProspects]
+    UI -> UI : setAllProspects(updatedProspects)
+    UI -> UI : organizeProspects(updatedProspects)
+    UI -> UI : closeAddModal()\n→ setShowAddModal(false)\n→ reset formData
+    UI --> User : Prospect apparu dans\nla colonne cible + animation
+  end
+end
+deactivate UI
+
+' ============================================================
+' 3. CONSULTATION DU DETAIL D'UN PROSPECT
+' ============================================================
+== 3. Consultation du Détail d'un Prospect ==
+
+autonumber 50
+User -> UI : Clic sur carte prospect
+activate UI
+
+UI -> API : GET /api/prospects/{id}
+activate API
+
+API -> API : parseInt(idStr)\nisNaN(id) ? 400 "ID invalide"
+
+API -> AUTH : assertAccess(req, id)
+activate AUTH
+AUTH -> DB : SELECT user_id\nFROM prospects WHERE id = $1
+activate DB
+DB --> AUTH : { user_id: ownerId }
+deactivate DB
+AUTH -> AUTH : getScopeUserIds(user)\n→ scopeIds[]
+AUTH -> AUTH : allowed =\n  ownerId == null\n    ? user.role === "admin"\n    : scopeIds.includes(ownerId)
+alt !allowed
+  AUTH --> API : { ok: false, status: 403,\n    error: "Accès refusé" }
+  API --> UI : 403 { error: "Accès refusé" }
+  UI --> User : Message d'erreur
+  deactivate AUTH
+  deactivate API
+else allowed
+  AUTH --> API : { ok: true, user }
+  deactivate AUTH
+
+  API -> DB : SELECT p.*,\n    COALESCE(json_agg(\n      json_build_object(\n        'id', m.id,\n        'message_text', m.message_text,\n        'status', m.status,\n        'created_at', m.created_at,\n        'campaign_id', m.campaign_id\n      ) ORDER BY m.created_at DESC\n    ) FILTER (WHERE m.id IS NOT NULL),\n    '[]') AS messages\n  FROM prospects p\n  LEFT JOIN messages m\n    ON p.id = m.prospect_id\n  WHERE p.id = $1\n  GROUP BY p.id
+  activate DB
+  DB --> API : result.rows[0]\n(prospect + messages[])
+  deactivate DB
+
+  alt result.rows.length == 0
+    API --> UI : 404 { error: "Prospect non trouvé" }
+    UI --> User : Prospect introuvable
+  else
+    API --> UI : 200 {\n      success: true,\n      prospect: { ...prospect, messages: [...] }\n    }
+    deactivate API
+    UI --> User : Affichage fiche détaillée\n(infos + historique messages\navec campaign_id)
+  end
+end
+deactivate UI
+
+' ============================================================
+' 4. MISE A JOUR STATUT (DRAG & DROP)
+' ============================================================
+== 4. Mise à jour de Statut (Drag & Drop) ==
+
+autonumber 70
+User -> UI : Drag prospect depuis\ncolonne source
+activate UI
+
+UI -> UI : handleDragStart(e, prospect)\n→ setDraggedProspect(prospect)\n→ e.dataTransfer.setData(\n  'text/plain', String(prospect.id)\n)\n→ e.dataTransfer.effectAllowed = 'move'
+UI --> User : Prospect suivi par curseur
+
+User -> UI : Drag over colonne cible
+UI -> UI : handleDragOver(e, stageId)\n→ e.preventDefault()\n→ setDragOverStage(stageId)\n→ e.dataTransfer.dropEffect = 'move'
+UI --> User : Colonne cible highlightée
+
+User -> UI : Drop sur colonne cible
+UI -> UI : handleDrop(e, targetStageId)
+activate UI
+
+alt draggedProspect.status == targetStageId
+  UI -> UI : setDraggedProspect(null)
+  UI --> User : Aucun changement
+else Changement de statut
+  UI -> UI : **Optimistic Update**\n  updatedProspects = allProspects.map(p =>\n    p.id === draggedProspect.id\n      ? { ...p, status: targetStageId }\n      : p\n  )\n  → setAllProspects(updatedProspects)\n  → organizeProspects(updatedProspects)\n  → setDraggedProspect(null)
+  UI --> User : Prospect déplacé\nvisuellement (instantané)
+
+  UI -> API : PATCH /api/prospects/{id}\n  Content-Type: application/json\n  { status: targetStageId }
+  activate API
+
+  API -> AUTH : assertAccess(req, id)
+  activate AUTH
+  AUTH --> API : { ok: true }
+  deactivate AUTH
+
+  API -> ZOD : prospectUpdateSchema.parse(body)
+  activate ZOD
+  ZOD --> API : { status: targetStageId }
+  deactivate ZOD
+
+  API -> DB : UPDATE prospects\n  SET status = $1,\n      updated_at = NOW()\n  WHERE id = $2\n  RETURNING *
+  activate DB
+  DB --> API : result.rows[0]\n(prospect mis à jour)
+  deactivate DB
+
+  alt result.rows.length == 0
+    API --> UI : 404 {\n      error: "Prospect non trouvé"\n    }
+    UI -> UI : fetchProspects(true)\n    // Revert optimistic update
+    activate UI
+    UI -> API : GET /api/prospects?limit=100
+    API --> UI : prospects[] (état réel)
+    UI -> UI : organizeProspects(prospects)
+    UI --> User : Retour à l'état réel
+    deactivate UI
+  else
+    API --> UI : 200 {\n      success: true,\n      prospect: updatedProspect\n    }
+    deactivate API
+    UI --> User : Statut confirmé
+  end
+end
+deactivate UI
+
+UI -> UI : handleDragEnd()\n→ setDraggedProspect(null)\n→ setDragOverStage(null)
+deactivate UI
+
+' ============================================================
+' 5. SUPPRESSION D'UN PROSPECT
+' ============================================================
+== 5. Suppression d'un Prospect ==
+
+autonumber 100
+User -> UI : Hover sur carte prospect
+activate UI
+UI -> Hooks : setHoveredCard(prospectId)
+activate Hooks
+Hooks --> UI : hover state updated
+deactivate Hooks
+UI --> User : Apparition barre d'actions\nrapides (email, téléphone, corbeille)
+
+deactivate UI
+
+User -> UI : Clic icône corbeille
+activate UI
+UI -> Hooks : setDeleteConfirm({\n  prospectId, prospectName\n})
+activate Hooks
+Hooks --> UI : deleteConfirm state
+deactivate Hooks
+UI --> User : Modal confirmation\n"Supprimer {prospectName} ?"
+
+alt Clic "Annuler"
+  User -> UI : Clic "Annuler"
+  UI -> Hooks : setDeleteConfirm(null)
+  UI --> User : Modal fermé\nProspect conservé
+  deactivate UI
+else Clic "Confirmer"
+  User -> UI : Clic "Confirmer"
+  UI -> UI : handleDeleteProspect()
+  activate UI
+  UI -> Hooks : setDeleting(true)
+
+  UI -> API : DELETE /api/prospects/{id}
+  activate API
+
+  API -> AUTH : assertAccess(req, id)
+  activate AUTH
+  AUTH -> DB : SELECT user_id\nFROM prospects WHERE id = $1
+  activate DB
+  DB --> AUTH : { user_id: ownerId }
+  deactivate DB
+  AUTH -> AUTH : getScopeUserIds(user)\n→ scopeIds[]
+  AUTH -> AUTH : allowed =\n    scopeIds.includes(ownerId)
+  alt !allowed
+    AUTH --> API : { ok: false, status: 403 }
+    API --> UI : 403 { error: "Accès refusé" }
+    UI -> Hooks : setDeleting(false)
+    UI --> User : Erreur: accès refusé
+    deactivate AUTH
+    deactivate API
+  else allowed
+    AUTH --> API : { ok: true }
+    deactivate AUTH
+
+    API -> DB : DELETE FROM messages\n    WHERE prospect_id = $1
+    activate DB
+    DB --> API : messages liés supprimés
+    deactivate DB
+
+    API -> DB : DELETE FROM prospects\n    WHERE id = $1\n    RETURNING id
+    activate DB
+    DB --> API : { id: prospectId }
+    deactivate DB
+
+    alt result.rows.length == 0
+      API --> UI : 404 {\n        error: "Prospect non trouvé"\n      }
+      UI -> Hooks : setDeleting(false)
+      UI --> User : Prospect introuvable
+    else
+      API --> UI : 200 {\n        success: true,\n        message: "Prospect supprimé\navec succès"\n      }
+      deactivate API
+
+      UI -> UI : updatedProspects =\n        allProspects.filter(p =>\n          p.id !== deleteConfirm.prospectId\n        )
+      UI -> UI : setAllProspects(updatedProspects)
+      UI -> UI : organizeProspects(updatedProspects)
+      UI -> Hooks : setDeleteConfirm(null)
+      UI -> Hooks : setDeleting(false)
+      UI --> User : Prospect retiré du pipeline\n+ toast de confirmation
+    end
+  end
+  deactivate UI
+end
+
+@enduml

@@ -6,12 +6,15 @@ const DEFAULT_API_BASE_URL = "http://localhost:3000/api";
 let API_BASE_URL = DEFAULT_API_BASE_URL;
 
 // Charger l'URL serveur depuis le storage au démarrage
-chrome.storage.local.get(["serverUrl"], (result) => {
-  if (result.serverUrl) {
-    API_BASE_URL = result.serverUrl.replace(/\/$/, "") + "/api";
-    console.log("[Config] Serveur configuré:", API_BASE_URL);
-  }
-});
+chrome.storage.local
+  .get(["serverUrl"])
+  .then((result) => {
+    if (result && result.serverUrl) {
+      API_BASE_URL = result.serverUrl.replace(/\/$/, "") + "/api";
+      console.log("[Config] Serveur configuré:", API_BASE_URL);
+    }
+  })
+  .catch((err) => console.error("[Config] Erreur chargement serverUrl:", err));
 
 // Écouter les changements de config
 chrome.storage.onChanged.addListener((changes) => {
@@ -35,6 +38,27 @@ const ACTION_DELAYS = {
   search_and_connection: [45000, 70000], // même délai que search (les délais internes sont gérés dans la fonction)
   default: [10000, 20000] // 10s à 20s
 };
+
+// Token JWT stocké (pour identification user secondaire ou admin)
+let authToken = null;
+chrome.storage.local
+  .get(["authToken"])
+  .then((result) => {
+    if (result && result.authToken) {
+      authToken = result.authToken;
+      console.log("[Auth] Token JWT chargé depuis le storage");
+    }
+  })
+  .catch((err) => console.error("[Auth] Erreur chargement authToken:", err));
+
+// Helper: fetch avec header Authorization si un token est disponible
+async function apiFetch(url, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+  return fetch(url, { ...options, headers });
+}
 
 // Settings utilisateur chargés depuis le backend
 let agentSettings = {
@@ -1129,8 +1153,26 @@ async function checkAcceptedConnections() {
 
 // Écouter les messages du popup et content script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "KEEP_ALIVE") {
+    sendResponse({ ok: true });
+    return true;
+  }
+
   if (message.type === "GET_STATUS") {
     sendResponse({ isProcessing, isConnected });
+    return true;
+  }
+
+  if (message.type === "SET_AUTH_TOKEN") {
+    authToken = message.token || null;
+    if (authToken) {
+      chrome.storage.local.set({ authToken });
+      console.log("[Auth] Token JWT stocké dans l'extension");
+    } else {
+      chrome.storage.local.remove("authToken");
+      console.log("[Auth] Token JWT supprimé");
+    }
+    sendResponse({ success: true });
     return true;
   }
 
@@ -4001,7 +4043,7 @@ async function updateActionStatus(
   errorMessage = null
 ) {
   try {
-    const resp = await fetch(`${API_BASE_URL}/linkedin-actions`, {
+    const resp = await apiFetch(`${API_BASE_URL}/linkedin-actions`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -4036,35 +4078,17 @@ async function handleProfileData(profileData, actionId) {
 }
 
 // Gérer les résultats de recherche reçus du content script
+// NOTE: Le scraping NE sauvegarde PAS les prospects en DB.
+// Les prospects sont uniquement créés quand une vraie action (send_connection / send_message) est exécutée.
 async function handleSearchResults(searchResults, actionId) {
-  // Sauvegarder les profils comme prospects dans la DB
   if (searchResults && searchResults.length > 0) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/prospects/bulk`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prospects: searchResults,
-          source: "linkedin_search",
-          search_action_id: actionId
-        })
-      });
-      const data = await response.json();
-      console.log(
-        `[Extension] ${data.saved_count || 0} prospects sauvegardés en DB depuis la recherche #${actionId}`
-      );
-      await updateActionStatus(actionId, "completed", {
-        profiles: searchResults,
-        saved_to_db: data.saved_count || 0,
-        skipped: data.skipped_count || 0
-      });
-    } catch (err) {
-      console.error("[Extension] Erreur sauvegarde prospects:", err);
-      await updateActionStatus(actionId, "completed", {
-        profiles: searchResults,
-        save_error: err.message
-      });
-    }
+    console.log(
+      `[Extension] Recherche #${actionId} terminée — ${searchResults.length} profil(s) trouvé(s) (non sauvegardés en DB)`
+    );
+    await updateActionStatus(actionId, "completed", {
+      profiles: searchResults,
+      count: searchResults.length
+    });
   } else {
     await updateActionStatus(actionId, "completed", {
       profiles: [],

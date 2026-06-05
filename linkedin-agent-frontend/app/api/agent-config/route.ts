@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { getRequestUser } from '@/lib/requestAuth';
 
 const AI_MODELS = [
   { value: 'gpt-4o-mini', label: 'GPT-4o-mini (Rapide & économique)', color: 'orange', keyEnv: 'OPENAI_API_KEY' },
@@ -8,12 +9,15 @@ const AI_MODELS = [
 ];
 
 // GET /api/agent-config — returns available models + current model
-export async function GET() {
+export async function GET(request: NextRequest) {
   const openaiAvailable = !!process.env.OPENAI_API_KEY;
 
   let currentModel = process.env.OPENAI_MODEL || 'gpt-4o-mini';
   try {
-    const result = await query('SELECT settings FROM users LIMIT 1');
+    const user = await getRequestUser(request);
+    const result = user
+      ? await query('SELECT settings FROM users WHERE id = $1', [user.userId])
+      : { rows: [] };
     if (result.rows[0]?.settings?.aiModel) {
       currentModel = result.rows[0].settings.aiModel;
     }
@@ -30,6 +34,11 @@ export async function GET() {
 // PUT /api/agent-config — save chosen model to user settings
 export async function PUT(request: NextRequest) {
   try {
+    const user = await getRequestUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
+
     const { model } = await request.json();
     const valid = AI_MODELS.map((m) => m.value);
     if (!model || !valid.includes(model)) {
@@ -37,8 +46,8 @@ export async function PUT(request: NextRequest) {
     }
 
     await query(
-      `UPDATE users SET settings = COALESCE(settings, '{}'::jsonb) || $1::jsonb, updated_at = NOW()`,
-      [JSON.stringify({ aiModel: model })]
+      `UPDATE users SET settings = COALESCE(settings, '{}'::jsonb) || $1::jsonb, updated_at = NOW() WHERE id = $2`,
+      [JSON.stringify({ aiModel: model }), user.userId]
     );
 
     return NextResponse.json({ success: true, model });

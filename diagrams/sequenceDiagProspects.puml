@@ -1,0 +1,904 @@
+@startuml
+
+skinparam sequenceMessageAlign center
+skinparam sequenceArrowThickness 2
+skinparam sequence {
+    ParticipantPadding 20
+    MessagePadding 10
+}
+
+skinparam participant {
+    BackgroundColor<<UI>> #E3F2FD
+    BorderColor<<UI>> #1976D2
+    FontColor<<UI>> #0D47A1
+}
+
+skinparam participant {
+    BackgroundColor<<API>> #E8F5E9
+    BorderColor<<API>> #388E3C
+    FontColor<<API>> #1B5E20
+}
+
+skinparam participant {
+    BackgroundColor<<Logic>> #FFF3E0
+    BorderColor<<Logic>> #F57C00
+    FontColor<<Logic>> #E65100
+}
+
+skinparam participant {
+    BackgroundColor<<Data>> #F3E5F5
+    BorderColor<<Data>> #7B1FA2
+    FontColor<<Data>> #4A148C
+}
+
+skinparam participant {
+    BackgroundColor<<LLM>> #FFEBEE
+    BorderColor<<LLM>> #C62828
+    FontColor<<LLM>> #B71C1C
+}
+
+skinparam participant {
+    BackgroundColor<<Extension>> #E0F7FA
+    BorderColor<<Extension>> #00838F
+    FontColor<<Extension>> #006064
+}
+
+skinparam note {
+    BackgroundColor #FFF9C4
+    BorderColor #FBC02D
+}
+
+' ===========================================
+' ACTEURS & OBJETS
+' ===========================================
+
+actor "User" as U <<Actor>>
+actor "User (Agent)" as UA <<Actor>>
+
+participant "ProspectsPipeline.tsx" as UI <<UI>>
+participant "AgentChat.tsx" as AGUI <<UI>>
+
+participant "GET /api/prospects" as API1 <<API>>
+participant "POST /api/prospects" as API2 <<API>>
+participant "PATCH /api/prospects/[id]" as API3 <<API>>
+participant "DELETE /api/prospects/[id]" as API4 <<API>>
+participant "POST /api/prospects/bulk" as API5 <<API>>
+participant "POST /api/prospects/update-status" as API6 <<API>>
+participant "POST /api/agent/chat" as API7 <<API>>
+
+participant "LinkedInAgent\n(lib/agent.ts)" as AGENT <<Logic>>
+participant "ChatOpenAI\n(LangChain)" as LLM <<LLM>>
+
+participant "analyzeProspectTool" as T1 <<Logic>>
+participant "searchProspectsDbTool" as T2 <<Logic>>
+participant "saveProspectTool" as T3 <<Logic>>
+participant "linkedinSearchTool" as T4 <<Logic>>
+
+participant "calculateProspectScore\n(lib/prospectScore.ts)" as SCORE <<Logic>>
+
+participant "Chrome\nExtension" as EXT <<Extension>>
+
+participant "PostgreSQL\n(DB)" as DB <<Data>>
+
+' ===========================================
+' SCÉNARIO 1a : AFFICHAGE DU PIPELINE
+' ===========================================
+
+== SCÉNARIO 1a : Affichage du Pipeline CRM ==
+
+U -> UI : Ouvre page "Prospects"
+activate UI
+
+UI -> API1 : GET /api/prospects
+activate API1
+
+API1 -> DB : SELECT p.*,\n  COUNT(m.id) as message_count,\n  MAX(m.created_at) as last_contact\nFROM prospects p\nLEFT JOIN messages m ON p.id = m.prospect_id\nLEFT JOIN users owner ON owner.id = p.user_id\nWHERE user_id IN (scope)\nORDER BY p.score DESC\nLIMIT 50 OFFSET 0
+activate DB
+DB --> API1 : prospects[]
+deactivate DB
+
+API1 -> DB : SELECT COUNT(*) FROM prospects WHERE scope
+activate DB
+DB --> API1 : total_count
+deactivate DB
+
+API1 --> UI : { success, prospects, pagination }
+deactivate API1
+
+UI -> UI : organizeProspects(prospects)
+note right
+    **PipelineStage (6 colonnes) :**
+    1. identified  → "Identifiés"
+    2. connected  → "Connectés"
+    3. contacted  → "Contactés"
+    4. responded   → "Réponses"
+    5. interested  → "Intéressés"
+    6. converted   → "Convertis"
+end note
+
+UI --> U : Affiche pipeline avec colonnes
+note right of UI #E3F2FD
+**Score affiché sur chaque carte :**
+- Badge coloré selon le score
+- Initiales + nom, rôle, entreprise
+- Couleur de bordure selon le statut
+end note
+deactivate UI
+
+' ===========================================
+' SCÉNARIO 1b : AJOUT MANUEL
+' ===========================================
+
+newpage
+
+== SCÉNARIO 1b : Ajout Manuel d'un Prospect ==
+
+U -> UI : click("+") dans colonne "Identifiés"
+activate UI
+UI -> UI : openAddModal('identified')
+
+U -> UI : Remplit formulaire
+note right
+    **FormData :**
+    - name* (requis)
+    - role, company, industry
+    - location, email, phone
+    - linkedin_url
+end note
+
+U -> UI : click("Ajouter")
+UI -> UI : handleAddProspect()
+activate UI
+
+UI -> UI : Validation client
+note right
+    emailPattern, urlPattern, phonePattern
+end note
+
+UI -> UI : stageToStatus['identified'] = 'identified'
+
+UI -> API2 : POST /api/prospects
+activate API2
+
+API2 -> API2 : prospectSchema.parse(body)
+note right
+    **Zod validation :**
+    - anti-XSS (SAFE_TEXT regex)
+    - URL LinkedIn valide
+    - email format valide
+    - status ∈ {identified, connected, contacted, responded, interested, converted}
+end note
+
+API2 -> SCORE : calculateProspectScore({
+    role, company, email, phone,
+    location, linkedin_url
+  })
+activate SCORE
+
+SCORE -> SCORE : getRoleScore(role)
+note right
+    **Scoring (0-100) :**
+    - C-Level : +40
+    - VP/Director : +30
+    - Manager/Senior : +20
+    - Entreprise renseignée : +15
+    - Email : +15
+    - Téléphone : +10
+    - Localisation : +5
+    - URL LinkedIn : +5
+    - Poste renseigné : +5
+end note
+
+SCORE --> API2 : computedScore (0-100)
+deactivate SCORE
+
+API2 -> DB : INSERT INTO prospects
+note right
+    linkedin_url, name, role, company,
+    industry, location, company_size,
+    email, phone, status='identified',
+    score=computedScore,
+    notes, user_id,
+    created_at=NOW(), updated_at=NOW()
+end note
+activate DB
+DB --> API2 : RETURNING *
+deactivate DB
+
+API2 --> UI : { success: true, prospect }
+deactivate API2
+
+UI -> UI : Ajoute prospect au state
+UI -> UI : organizeProspects(updatedProspects)
+UI --> U : Affiche carte dans colonne "Identifiés"
+deactivate UI
+
+' ===========================================
+' SCÉNARIO 1c : DRAG & DROP
+' ===========================================
+
+newpage
+
+== SCÉNARIO 1c : Changement de Statut (Drag & Drop) ==
+
+U -> UI : Drag prospect de "Contactés" vers "Réponses"
+activate UI
+
+UI -> UI : handleDragStart(prospect)
+UI -> UI : handleDragOver('responded')
+UI -> UI : handleDrop(e, 'responded')
+activate UI
+
+UI -> UI : Optimistic update
+note right
+    allProspects.map(p =>
+      p.id === dragged.id
+        ? { ...p, status: 'responded' }
+        : p
+    )
+    → UI réactive immédiate
+end note
+
+UI -> API3 : PATCH /api/prospects/[id]
+note right
+    body: { status: 'responded' }
+end note
+activate API3
+
+API3 -> API3 : assertAccess(request, id)
+note right
+    Vérifie que le user peut
+    modifier ce prospect
+    (owner ou admin)
+end note
+
+API3 -> DB : UPDATE prospects
+note right
+    SET status = 'responded',
+        updated_at = NOW()
+    WHERE id = [id]
+end note
+activate DB
+DB --> API3 : RETURNING *
+deactivate DB
+
+API3 --> UI : { success: true, prospect }
+deactivate API3
+
+UI -> UI : organizeProspects(updatedProspects)
+UI --> U : Prospect affiché dans "Réponses"
+deactivate UI
+
+alt Erreur réseau
+    UI -> UI : fetchProspects(true)
+    note right
+        Revert : recharge depuis DB
+        pour annuler l'optimistic update
+    end note
+end
+
+' ===========================================
+' SCÉNARIO 1d : IMPORT BATCH (Extension)
+' ===========================================
+
+newpage
+
+== SCÉNARIO 1d : Import Batch depuis l'Extension Chrome ==
+
+EXT -> API5 : POST /api/prospects/bulk
+note right
+    Body: {
+      prospects: [
+        { name, linkedin_url, role, company,
+          location, industry, email, phone },
+        ...
+      ],
+      source: 'linkedin_search',
+      search_action_id: 123
+    }
+end note
+activate API5
+
+API5 -> API5 : Vérifie auth + body valide
+
+loop Pour chaque prospect dans le batch
+    API5 -> API5 : Validation minimale
+    note right
+        name + linkedin_url requis
+        sinon → skipped
+    end note
+
+    API5 -> API5 : normalizedUrl = linkedin_url.replace(/\/$/, "")
+
+    API5 -> SCORE : calculateProspectScore(p)
+    activate SCORE
+    SCORE --> API5 : computedScore
+    deactivate SCORE
+
+    API5 -> DB : UPSERT prospects
+    note right
+        INSERT INTO prospects
+        (linkedin_url, name, role, company,
+         location, industry, status='identified',
+         score, notes, user_id,
+         created_at, updated_at)
+        VALUES (...)
+        ON CONFLICT (linkedin_url) DO UPDATE SET
+          name = COALESCE(EXCLUDED.name, prospects.name),
+          role = COALESCE(EXCLUDED.role, prospects.role),
+          company = COALESCE(EXCLUDED.company, prospects.company),
+          score = GREATEST(EXCLUDED.score, prospects.score),
+          updated_at = NOW()
+        RETURNING *
+    end note
+    activate DB
+    DB --> API5 : prospect row
+    deactivate DB
+
+    API5 -> API5 : saved.push(result)
+end
+
+API5 --> EXT : { success: true,
+                  saved_count, skipped_count,
+                  prospects: [...] }
+deactivate API5
+
+note over EXT, DB #E0F7FA
+**UPSERT par linkedin_url (unique constraint)**
+**Le score conservé est le MAX des deux**
+**Source notée dans le champ notes**
+end note
+
+' ===========================================
+' SCÉNARIO 1e : SUPPRESSION
+' ===========================================
+
+newpage
+
+== SCÉNARIO 1e : Suppression d'un Prospect ==
+
+U -> UI : click(corbeille sur prospect)
+activate UI
+UI -> UI : setDeleteConfirm(prospectId)
+
+U -> UI : click("Confirmer suppression")
+UI -> API4 : DELETE /api/prospects/[id]
+activate API4
+
+API4 -> API4 : assertAccess(request, id)
+
+API4 -> DB : DELETE FROM messages WHERE prospect_id = [id]
+activate DB
+DB --> API4 : OK
+deactivate DB
+
+API4 -> DB : DELETE FROM prospects WHERE id = [id] RETURNING id
+activate DB
+DB --> API4 : deleted row
+deactivate DB
+
+API4 --> UI : { success: true, message: "Supprimé" }
+deactivate API4
+
+UI -> UI : Filter state local (remove)
+UI -> UI : organizeProspects(updatedProspects)
+UI --> U : Prospect retiré du pipeline
+deactivate UI
+
+' ===========================================
+' SCÉNARIO 1f : MISE À JOUR STATUT (Extension)
+' ===========================================
+
+newpage
+
+== SCÉNARIO 1f : Mise à Jour Statut par l'Extension ==
+
+EXT -> API6 : POST /api/prospects/update-status
+note right
+    Body: {
+      linkedin_url: "https://linkedin.com/in/jean",
+      status: "connected",
+      name: "Jean Dupont",
+      role: "CTO",
+      company: "StartupAI"
+    }
+end note
+activate API6
+
+API6 -> API6 : Validation linkedin_url
+note right
+    Regex: ^https?:\/\/(www\.)?linkedin\.com\/...
+    → Anti-XSS / anti-injection
+end note
+
+API6 -> API6 : Validation status
+note right
+    status ∈ {identified, connected, contacted,
+              responded, interested, converted}
+end note
+
+alt prospect_id fourni
+    API6 -> DB : UPDATE prospects
+                 SET status = $1,
+                     updated_at = NOW()
+                 WHERE id = $2
+    activate DB
+    DB --> API6 : RETURNING *
+    deactivate DB
+else linkedin_url fourni
+    API6 -> DB : UPSERT par URL
+    note right
+        INSERT INTO prospects
+        (linkedin_url, name, role, company,
+         industry, location, status, score=50,
+         created_at, updated_at)
+        VALUES (...)
+        ON CONFLICT (linkedin_url) DO UPDATE SET
+          status = EXCLUDED.status,
+          name = COALESCE(EXCLUDED.name, prospects.name),
+          role = COALESCE(EXCLUDED.role, prospects.role),
+          company = COALESCE(EXCLUDED.company, prospects.company),
+          updated_at = NOW()
+        RETURNING *
+    end note
+    activate DB
+    DB --> API6 : RETURNING *
+    deactivate DB
+end
+
+API6 --> EXT : { success: true, prospect }
+deactivate API6
+
+' ===========================================
+' SCÉNARIO 2a : AGENT - RECHERCHE EN DB
+' ===========================================
+
+newpage
+
+== SCÉNARIO 2a : Agent - Recherche Prospects en DB ==
+
+UA -> AGUI : type("Prospects tech Paris\nscore > 70")
+activate AGUI
+AGUI -> API7 : POST /api/agent/chat
+activate API7
+
+API7 -> AGENT : agent.chat(message, context, model)
+activate AGENT
+
+AGENT -> AGENT : createBoundLLM()
+AGENT -> AGENT : Construit messages = [
+AGENT -> AGENT :   SystemMessage(SYSTEM_PROMPTS.prospecting),
+AGENT -> AGENT :   ...history (max 20),
+AGENT -> AGENT :   HumanMessage("Prospects tech Paris score > 70")
+AGENT -> AGENT : ]
+
+AGENT -> LLM : llm.invoke(messages)
+activate LLM
+
+note right of LLM #FFEBEE
+**LLM comprend la requête**
+**et appelle search_prospects_db**
+end note
+
+LLM --> AGENT : tool_call: search_prospects_db
+note right
+    args: {
+      industry: 'tech',
+      location: 'Paris',
+      min_score: 70,
+      limit: 10
+    }
+end note
+deactivate LLM
+
+AGENT -> T2 : tool.invoke(args)
+activate T2
+
+T2 -> DB : SELECT * FROM prospects
+note right
+    WHERE industry ILIKE '%tech%'
+      AND location ILIKE '%Paris%'
+      AND score >= 70
+    ORDER BY score DESC
+    LIMIT 10
+end note
+activate DB
+DB --> T2 : prospects[]
+deactivate DB
+
+T2 --> AGENT : { count, prospects }
+deactivate T2
+
+AGENT -> LLM : llm.invoke([messages, tool_result])
+activate LLM
+LLM --> AGENT : content formaté avec les prospects
+note right
+    "J'ai trouvé 8 prospects
+    tech à Paris avec score > 70 :
+    1. Jean Dupont (CTO, 85 pts)
+    2. Marie Martin (VP, 78 pts)
+    ..."
+end note
+deactivate LLM
+
+AGENT --> API7 : AgentChatResult
+note right
+    { response, toolSteps: [
+      { toolName: "search_prospects_db",
+        args: {...},
+        result: "{count:8,...}",
+        status: "success" }
+    ]}
+end note
+deactivate AGENT
+
+API7 -> DB : INSERT INTO agent_chat_history
+note right
+    (user_id, role='user', content, context, conv_id),
+    (user_id, role='assistant', content, conv_id)
+end note
+activate DB
+DB --> API7 : OK
+deactivate DB
+
+API7 -> DB : INSERT INTO agent_tool_steps
+note right
+    (conversation_id, tool_name='search_prospects_db',
+     args, result, status='success')
+end note
+activate DB
+DB --> API7 : OK
+deactivate DB
+
+API7 --> AGUI : { response, toolSteps }
+deactivate API7
+AGUI --> UA : Affiche réponse + tool steps
+deactivate AGUI
+
+' ===========================================
+' SCÉNARIO 2b : AGENT - ANALYSE PROSPECT
+' ===========================================
+
+newpage
+
+== SCÉNARIO 2b : Agent - Analyse d'un Prospect ==
+
+UA -> AGUI : type("Analyse Jean Dupont,\nCTO chez StartupAI")
+activate AGUI
+AGUI -> API7 : POST /api/agent/chat
+activate API7
+
+API7 -> AGENT : agent.chat(message, ...)
+activate AGENT
+
+AGENT -> LLM : llm.invoke(messages)
+activate LLM
+
+LLM --> AGENT : tool_call: analyze_prospect
+note right
+    args: {
+      name: "Jean Dupont",
+      role: "CTO",
+      company: "StartupAI",
+      industry: "Technology"
+    }
+end note
+deactivate LLM
+
+AGENT -> T1 : tool.invoke(args)
+activate T1
+
+T1 -> T1 : Scoring heuristique
+note right
+    **Analyse interne :**
+    - C-Level/Founder : +25
+    - VP/Director : +15
+    - Manager/Lead : +10
+    - PME (11-200) : +15
+    - Tech/AI/SaaS : +15
+    - score = min(100, max(0, total))
+end note
+
+T1 -> T1 : Détermine quality
+note right
+    score>=80 → 'excellent'
+    score>=65 → 'bon'
+    score>=50 → 'moyen'
+    sinon → 'faible'
+end note
+
+T1 -> T1 : Recommandation action
+note right
+    score>=70 → "Contacter en priorité"
+    score>=55 → "Bon potentiel, ajouter à campagne"
+    sinon → "Potentiel limité"
+end note
+
+T1 --> AGENT : {
+    success: true,
+    prospect: {name, role, company},
+    score: 85,
+    quality: "excellent",
+    scoring_details: [...],
+    recommended_action: "Contacter en priorité"
+}
+deactivate T1
+
+AGENT -> LLM : llm.invoke([messages, result])
+activate LLM
+LLM --> AGENT : "Jean Dupont est un prospect
+excellent (85/100). En tant que CTO
+fondateur d'une startup tech, il représente
+une opportunité prioritaire..."
+deactivate LLM
+
+AGENT --> API7 : AgentChatResult
+deactivate AGENT
+
+API7 -> DB : INSERT INTO agent_chat_history
+activate DB
+DB --> API7 : OK
+deactivate DB
+
+API7 -> DB : INSERT INTO agent_tool_steps
+note right
+    tool_name='analyze_prospect'
+end note
+activate DB
+DB --> API7 : OK
+deactivate DB
+
+API7 --> AGUI : { response, toolSteps }
+deactivate API7
+AGUI --> UA : Affiche analyse détaillée
+deactivate AGUI
+
+' ===========================================
+' SCÉNARIO 2c : AGENT - SAUVEGARDE PROSPECT
+' ===========================================
+
+newpage
+
+== SCÉNARIO 2c : Agent - Sauvegarde d'un Prospect ==
+
+UA -> AGUI : type("Sauvegarde ce profil\nlinkedin.com/in/marie")
+activate AGUI
+AGUI -> API7 : POST /api/agent/chat
+activate API7
+
+API7 -> AGENT : agent.chat(...)
+activate AGENT
+
+AGENT -> LLM : llm.invoke(messages)
+activate LLM
+
+LLM --> AGENT : tool_call: save_prospect
+note right
+    args: {
+      name: "Marie Martin",
+      role: "VP Engineering",
+      company: "TechCorp",
+      linkedin_url: "https://linkedin.com/in/marie",
+      industry: "SaaS",
+      location: "Lyon",
+      email: "marie@techcorp.com",
+      score: 78
+    }
+end note
+deactivate LLM
+
+AGENT -> T3 : tool.invoke(args)
+activate T3
+
+T3 -> DB : UPSERT prospects
+note right
+    INSERT INTO prospects
+    (name, role, company, linkedin_url,
+     industry, location, email, score, notes,
+     created_at, updated_at)
+    VALUES (...)
+    ON CONFLICT (linkedin_url) DO UPDATE SET
+      name = EXCLUDED.name,
+      role = EXCLUDED.role,
+      company = EXCLUDED.company,
+      email = COALESCE(EXCLUDED.email, prospects.email),
+      score = COALESCE(EXCLUDED.score, prospects.score),
+      updated_at = NOW()
+    RETURNING id, name, score, status
+end note
+activate DB
+DB --> T3 : { id, name, score, status='identified' }
+deactivate DB
+
+T3 --> AGENT : {
+    success: true,
+    prospect: {id, name, score, status},
+    message: "Prospect Marie Martin
+    sauvegardé (score: 78)"
+}
+deactivate T3
+
+AGENT -> LLM : llm.invoke([messages, result])
+activate LLM
+LLM --> AGENT : "Marie Martin a été sauvegardée
+avec un score de 78. Elle apparaît
+maintenant dans votre pipeline."
+deactivate LLM
+
+AGENT --> API7 : AgentChatResult
+deactivate AGENT
+
+API7 -> DB : INSERT INTO agent_chat_history
+activate DB
+DB --> API7 : OK
+deactivate DB
+
+API7 -> DB : INSERT INTO agent_tool_steps
+activate DB
+DB --> API7 : OK
+deactivate DB
+
+API7 --> AGUI : { response, toolSteps }
+deactivate API7
+AGUI --> UA : "Prospect sauvegardé avec succès"
+deactivate AGUI
+
+' ===========================================
+' SCÉNARIO 2d : RECHERCHE LINKEDIN + IMPORT
+' ===========================================
+
+newpage
+
+== SCÉNARIO 2d : Recherche LinkedIn + Import Automatique ==
+
+UA -> AGUI : type("Cherche des CTO à Lyon")
+activate AGUI
+AGUI -> API7 : POST /api/agent/chat
+activate API7
+
+API7 -> AGENT : agent.chat(...)
+activate AGENT
+
+AGENT -> LLM : llm.invoke(messages)
+activate LLM
+
+LLM --> AGENT : tool_call: linkedin_search
+note right
+    args: {
+      keywords: "CTO Lyon",
+      network: "F",
+      message_template: "Bonjour {name},\n..."
+    }
+end note
+deactivate LLM
+
+AGENT -> T4 : tool.invoke(args)
+activate T4
+
+T4 -> DB : INSERT INTO linkedin_actions_queue
+note right
+    action_type = 'search_and_connection'
+    target_url = URL_LinkedIn_Search
+    payload = { keywords, message_template }
+    status = 'pending_approval'
+end note
+activate DB
+DB --> T4 : RETURNING id
+deactivate DB
+
+T4 --> AGENT : { success: true, action_id: 456 }
+deactivate T4
+
+AGENT -> LLM : llm.invoke([messages, result])
+activate LLM
+LLM --> AGENT : "J'ai créé une action de
+recherche (id=456). Allez dans
+l'onglet Approbations pour valider."
+deactivate LLM
+
+AGENT --> API7 : AgentChatResult
+deactivate AGENT
+
+API7 -> DB : INSERT INTO agent_chat_history + agent_tool_steps
+activate DB
+DB --> API7 : OK
+deactivate DB
+
+API7 --> AGUI : { response, toolSteps }
+deactivate API7
+AGUI --> UA : "Action en attente d'approbation"
+deactivate AGUI
+
+note over UA, AGENT #FFEBEE
+**→ L'action est 'pending_approval'**
+**→ L'utilisateur doit approuver**
+**→ dans l'onglet Approbations**
+end note
+
+' --- Après approbation ---
+
+EXT -> DB : SELECT * FROM linkedin_actions_queue
+           WHERE status = 'approved'
+           ORDER BY created_at DESC
+activate DB
+DB --> EXT : action { id:456, type:'search_and_connection',
+                      target_url: URL }
+deactivate DB
+
+EXT -> EXT : Exécute recherche LinkedIn
+EXT -> EXT : Visite les profils trouvés
+EXT -> EXT : Envoie connexions/messages
+
+EXT -> API5 : POST /api/prospects/bulk
+note right
+    Body: {
+      prospects: [
+        { name, linkedin_url, role, company, ... },
+        ...
+      ],
+      source: 'linkedin_search',
+      search_action_id: 456
+    }
+end note
+activate API5
+
+loop Pour chaque profil trouvé
+    API5 -> SCORE : calculateProspectScore(p)
+    activate SCORE
+    SCORE --> API5 : computedScore
+    deactivate SCORE
+
+    API5 -> DB : UPSERT prospects
+    note right
+        INSERT ... ON CONFLICT (linkedin_url)
+        DO UPDATE SET ...
+        status = 'identified'
+    end note
+    activate DB
+    DB --> API5 : RETURNING *
+    deactivate DB
+end
+
+API5 --> EXT : { saved_count, skipped_count }
+deactivate API5
+
+note over EXT, DB #E0F7FA
+**Les prospects trouvés sont automatiquement**
+**importés en DB avec status = 'identified'**
+**et score = auto-calculé**
+end note
+
+' ===========================================
+' RÉCAPITULATIF COMPARATIF
+' ===========================================
+
+newpage
+
+== RÉCAPITULATIF : Manuel vs Agent ==
+
+rnote over U, API6 #E3F2FD
+**MANUEL**
+
+• Ajout : Formulaire UI → POST /api/prospects
+• Score : calculateProspectScore() (auto)
+• Recherche : Barre UI (filtres texte)
+• Import : Extension → POST /api/prospects/bulk
+• Drag & Drop : PATCH /api/prospects/[id]
+• Suppression : DELETE /api/prospects/[id]
+• Extension : POST /api/prospects/update-status
+end note
+
+rnote over UA, T4 #FFEBEE
+**PAR AGENT**
+
+• Recherche DB : search_prospects_db tool (SQL filtré)
+• Analyse : analyzeProspectTool (scoring IA)
+• Sauvegarde : save_prospect tool (UPSERT)
+• Recherche LinkedIn : linkedin_search tool
+  → Crée action pending_approval
+  → Extension exécute après approbation
+  → Import auto via POST /api/prospects/bulk
+• Trace : agent_chat_history + agent_tool_steps
+end note
+
+@enduml

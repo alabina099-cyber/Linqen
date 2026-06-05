@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { getRequestUser } from '@/lib/requestAuth';
 import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 
@@ -27,9 +28,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'prospect_name et prospect_message sont requis' }, { status: 400 });
     }
 
-    // Read user settings
-    const userResult = await query('SELECT settings FROM users LIMIT 1');
-    const settings = userResult.rows[0]?.settings || {};
+    // Read current user's settings (fallback admin for Chrome extension)
+    const requestUser = await getRequestUser(request);
+    const userId = requestUser?.userId ?? null;
+    const settingsResult = userId
+      ? await query('SELECT settings FROM users WHERE id = $1', [userId])
+      : await query("SELECT settings FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
+    const settings = settingsResult.rows[0]?.settings || {};
     const aiSettings = settings.ai || {};
     const autoReplyEnabled = aiSettings.autoReplyEnabled === true;
 
@@ -41,7 +46,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'OPENAI_API_KEY manquante' }, { status: 500 });
     }
 
-    // Determine tone label for prompt
     const toneMap: Record<string, string> = {
       professional: 'professionnel et courtois',
       friendly:     'amical et chaleureux',
@@ -50,9 +54,73 @@ export async function POST(request: NextRequest) {
     };
     const tone = toneMap[aiSettings.tone || 'professional'] || 'professionnel et courtois';
     const detectLanguage = aiSettings.autoDetectLanguage !== false;
+    const sentimentAnalysisEnabled = aiSettings.sentimentAnalysis === true;
     const aiModel = settings.aiModel || process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
-    // Fetch prospect info from DB if available
+    const llm = new ChatOpenAI({
+      modelName: aiModel,
+      temperature: 0.3,
+      maxTokens: 600,
+      openAIApiKey: process.env.OPENAI_API_KEY,
+    });
+
+    // ─── Sentiment Analysis ───────────────────────────────────────────────
+    let sentiment: 'positive' | 'neutral' | 'negative' = 'neutral';
+    let sentimentScore = 0;
+    let sentimentReason = '';
+
+    if (sentimentAnalysisEnabled) {
+      try {
+        const sentimentResponse = await llm.invoke([
+          new SystemMessage(
+            'Tu es un expert en analyse de sentiment pour des messages LinkedIn B2B. ' +
+            'Réponds UNIQUEMENT avec un JSON valide: {"sentiment":"positive"|"neutral"|"negative","score":-1..1,"reason":"courte explication en français"}'
+          ),
+          new HumanMessage(`Analyse le sentiment de ce message LinkedIn:\n"${prospect_message}"`),
+        ]);
+        const raw = typeof sentimentResponse.content === 'string'
+          ? sentimentResponse.content
+          : (sentimentResponse.content as { text?: string }[])[0]?.text || '{}';
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          sentiment = parsed.sentiment || 'neutral';
+          sentimentScore = typeof parsed.score === 'number' ? parsed.score : 0;
+          sentimentReason = parsed.reason || '';
+        }
+      } catch {
+        sentiment = 'neutral';
+      }
+
+      // Save sentiment to prospect record
+      if (prospect_id) {
+        try {
+          await query(
+            `UPDATE prospects 
+             SET notes = COALESCE(notes, '') || $1,
+                 updated_at = NOW()
+             WHERE id = $2`,
+            [
+              `\n[Sentiment: ${sentiment} (${sentimentScore > 0 ? '+' : ''}${sentimentScore.toFixed(2)}) — ${sentimentReason}]`,
+              prospect_id,
+            ]
+          );
+        } catch {}
+      }
+
+      // Negative sentiment: skip auto-reply, flag for manual review
+      if (sentiment === 'negative') {
+        return NextResponse.json({
+          success: true,
+          skipped: true,
+          sentiment,
+          sentiment_score: sentimentScore,
+          reason: `Sentiment négatif détecté (${sentimentReason}). Réponse automatique désactivée — revue manuelle recommandée.`,
+        });
+      }
+    }
+
+    // ─── Fetch prospect context ───────────────────────────────────────────
     let prospectContext = '';
     if (prospect_id) {
       try {
@@ -64,21 +132,18 @@ export async function POST(request: NextRequest) {
       } catch {}
     }
 
-    // Generate reply with OpenAI
-    const llm = new ChatOpenAI({
-      modelName: aiModel,
-      temperature: 0.7,
-      maxTokens: 500,
-      openAIApiKey: process.env.OPENAI_API_KEY,
-    });
-
+    // ─── Generate auto-reply ──────────────────────────────────────────────
     const langInstruction = detectLanguage
       ? 'Détecte automatiquement la langue du message reçu et réponds DANS LA MÊME LANGUE.'
       : 'Réponds en français.';
 
+    const sentimentContext = sentimentAnalysisEnabled
+      ? `\nLe sentiment du message est ${sentiment} — adapte le ton en conséquence.`
+      : '';
+
     const systemPrompt = `Tu es un assistant LinkedIn B2B expert en prospection. 
 Ton rôle: répondre automatiquement aux messages des prospects de façon ${tone}.
-${langInstruction}
+${langInstruction}${sentimentContext}
 Règles:
 - Réponse courte et naturelle (max 200 mots)
 - Montre de l'intérêt pour leur situation
@@ -87,7 +152,13 @@ Règles:
 - N'utilise JAMAIS de formules robotiques ou trop commerciales
 - Si la réponse est négative (pas intéressé), remercie poliment et ne relance pas${prospectContext}`;
 
-    const response = await llm.invoke([
+    const replyLlm = new ChatOpenAI({
+      modelName: aiModel,
+      temperature: 0.7,
+      maxTokens: 500,
+      openAIApiKey: process.env.OPENAI_API_KEY,
+    });
+    const response = await replyLlm.invoke([
       new SystemMessage(systemPrompt),
       new HumanMessage(`Le prospect ${prospect_name} a répondu:\n"${prospect_message}"\n\nRédige une réponse appropriée.`),
     ]);
@@ -137,6 +208,7 @@ Règles:
       action_id: actionResult.rows[0].id,
       reply: replyText,
       status: 'approved',
+      ...(sentimentAnalysisEnabled ? { sentiment, sentiment_score: sentimentScore } : {}),
       message: `Réponse auto générée pour ${prospect_name} — envoi direct en cours`,
     });
 

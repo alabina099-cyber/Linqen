@@ -661,7 +661,7 @@ export default function AgentChat() {
           <CardHeader className="shrink-0 border-b border-slate-200/80 bg-white px-5 h-[76px] flex flex-row items-center justify-between space-y-0">
             <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-2xl bg-[#CDDFF2] flex items-center justify-center">
-                  <Bot className="w-6 h-6 text-slate-800" />
+                  <Bot className="w-6 h-6 text-blue-900" />
                 </div>
                 <div>
                   <CardTitle className="text-xl font-bold text-slate-900 flex items-center gap-1.5">
@@ -674,7 +674,7 @@ export default function AgentChat() {
               variant="ghost"
               size="sm"
               onClick={handleNewConversation}
-              className="text-slate-400 hover:text-rose-600 shrink-0"
+              className="text-rose-500 hover:text-rose-600 shrink-0"
             >
               <Trash2 className="w-4 h-4" />
             </Button>
@@ -715,7 +715,7 @@ export default function AgentChat() {
                           {message.role === "user" ? (
                             <User className="w-4 h-4 text-white" />
                           ) : (
-                            <Bot className="w-4 h-4 text-slate-800" />
+                            <Bot className="w-4 h-4 text-blue-900" />
                           )}
                         </div>
 
@@ -791,12 +791,12 @@ export default function AgentChat() {
                     type="button"
                     onClick={handleSend}
                     disabled={!input.trim() || isLoading}
-                    className="h-11 rounded-2xl bg-[#CDDFF2] px-4 text-slate-800 hover:bg-[#B8D4EE] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="h-11 rounded-2xl bg-[#CDDFF2] px-4 text-blue-900 hover:bg-[#B8D4EE] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {isLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#0f172a' }} />
                     ) : (
-                      <Send className="w-4 h-4" />
+                      <Send className="w-4 h-4" style={{ color: '#0f172a' }} />
                     )}
                   </button>
                 </div>
@@ -1040,13 +1040,15 @@ export default function AgentChat() {
                               <span>{conv.messageCount} msg</span>
                             </div>
                           </div>
-                          <button
+                          <div
+                            role="button"
+                            tabIndex={0}
                             onClick={(e) => askDeleteConversation(conv.id, conv.firstMessage, e)}
-                            className="shrink-0 mt-0.5 p-1.5 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                            className="shrink-0 mt-0.5 p-1.5 rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                             title="Supprimer cette conversation"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          </div>
                         </div>
                       </motion.button>
                     ))}

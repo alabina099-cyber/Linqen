@@ -3,6 +3,8 @@ import { getLinkedInAgent } from "@/lib/agent";
 import { query } from "@/lib/db";
 import { z } from "zod";
 import crypto from "crypto";
+import { getRequestUser, getScopeUserIds } from "@/lib/requestAuth";
+import { agentContext } from "@/lib/agent-context";
 
 // Ensure tables and columns exist
 let schemaReady = false;
@@ -22,7 +24,9 @@ async function ensureSchema() {
     `);
     // In case the table existed but without conversation_id
     await query(`ALTER TABLE agent_chat_history ADD COLUMN IF NOT EXISTS conversation_id VARCHAR(36)`);
+    await query(`ALTER TABLE agent_chat_history ADD COLUMN IF NOT EXISTS user_id INTEGER`);
     await query(`CREATE INDEX IF NOT EXISTS idx_agent_chat_conv ON agent_chat_history(conversation_id)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_agent_chat_user ON agent_chat_history(user_id)`);
     await query(`
       CREATE TABLE IF NOT EXISTS agent_tool_steps (
         id SERIAL PRIMARY KEY,
@@ -52,7 +56,7 @@ export async function POST(request: NextRequest) {
   await ensureSchema();
   try {
     const body = await request.json();
-    
+
     // Validation
     const result = chatSchema.safeParse(body);
     if (!result.success) {
@@ -65,6 +69,10 @@ export async function POST(request: NextRequest) {
     const { message, context, conversationId } = result.data;
     const convId = conversationId || crypto.randomUUID();
 
+    // Identifier l'utilisateur courant (pour isolation des conversations)
+    const requestUser = await getRequestUser(request);
+    const ownerId: number | null = requestUser?.userId ?? null;
+
     // Vérifier la clé API
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
@@ -73,15 +81,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Lire les settings utilisateur (modèle, ton, détection langue)
+    // Lire les settings de l'utilisateur courant (modèle, ton, détection langue)
     let chosenModel: string | undefined;
     let enrichedContext = context || {};
     try {
-      const userResult = await query('SELECT settings FROM users LIMIT 1');
-      const settings = userResult.rows[0]?.settings || {};
+      const settingsResult = ownerId
+        ? await query('SELECT settings FROM users WHERE id = $1', [ownerId])
+        : await query("SELECT settings FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
+      const settings = settingsResult.rows[0]?.settings || {};
       chosenModel = settings.aiModel || undefined;
       const aiCfg = settings.ai || {};
-      // Inject tone + language into context so the agent adapts
       const toneMap: Record<string, string> = {
         professional: 'professionnel et courtois',
         friendly:     'amical et chaleureux',
@@ -97,14 +106,16 @@ export async function POST(request: NextRequest) {
 
     // Obtenir l'agent et envoyer le message avec le modèle et le contexte enrichis
     const agent = getLinkedInAgent();
-    const agentResult = await agent.chat(message, enrichedContext, chosenModel);
+    const agentResult = await agentContext.run({ userId: ownerId }, () =>
+      agent.chat(message, enrichedContext, chosenModel)
+    );
 
-    // Sauvegarder les messages dans l'historique
+    // Sauvegarder les messages dans l'historique (avec user_id pour isolation)
     try {
       await query(
         `INSERT INTO agent_chat_history (user_id, role, content, context, conversation_id, created_at)
          VALUES ($1, $2, $3, $4, $5, NOW()), ($1, $6, $7, $4, $5, NOW())`,
-        [null, "user", message, JSON.stringify(context || {}), convId, "assistant", agentResult.response]
+        [ownerId, "user", message, JSON.stringify(context || {}), convId, "assistant", agentResult.response]
       );
     } catch (historyError) {
       console.error("Agent history persistence error:", historyError);
@@ -145,15 +156,39 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/agent/chat — Return conversations list + optionally a single conversation
+// GET /api/agent/chat — Conversations de l'utilisateur courant (admin = toute l'équipe)
 export async function GET(request: NextRequest) {
   await ensureSchema();
   try {
+    const user = await getRequestUser(request);
+    if (!user) {
+      return NextResponse.json({ success: true, conversations: [], history: [] });
+    }
+
+    // Scope des user_id visibles
+    const scopeIds = await getScopeUserIds(user);
+    const isAdmin = user.role === "admin";
+
     const { searchParams } = new URL(request.url);
     const convId = searchParams.get("conversationId");
 
-    // If conversationId specified, return that conversation's messages + restore agent context
+    // Conversation spécifique : vérifier l'accès puis renvoyer les messages
     if (convId) {
+      // Vérifier la propriété de la conversation
+      const ownerCheck = await query(
+        `SELECT DISTINCT user_id FROM agent_chat_history WHERE conversation_id = $1`,
+        [convId]
+      );
+      if (ownerCheck.rows.length > 0) {
+        const owners = ownerCheck.rows.map((r) => r.user_id);
+        const allowed = owners.some(
+          (oid: number | null) => (oid == null ? isAdmin : scopeIds.includes(oid))
+        );
+        if (!allowed) {
+          return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+        }
+      }
+
       const messagesResult = await query(
         `SELECT id, role, content, created_at
          FROM agent_chat_history
@@ -162,7 +197,6 @@ export async function GET(request: NextRequest) {
         [convId]
       );
 
-      // Restore agent in-memory history so it can continue this conversation
       if (messagesResult.rows.length > 0) {
         const agent = getLinkedInAgent();
         agent.restoreHistory(
@@ -184,29 +218,53 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Otherwise return list of conversations (grouped by conversation_id)
+    // Liste des conversations (filtrée par scope utilisateur)
+    // Admin : inclut aussi les conversations legacy (user_id IS NULL)
+    const scopeClause = isAdmin
+      ? `(user_id = ANY($1) OR user_id IS NULL)`
+      : `user_id = ANY($1)`;
+
     const conversationsResult = await query(
-      `SELECT 
+      `SELECT
         conversation_id,
         MIN(created_at) as started_at,
         MAX(created_at) as last_message_at,
         COUNT(*) as message_count,
-        (SELECT content FROM agent_chat_history h2 
+        (SELECT content FROM agent_chat_history h2
          WHERE h2.conversation_id = h1.conversation_id AND h2.role = 'user'
-         ORDER BY h2.created_at ASC LIMIT 1) as first_message
+         ORDER BY h2.created_at ASC LIMIT 1) as first_message,
+        (SELECT MAX(user_id) FROM agent_chat_history h3
+         WHERE h3.conversation_id = h1.conversation_id) as owner_id
        FROM agent_chat_history h1
-       WHERE conversation_id IS NOT NULL
+       WHERE conversation_id IS NOT NULL AND ${scopeClause}
        GROUP BY conversation_id
        ORDER BY MAX(created_at) DESC
-       LIMIT 50`
+       LIMIT 50`,
+      [scopeIds]
     );
 
-    // Also return current conversation (latest or no conversation_id)
+    // Récupérer les noms des propriétaires pour l'attribution (admin)
+    let ownerNames: Record<number, string> = {};
+    if (isAdmin) {
+      const ownerIds = conversationsResult.rows
+        .map((r) => r.owner_id)
+        .filter((id) => id != null);
+      if (ownerIds.length > 0) {
+        const namesResult = await query(
+          `SELECT id, name FROM users WHERE id = ANY($1)`,
+          [ownerIds]
+        );
+        ownerNames = Object.fromEntries(namesResult.rows.map((r) => [r.id, r.name]));
+      }
+    }
+
     const latestResult = await query(
       `SELECT id, role, content, created_at, conversation_id
        FROM agent_chat_history
+       WHERE ${scopeClause}
        ORDER BY created_at ASC
-       LIMIT 100`
+       LIMIT 100`,
+      [scopeIds]
     );
 
     return NextResponse.json({
@@ -217,6 +275,8 @@ export async function GET(request: NextRequest) {
         startedAt: row.started_at,
         lastMessageAt: row.last_message_at,
         messageCount: Number(row.message_count),
+        ownerId: row.owner_id ?? null,
+        ownerName: row.owner_id != null ? ownerNames[row.owner_id] ?? null : null,
       })),
       history: latestResult.rows.map((row) => ({
         id: String(row.id),
@@ -236,7 +296,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// DELETE /api/agent/chat — Delete a conversation permanently or clear in-memory history
+// DELETE /api/agent/chat — Supprimer une conversation ou réinitialiser l'historique mémoire
 export async function DELETE(request: NextRequest) {
   await ensureSchema();
   try {
@@ -244,11 +304,29 @@ export async function DELETE(request: NextRequest) {
     const convId = searchParams.get("conversationId");
 
     if (convId) {
-      // Permanently delete conversation from database
+      // Vérifier l'accès avant suppression
+      const user = await getRequestUser(request);
+      if (user) {
+        const scopeIds = await getScopeUserIds(user);
+        const isAdmin = user.role === "admin";
+        const ownerCheck = await query(
+          `SELECT DISTINCT user_id FROM agent_chat_history WHERE conversation_id = $1`,
+          [convId]
+        );
+        if (ownerCheck.rows.length > 0) {
+          const owners = ownerCheck.rows.map((r) => r.user_id);
+          const allowed = owners.some(
+            (oid: number | null) => (oid == null ? isAdmin : scopeIds.includes(oid))
+          );
+          if (!allowed) {
+            return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+          }
+        }
+      }
+
       await query(`DELETE FROM agent_chat_history WHERE conversation_id = $1`, [convId]);
       await query(`DELETE FROM agent_tool_steps WHERE conversation_id = $1`, [convId]);
 
-      // If deleting the current in-memory conversation, clear agent history too
       const agent = getLinkedInAgent();
       agent.clearHistory();
 
@@ -258,7 +336,6 @@ export async function DELETE(request: NextRequest) {
       });
     }
 
-    // No conversationId: just clear in-memory history (new conversation)
     const agent = getLinkedInAgent();
     agent.clearHistory();
 

@@ -65,6 +65,11 @@ export async function POST(req: NextRequest) {
       )
     `);
 
+    // Auto-migration : ajouter les colonnes auth si elles n'existent pas encore
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE`);
+
     const upsert = async (key: string, value: string) => {
       await pool.query(
         `INSERT INTO app_settings (key, value, updated_at)
@@ -83,6 +88,81 @@ export async function POST(req: NextRequest) {
 
     if (email) await upsert("linkedin_account_email", email);
     if (name) await upsert("linkedin_account_name", name);
+
+    // === Garantir un admin UNIQUE (mono-admin) puis créer/mettre à jour l'admin ===
+    try {
+      // 1. Garde-fou : ne conserver qu'un seul admin (le plus ancien).
+      //    Les éventuels admins en trop sont rétrogradés en membres rattachés à l'admin conservé.
+      const allAdmins = await pool.query(
+        "SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC"
+      );
+      if (allAdmins.rows.length > 1) {
+        const keepId = allAdmins.rows[0].id;
+        await pool.query(
+          `UPDATE users SET role = 'user', admin_id = $1, updated_at = NOW()
+           WHERE role = 'admin' AND id <> $1`,
+          [keepId]
+        );
+      }
+
+      // 2. Garde-fou base de données : index unique partiel interdisant 2 admins.
+      //    Non-fatal : si des doublons subsistent encore, on log sans bloquer.
+      try {
+        await pool.query(
+          `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_single_admin ON users ((role)) WHERE role = 'admin'`
+        );
+      } catch (idxError) {
+        console.error("Index unique mono-admin non créé (doublons existants ?):", idxError);
+      }
+
+      const adminEmail = email || `linkedin-admin-${Date.now()}@local`;
+      const adminName = name || "Admin LinkedIn";
+
+      // 3. Un admin existe déjà -> on le réutilise (rebind au nouveau compte LinkedIn).
+      //    On ne crée JAMAIS un second admin.
+      const currentAdmin = await pool.query(
+        "SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1"
+      );
+
+      if (currentAdmin.rows.length > 0) {
+        await pool.query(
+          `UPDATE users SET
+             linkedin_connected = true,
+             linkedin_email = $1,
+             is_active = true,
+             updated_at = NOW()
+           WHERE id = $2`,
+          [email || null, currentAdmin.rows[0].id]
+        );
+      } else {
+        // 4. Aucun admin. Si un utilisateur a déjà cet email, on le promeut ; sinon on crée le 1er admin.
+        const existingUser = email
+          ? await pool.query("SELECT id FROM users WHERE email = $1", [email])
+          : { rows: [] as { id: number }[] };
+
+        if (existingUser.rows.length > 0) {
+          await pool.query(
+            `UPDATE users SET
+               role = 'admin',
+               admin_id = NULL,
+               linkedin_connected = true,
+               linkedin_email = $1,
+               is_active = true,
+               updated_at = NOW()
+             WHERE id = $2`,
+            [email || null, existingUser.rows[0].id]
+          );
+        } else {
+          await pool.query(
+            `INSERT INTO users (name, email, role, linkedin_connected, linkedin_email, is_active, settings, created_at, updated_at)
+             VALUES ($1, $2, 'admin', true, $3, true, '{}', NOW(), NOW())`,
+            [adminName, adminEmail, email || null]
+          );
+        }
+      }
+    } catch (adminError) {
+      console.error("Erreur création/mise à jour admin (non-fatale):", adminError);
+    }
 
     return NextResponse.json({
       success: true,

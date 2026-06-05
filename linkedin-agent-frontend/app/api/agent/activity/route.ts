@@ -1,8 +1,25 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { ensureOwnershipColumns, getRequestUser, getScopeUserIds } from "@/lib/requestAuth";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    await ensureOwnershipColumns();
+    const user = await getRequestUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
+
+    const scopeIds = await getScopeUserIds(user);
+    const isAdmin = user.role === 'admin';
+
+    const actionsScope = isAdmin
+      ? '(user_id = ANY($1) OR user_id IS NULL)'
+      : 'user_id = ANY($1)';
+    const campaignsScope = isAdmin
+      ? '(user_id = ANY($1) OR user_id IS NULL)'
+      : 'user_id = ANY($1)';
+
     const [actionsResult, followupsResult, statsResult, campaignsResult, toolStepsResult] = await Promise.all([
       query(
         `SELECT
@@ -19,9 +36,11 @@ export async function GET() {
           created_at,
           executed_at
          FROM linkedin_actions_queue
+         WHERE ${actionsScope}
          ORDER BY created_at DESC
-         LIMIT 40`
-      ),
+         LIMIT 40`,
+        [scopeIds]
+      ).catch((e) => { console.error("[activity] actionsResult error:", e); return { rows: [] }; }),
       query(
         `SELECT
           sf.id,
@@ -36,9 +55,11 @@ export async function GET() {
          FROM scheduled_followups sf
          LEFT JOIN prospects p ON sf.prospect_id = p.id
          LEFT JOIN campaigns c ON sf.campaign_id = c.id
+         WHERE sf.campaign_id IS NULL OR ${campaignsScope.replace('user_id', 'c.user_id')}
          ORDER BY sf.created_at DESC
-         LIMIT 20`
-      ),
+         LIMIT 20`,
+        [scopeIds]
+      ).catch((e) => { console.error("[activity] followupsResult error:", e); return { rows: [] }; }),
       query(
         `SELECT
           COALESCE(COUNT(*) FILTER (WHERE status = 'pending_approval'), 0) as pending_approval,
@@ -47,8 +68,10 @@ export async function GET() {
           COALESCE(COUNT(*) FILTER (WHERE status = 'failed'), 0) as failed,
           COALESCE(COUNT(*) FILTER (WHERE status = 'rejected'), 0) as rejected,
           COALESCE(COUNT(*), 0) as total_actions
-         FROM linkedin_actions_queue`
-      ),
+         FROM linkedin_actions_queue
+         WHERE ${actionsScope}`,
+        [scopeIds]
+      ).catch((e) => { console.error("[activity] statsResult error:", e); return { rows: [] }; }),
       query(
         `SELECT
           id,
@@ -63,15 +86,21 @@ export async function GET() {
           created_at,
           updated_at
          FROM campaigns
+         WHERE ${campaignsScope}
          ORDER BY created_at DESC
-         LIMIT 20`
-      ),
+         LIMIT 20`,
+        [scopeIds]
+      ).catch((e) => { console.error("[activity] campaignsResult error:", e); return { rows: [] }; }),
       query(
         `SELECT id, conversation_id, tool_name, args, result, status, created_at
          FROM agent_tool_steps
+         WHERE conversation_id IN (
+           SELECT DISTINCT conversation_id FROM agent_chat_history WHERE ${actionsScope}
+         )
          ORDER BY created_at DESC
-         LIMIT 50`
-      ).catch(() => ({ rows: [] })),
+         LIMIT 50`,
+        [scopeIds]
+      ).catch((e) => { console.error("[activity] toolStepsResult error:", e); return { rows: [] }; }),
     ]);
 
     const actionItems = actionsResult.rows.map((row) => ({

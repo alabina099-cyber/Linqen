@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { getRequestUser } from '@/lib/requestAuth';
 
 // CORS — extension Chrome needs this
 export async function OPTIONS() {
@@ -15,9 +16,16 @@ export async function OPTIONS() {
 
 // GET /api/settings/agent
 // Returns all agent settings to be consumed by the Chrome extension.
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const result = await query('SELECT settings FROM users LIMIT 1');
+    const user = await getRequestUser(request);
+    let result;
+    if (user) {
+      result = await query('SELECT settings FROM users WHERE id = $1', [user.userId]);
+    } else {
+      // Fallback admin pour l'extension Chrome (qui n'a pas de JWT)
+      result = await query("SELECT settings FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
+    }
     const settings = result.rows[0]?.settings || {};
     const automation = settings.automation || {};
     const ai = settings.ai || {};
@@ -38,6 +46,8 @@ export async function GET() {
       // AI behavior
       autoReplyEnabled:    ai.autoReplyEnabled    ?? false,
       autoDetectLanguage:  ai.autoDetectLanguage  ?? true,
+      sentimentAnalysis:   ai.sentimentAnalysis   ?? false,
+      smartFollowUp:       ai.smartFollowUp       ?? false,
       tone:                ai.tone                || 'professional',
       aiModel:             settings.aiModel       || process.env.OPENAI_MODEL || 'gpt-4o-mini',
     };

@@ -1,0 +1,84 @@
+#PERFORMANCE
+# Démarrer le serveur dev
+npm run dev
+
+# Dans un autre terminal — Benchmark des endpoints API
+npm run benchmark
+
+# Test de charge avec utilisateurs concurrents
+npm run load-test
+
+# Voir les métriques de performance en temps réel
+# Navigateur : http://localhost:3000/api/performance
+
+#SECURITE
+# Lancer l'audit de sécurité
+npm run security-audit
+
+#SCALABILITY 
+# À la racine du projet (pas dans linkedin-agent-frontend)
+cd c:\Users\OrdiOne\Desktop\LinkedInProject
+
+# Démarrer 3 instances avec load balancer Nginx
+docker-compose up --scale app=3
+
+# Dans un autre terminal — Vérifier la distribution de charge
+curl http://localhost/api/health
+curl http://localhost/api/health
+curl http://localhost/api/health
+# Chaque appel retourne un "instance" différent (app-1, app-2, app-3)
+
+# Scaler à 5 instances sans downtime
+docker-compose up -d --scale app=5
+
+#RELIABILITY
+# Backup automatique de toutes les tables
+npm run backup
+
+# Lister les backups disponibles
+npm run restore
+
+# Monitoring temps réel
+# Navigateur : http://localhost:3000/api/monitoring
+# Navigateur : http://localhost:3000/api/health
+
+# Restaurer un backup spécifique (si besoin de démo)
+npm run restore backup-2026-05-24T13-30-45
+
+#COMPATIBILITY 
+# 1. Démarrer le serveur
+npm run dev
+
+# 2. Ouvrir le dashboard dans plusieurs navigateurs
+# - Chrome : http://localhost:3000
+# - Edge   : http://localhost:3000
+# - Firefox: http://localhost:3000
+
+# 3. Test responsive
+# Dans Chrome DevTools (F12) → Toggle device toolbar (Ctrl+Shift+M)
+# Tester : Mobile (375px), Tablet (768px), Desktop (1440px)
+
+#DEMO
+# === SETUP (1 min) ===
+npm run dev
+# → Ouvrir http://localhost:3000 dans le navigateur
+
+# === PERFORMANCE (3 min) ===
+npm run benchmark
+# → Ouvrir http://localhost:3000/api/performance
+
+# === SECURITY (3 min) ===
+npm run security-audit
+
+# === RELIABILITY (4 min) ===
+npm run backup
+# → Ouvrir http://localhost:3000/api/monitoring
+# → Ouvrir http://localhost:3000/api/health
+
+# === COMPATIBILITY (2 min) ===
+# Démo responsive dans Chrome DevTools
+
+# === SCALABILITY (3 min) ===
+cd ..
+docker-compose up --scale app=3
+# → curl http://localhost/api/health (×3 pour montrer load balancing)

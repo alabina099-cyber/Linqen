@@ -51,19 +51,6 @@ async function checkCampaignFollowups() {
   }
 }
 
-async function updateProspectPipeline() {
-  try {
-    console.log("🔄 Mise à jour du pipeline des prospects...");
-    const response = await fetch(`${BASE_URL}/api/prospects/update-pipeline`, {
-      method: "POST",
-    });
-    const data = await response.json();
-    console.log("✅ Pipeline mis à jour:", data.stats);
-  } catch (error) {
-    console.error("❌ Erreur lors de la mise à jour du pipeline:", error);
-  }
-}
-
 async function autoApproveCampaignActions() {
   try {
     console.log("🔄 Auto-approbation des actions des campagnes actives...");
@@ -85,7 +72,6 @@ async function main() {
   await autoApproveCampaignActions();
   await executeFollowups();
   await checkCampaignFollowups();
-  await updateProspectPipeline();
 
   console.log("✅ Cron job terminé");
   console.log(`⏰ ${new Date().toISOString()}`);
@@ -96,4 +82,4 @@ if (require.main === module) {
   main().catch(console.error);
 }
 
-export { main, executeFollowups, checkCampaignFollowups, updateProspectPipeline };
+export { main, executeFollowups, checkCampaignFollowups };

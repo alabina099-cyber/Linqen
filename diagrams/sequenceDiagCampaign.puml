@@ -1,0 +1,437 @@
+@startuml
+
+skinparam sequenceMessageAlign center
+skinparam sequenceArrowThickness 2
+skinparam sequence {
+    ParticipantPadding 20
+    MessagePadding 10
+}
+
+skinparam participant {
+    BackgroundColor<<UI>> #E3F2FD
+    BorderColor<<UI>> #1976D2
+    FontColor<<UI>> #0D47A1
+}
+
+skinparam participant {
+    BackgroundColor<<API>> #E8F5E9
+    BorderColor<<API>> #388E3C
+    FontColor<<API>> #1B5E20
+}
+
+skinparam participant {
+    BackgroundColor<<Logic>> #FFF3E0
+    BorderColor<<Logic>> #F57C00
+    FontColor<<Logic>> #E65100
+}
+
+skinparam participant {
+    BackgroundColor<<Data>> #F3E5F5
+    BorderColor<<Data>> #7B1FA2
+    FontColor<<Data>> #4A148C
+}
+
+skinparam participant {
+    BackgroundColor<<LLM>> #FFEBEE
+    BorderColor<<LLM>> #C62828
+    FontColor<<LLM>> #B71C1C
+}
+
+skinparam note {
+    BackgroundColor #FFF9C4
+    BorderColor #FBC02D
+}
+
+' ===========================================
+' ACTEURS & OBJETS
+' ===========================================
+
+actor "User (Manuel)" as U1 <<Actor>>
+actor "User (Agent)" as U2 <<Actor>>
+
+participant "Campaigns.tsx" as UI1 <<UI>>
+participant "AgentChat.tsx" as UI2 <<UI>>
+
+participant "POST /api/campaigns" as API1 <<API>>
+participant "POST /api/agent/chat" as API2 <<API>>
+participant "PUT /api/campaigns/[id]" as API3 <<API>>
+participant "POST /api/campaigns/[id]/execute" as API4 <<API>>
+participant "POST /api/linkedin-actions/auto-approve" as API5 <<API>>
+participant "POST /api/campaigns/[id]/check-followups" as API6 <<API>>
+
+participant "LinkedInAgent\n(lib/agent.ts)" as AGENT <<Logic>>
+participant "ChatOpenAI\n(LangChain)" as LLM <<LLM>>
+
+participant "createCampaignTool\n(lib/tools.ts)" as T1 <<Logic>>
+participant "executeCampaignTool\n(lib/tools.ts)" as T2 <<Logic>>
+
+participant "PostgreSQL\n(DB)" as DB <<Data>>
+
+' ===========================================
+' SCÉNARIO 1 : CRÉATION MANUELLE
+' ===========================================
+
+== SCÉNARIO 1 : Création Manuelle de Campagne ==
+
+U1 -> UI1 : click("Nouvelle campagne")
+activate UI1
+UI1 -> UI1 : openModal()
+UI1 -> UI1 : Affiche stepper 5 étapes
+
+U1 -> UI1 : Remplit CampaignForm
+note right
+    **CampaignForm :**
+    - name, description, objective
+    - target (rôle), industry, location
+    - company_size, seniority[]
+    - template, campaign_type
+    - daily_limit (5-20), follow_up_days (1-14)
+end note
+
+U1 -> UI1 : click("Créer la campagne")
+UI1 -> API1 : **POST /api/campaigns**
+activate API1
+API1 -> DB : INSERT INTO campaigns
+note right
+    status = 'draft',
+    user_id = current_user,
+    created_at = NOW(),
+    updated_at = NOW()
+end note
+activate DB
+DB --> API1 : RETURNING *
+deactivate DB
+API1 --> UI1 : { success: true, campaign }
+deactivate API1
+UI1 -> UI1 : addToState(campaign)
+UI1 --> U1 : Affiche campagne "Brouillon"
+deactivate UI1
+
+note over U1, DB #E3F2FD
+**→ Campagne créée en DB avec status = 'draft'**
+**→ Aucune action LinkedIn n'a encore été créée**
+end note
+
+' --- Activation & Exécution ---
+
+U1 -> UI1 : click("Lancer ▶")
+activate UI1
+UI1 -> API3 : PUT /api/campaigns/[id]\n{ status: 'active' }
+activate API3
+API3 -> DB : UPDATE campaigns\nSET status = 'active'
+activate DB
+DB --> API3 : OK
+deactivate DB
+API3 --> UI1 : { success: true }
+deactivate API3
+
+UI1 -> API4 : POST /api/campaigns/[id]/execute
+activate API4
+API4 -> DB : SELECT * FROM campaigns WHERE id = ?
+activate DB
+DB --> API4 : campaign row
+deactivate DB
+
+API4 -> API4 : Construit URL LinkedIn Search\nkeywords = target_role + industry + location
+
+API4 -> DB : SELECT id, status\nFROM linkedin_actions_queue\nWHERE campaign_id = ?\n  AND status IN ('pending_approval', 'approved', 'processing')
+activate DB
+DB --> API4 : 0 rows
+deactivate DB
+
+API4 -> DB : SELECT COUNT(*)\nFROM linkedin_actions_queue\nWHERE campaign_id = ?\n  AND status = 'completed'\n  AND executed_at >= CURRENT_DATE
+activate DB
+DB --> API4 : todayCount
+deactivate DB
+
+alt todayCount < daily_limit
+    API4 -> DB : INSERT INTO linkedin_actions_queue
+    note right
+        action_type = 'search_and_message'
+        ou 'search_and_connection'
+        target_url = URL_LinkedIn
+        payload = { message_template, daily_limit, ... }
+        status = 'approved' ← **APPROUVÉE DIRECTEMENT**
+        campaign_id = [id]
+    end note
+    activate DB
+    DB --> API4 : RETURNING *
+    deactivate DB
+    API4 --> UI1 : { success: true, action, search_url }
+else Limite atteinte
+    API4 --> UI1 : 429 Too Many Requests
+end
+deactivate API4
+
+UI1 -> API5 : POST /api/linkedin-actions/auto-approve
+activate API5
+API5 -> DB : UPDATE linkedin_actions_queue\nSET status = 'approved'\nWHERE campaign_id IN (SELECT id FROM campaigns WHERE status = 'active')\n  AND status = 'pending_approval'
+activate DB
+DB --> API5 : RETURNING approved rows
+deactivate DB
+API5 --> UI1 : { approved_count }
+deactivate API5
+
+UI1 -> API6 : POST /api/campaigns/[id]/check-followups
+activate API6
+API6 -> DB : SELECT prospects\nWHERE last_contacted_at < NOW() - INTERVAL '[follow_up_days] days'\nAND NOT EXISTS relance planifiée
+activate DB
+DB --> API6 : prospects[]
+deactivate DB
+
+loop Pour chaque prospect
+    API6 -> DB : INSERT INTO scheduled_followups\n(prospect_id, campaign_id, message_text,\n scheduled_for=demain 10h, status='scheduled')
+    activate DB
+    DB --> API6 : RETURNING *
+    deactivate DB
+    API6 -> DB : UPDATE prospects\nSET status = 'followup_scheduled'
+    activate DB
+    DB --> API6 : OK
+    deactivate DB
+end
+
+API6 --> UI1 : { followups_scheduled: N }
+deactivate API6
+UI1 --> U1 : Affiche campagne "Active"
+deactivate UI1
+
+note over U1, DB #E8F5E9
+**→ L'action est directement 'approved'**
+**→ Le Worker ou l'Extension Chrome va l'exécuter**
+**→ Les relances sont planifiées automatiquement**
+end note
+
+' ===========================================
+' SCÉNARIO 2 : CRÉATION PAR L'AGENT IA
+' ===========================================
+
+newpage
+
+== SCÉNARIO 2 : Création par l'Agent IA ==
+
+U2 -> UI2 : type("Crée une campagne\npour les CTO à Paris")
+activate UI2
+UI2 -> API2 : POST /api/agent/chat
+note right
+    body: {
+      message: "Crée une campagne...",
+      conversationId: "uuid",
+      context: { tone, language }
+    }
+end note
+activate API2
+
+API2 -> AGENT : agent.chat(message, context, model)
+activate AGENT
+
+AGENT -> AGENT : createBoundLLM(model)
+AGENT -> AGENT : Construit messages = [
+AGENT -> AGENT :   SystemMessage(SYSTEM_PROMPTS.prospecting),
+AGENT -> AGENT :   ...history (max 20),
+AGENT -> AGENT :   HumanMessage(message)
+AGENT -> AGENT : ]
+
+AGENT -> LLM : llm.invoke(messages)
+activate LLM
+
+note right of LLM #FFEBEE
+**Le LLM (OpenAI) analyse la demande**
+**et décide d'appeler le tool create_campaign**
+**avec les paramètres extraits du texte libre**
+end note
+
+LLM --> AGENT : tool_call: create_campaign
+note right
+    args: {
+      name: "CTOs à Paris",
+      description: "...",
+      industry: "Technologie",
+      location: "Paris",
+      target_role: "CTO",
+      campaign_type: "messages",
+      template_invitation: "...",
+      template_followup: "..."
+    }
+end note
+deactivate LLM
+
+AGENT -> T1 : tool.invoke(args)
+activate T1
+T1 -> DB : INSERT INTO campaigns
+note right
+    status = 'draft'
+    (mêmes champs que manuel)
+end note
+activate DB
+DB --> T1 : RETURNING id
+deactivate DB
+T1 --> AGENT : JSON { success: true, campaign_id: 42, status: "draft" }
+deactivate T1
+
+AGENT -> LLM : llm.invoke([messages, tool_result])
+activate LLM
+LLM --> AGENT : content: "J'ai créé la campagne\n'CTOs à Paris' (id=42)..."
+deactivate LLM
+
+AGENT --> API2 : AgentChatResult
+note right
+    response: "J'ai créé la campagne...",
+    toolSteps: [
+      { toolName: "create_campaign",
+        args: {...},
+        result: "{success:true,...}",
+        status: "success" }
+    ]
+end note
+deactivate AGENT
+
+API2 -> DB : INSERT INTO agent_chat_history
+note right
+    (user_id, role='user', content, context, conversation_id),
+    (user_id, role='assistant', content, conversation_id)
+end note
+activate DB
+DB --> API2 : OK
+deactivate DB
+
+API2 -> DB : INSERT INTO agent_tool_steps
+note right
+    (conversation_id, tool_name='create_campaign',
+     args, result, status='success', created_at)
+end note
+activate DB
+DB --> API2 : OK
+deactivate DB
+
+API2 --> UI2 : { success: true, response, toolSteps, conversationId }
+deactivate API2
+UI2 --> U2 : Affiche réponse de l'agent + tool steps
+note right of UI2 #FFF3E0
+**La campagne est créée avec status = 'draft'**
+**L'utilisateur doit demander explicitement**
+**"Lance la campagne" pour l'activer**
+end note
+deactivate UI2
+
+' --- Activation par l'Agent ---
+
+U2 -> UI2 : type("Lance la campagne 42")
+activate UI2
+UI2 -> API2 : POST /api/agent/chat
+activate API2
+
+API2 -> AGENT : agent.chat("Lance la campagne 42", ...)
+activate AGENT
+
+AGENT -> LLM : llm.invoke(messages)
+activate LLM
+
+note right of LLM #FFEBEE
+**Le LLM reconnaît la demande**
+**et appelle execute_campaign**
+end note
+
+LLM --> AGENT : tool_call: execute_campaign
+note right
+    args: { campaign_id: 42 }
+end note
+deactivate LLM
+
+AGENT -> T2 : tool.invoke({ campaign_id: 42 })
+activate T2
+
+T2 -> DB : SELECT * FROM campaigns WHERE id = 42
+activate DB
+DB --> T2 : campaign row
+deactivate DB
+
+T2 -> T2 : Vérifie status ∈ {draft, active}
+T2 -> T2 : Construit URL LinkedIn Search
+
+T2 -> DB : SELECT id, status FROM linkedin_actions_queue\nWHERE campaign_id = 42\n  AND status IN ('pending_approval', 'approved', 'processing')
+activate DB
+DB --> T2 : 0 rows
+deactivate DB
+
+T2 -> DB : INSERT INTO linkedin_actions_queue
+note right
+    action_type = 'search_and_message'
+    target_url = URL_LinkedIn
+    payload = { message_template, campaign_id:42, ... }
+    status = 'pending_approval' ← **EN ATTENTE**
+    campaign_id = 42
+end note
+activate DB
+DB --> T2 : RETURNING *
+deactivate DB
+
+T2 --> AGENT : JSON {
+    success: true,
+    action_id: 99,
+    message: "Action créée en attente\nd'approbation..."
+}
+deactivate T2
+
+AGENT -> LLM : llm.invoke([messages, tool_result])
+activate LLM
+LLM --> AGENT : content: "L'action a été créée.\nVa dans l'onglet Approbations\npour approuver."
+deactivate LLM
+
+AGENT --> API2 : AgentChatResult
+note right
+    toolSteps: [
+      { toolName: "execute_campaign",
+        args: {campaign_id:42},
+        result: "{success:true, action_id:99,...}",
+        status: "success" }
+    ]
+end note
+deactivate AGENT
+
+API2 -> DB : INSERT INTO agent_chat_history
+activate DB
+DB --> API2 : OK
+deactivate DB
+
+API2 -> DB : INSERT INTO agent_tool_steps
+activate DB
+DB --> API2 : OK
+deactivate DB
+
+API2 --> UI2 : { success: true, response, toolSteps }
+deactivate API2
+UI2 --> U2 : Affiche : "Action en attente d'approbation"
+deactivate UI2
+
+note over U2, DB #FFEBEE
+**→ L'action est 'pending_approval'**
+**→ L'utilisateur DOIT aller dans ApprovalQueue**
+**→ et approuver manuellement avant exécution**
+end note
+
+' ===========================================
+' DIFFÉRENCE CLÉ
+' ===========================================
+
+newpage
+
+== DIFFÉRENCE CLÉ : Status de l'action LinkedIn ==
+
+rnote over U1, DB #E8F5E9
+**CRÉATION MANUELLE**
+
+Action créée avec status = **'approved'**
+→ Aucune intervention utilisateur supplémentaire
+→ Le Worker/Extension exécute automatiquement
+end note
+
+rnote over U2, DB #FFEBEE
+**CRÉATION PAR AGENT**
+
+Action créée avec status = **'pending_approval'**
+→ L'utilisateur DOIT approuver dans l'UI
+→ Sécurité : l'IA ne peut pas exécuter
+  d'actions sans validation humaine
+end note
+
+@enduml

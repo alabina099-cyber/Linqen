@@ -54,7 +54,16 @@ CREATE TABLE IF NOT EXISTS prospects (
   email VARCHAR(255),
   phone VARCHAR(50),
   score INTEGER DEFAULT 0,
-  status VARCHAR(50) DEFAULT 'new',
+  status VARCHAR(50) DEFAULT 'identified' CHECK (
+    status IN (
+      'identified',
+      'connected',
+      'contacted',
+      'responded',
+      'interested',
+      'converted'
+    )
+  ),
   notes TEXT,
   last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

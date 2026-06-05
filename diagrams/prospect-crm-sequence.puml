@@ -1,0 +1,384 @@
+@startuml
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 200
+
+title DS - Gestion des Prospects CRM
+
+actor User
+entity "Chrome Extension" as Ext
+boundary "ProspectsPipeline.tsx" as UI
+control "ProspectsAPI\n(/prospects & /[id])" as API
+control "AuthService\n(requestAuth.ts +\nresolveCurrentUser)" as AUTH
+control "ScoreService\n(lib/prospectScore.ts)" as SCORE
+database "PostgreSQL" as DB
+
+== 1. Consultation du Pipeline ==
+
+autonumber 1
+User -> UI : Naviguer vers /prospects
+activate UI
+
+UI -> API : GET /api/prospects?limit=100
+activate API
+
+API -> AUTH : getRequestUser(req)
+activate AUTH
+AUTH -> DB : SELECT * FROM users\n(JWT / LinkedIn cookie)
+activate DB
+DB --> AUTH : user
+deactivate DB
+AUTH --> API : { userId, role }
+deactivate AUTH
+
+API -> API : ensureOwnershipColumns()\nbuildScopeClause(user)
+
+API -> DB : SELECT p.*, COUNT(m.id),\nMAX(m.created_at), owner.name\nFROM prospects p\nLEFT JOIN messages m ON m.prospect_id = p.id\nLEFT JOIN users owner ON owner.id = p.user_id\nWHERE user_id IN scope\nGROUP BY p.id, owner.name\nORDER BY score DESC
+activate DB
+DB --> API : prospects[] + message_count\n+ owner_name + last_contact
+deactivate DB
+
+API -> DB : SELECT COUNT(*) FROM prospects\nWHERE user_id IN scope
+activate DB
+DB --> API : total
+
+database DB
+DB --> API : total
+deactivate DB
+
+API --> UI : 200 { success, prospects[], pagination }
+deactivate API
+
+UI -> UI : organizeProspects()\n(répartition en 6 colonnes :\nidentified → converted)
+
+UI --> User : Affichage pipeline CRM\n(6 colonnes, drag-and-drop, search)
+
+deactivate UI
+
+loop Auto-refresh silencieux (toutes les 10s)
+  UI -> API : GET /api/prospects?limit=100 (silent=true)
+  activate API
+  API --> UI : prospects[]
+  deactivate API
+  UI -> UI : organizeProspects()
+end
+
+== 2. Création Manuelle d'un Prospect ==
+
+autonumber 20
+User -> UI : Clic "Ajouter" sur une colonne
+activate UI
+UI -> UI : openAddModal(stageId)
+UI --> User : Afficher formulaire modal
+
+User -> UI : Saisir nom, rôle, entreprise, email,\ntéléphone, LinkedIn URL, etc. + Valider
+
+UI -> UI : Validation client\n(email regex, URL regex, phone digits)
+
+alt Validation client échouée
+  UI --> User : Erreur inline (ex: "Email invalide")
+else Données valides
+  UI -> API : POST /api/prospects\n{ name, role, company, status,\nemail, phone, linkedin_url }
+  activate API
+
+  API -> AUTH : getRequestUser(req)
+  activate AUTH
+  AUTH --> API : user
+  deactivate AUTH
+
+  API -> API : prospectSchema.parse(body)\n(Zod validation + anti-XSS)
+
+  alt Erreur Zod (400)
+    API --> UI : 400 { error: "Données invalides",\ndetails: error.format() }
+    UI --> User : Afficher erreurs de validation
+  else Données valides
+    API -> SCORE : calculateProspectScore({\nrole, company, email, phone,\nlocation, linkedin_url })
+    activate SCORE
+    SCORE --> API : score (0-100)
+    deactivate SCORE
+
+    API -> DB : INSERT INTO prospects\n(linkedin_url, name, role, company,\nindustry, location, email, phone,\nstatus, score, notes, user_id,\ncreated_at, updated_at)\nVALUES (..., $userId, NOW(), NOW())
+    activate DB
+    DB --> API : prospect créé (avec id, score)
+    deactivate DB
+
+    API --> UI : 201 { success, prospect }
+    deactivate API
+
+    UI -> UI : setAllProspects([new, ...])\norganizeProspects()
+    UI --> User : Prospect apparu dans la colonne cible
+  end
+end
+deactivate UI
+
+== 3. Création Automatique via Agent + Extension Chrome ==
+
+autonumber 40
+group 3a. Chat avec l'Agent
+  User -> UI : "Trouve des CTOs à Paris"\n(via AgentChat.tsx)
+  activate UI
+  UI -> API : POST /api/agent/chat\n{ message, conversationId }
+  activate API
+
+  API -> AUTH : getRequestUser(req)
+  activate AUTH
+  AUTH --> API : user
+  deactivate AUTH
+
+  API -> API : getLinkedInAgent()\nagent.chat(message, context)
+  API -> API : LLM.invoke(systemPrompt + tools)\n(tool binding linkedin_search,\nlinkedin_send_connection, etc.)
+  activate API
+
+  alt Rate limit atteint
+    API --> UI : { success: false, rate_limited,\nreason, daily_used, daily_max }
+    UI --> User : "Limite atteinte, réessayez demain"
+    deactivate API
+    deactivate UI
+  else Rate limit OK
+    API -> API : toolCall: linkedin_searchTool\n(ou linkedin_send_connection, etc.)
+
+    API -> DB : INSERT INTO linkedin_actions_queue\n(action_type, target_url, target_name,\npayload, status='pending_approval',\ncampaign_id, user_id)
+    activate DB
+    DB --> API : action_id
+    deactivate DB
+
+    API -> DB : INSERT INTO agent_chat_history\n(user_id, role, content,\nconversation_id, created_at)
+    API -> DB : INSERT INTO agent_tool_steps\n(conversation_id, tool_name,\nargs, result, status)
+    activate DB
+    DB --> API : ok
+    deactivate DB
+
+    API --> UI : { success, response,\ntoolSteps, conversationId }
+    deactivate API
+    UI --> User : "Action créée en attente\nd'approbation. Allez dans\nl'onglet Approbations."
+    deactivate UI
+  end
+end
+
+group 3b. Approbation par l'Utilisateur
+  User -> UI : Ouvre onglet "Approbations"
+  activate UI
+  UI -> API : GET /api/linkedin-actions\n?status=pending_approval
+  activate API
+  API -> DB : SELECT * FROM linkedin_actions_queue\nWHERE status='pending_approval'\nORDER BY created_at DESC
+  activate DB
+  DB --> API : actions[]
+  deactivate DB
+  API --> UI : { actions[] }
+  deactivate API
+  UI --> User : Liste actions en attente
+
+  User -> UI : Clic "Approuver" sur l'action
+  UI -> API : PATCH /api/linkedin-actions\n{ id, status: 'approved' }
+  activate API
+  API -> AUTH : getRequestUser(req)
+  activate AUTH
+  AUTH --> API : user
+  deactivate AUTH
+  API -> DB : UPDATE linkedin_actions_queue\nSET status='approved'\nWHERE id = $1
+  activate DB
+  DB --> API : updated
+  deactivate DB
+  API --> UI : { success }
+  deactivate API
+  UI --> User : Action approuvée, prête\npour l'extension Chrome
+  deactivate UI
+end
+
+group 3c. Exécution par l'Extension Chrome
+  Ext -> API : GET /api/linkedin-actions\n?status=approved\n(avec working-hours check)
+  activate API
+  API -> AUTH : getRequestUser(req)
+  activate AUTH
+  AUTH --> API : user
+  deactivate AUTH
+  API -> DB : SELECT * FROM linkedin_actions_queue\nWHERE status='approved'\nAND user_id IN scope
+  activate DB
+  DB --> API : actions[]
+  deactivate DB
+  API --> Ext : { actions[] }
+  deactivate API
+
+  Ext -> Ext : Exécute l'action sur LinkedIn\n(recherche, connexion, message)
+
+  Ext -> API : PATCH /api/linkedin-actions\n{ id, status: 'completed', result }
+  activate API
+
+  API -> AUTH : getRequestUser(req)
+  activate AUTH
+  AUTH --> API : user
+  deactivate AUTH
+
+  API -> DB : UPDATE linkedin_actions_queue\nSET status='completed',\nresult=$2, executed_at=NOW()\nWHERE id=$1
+  activate DB
+  DB --> API : action updated
+  deactivate DB
+
+  alt action_type = send_connection\nou search_and_connection
+    API -> DB : INSERT INTO prospects\n(name, role, company, linkedin_url,\nindustry, location, score, status)\nVALUES (... , 50, 'identified')\nON CONFLICT (linkedin_url)\nDO UPDATE SET name=COALESCE(...),\nrole=COALESCE(...), updated_at=NOW()
+    activate DB
+    DB --> API : prospect upserted\n(status = 'identified')
+    deactivate DB
+
+  else action_type = connection_accepted
+    API -> DB : UPDATE prospects\nSET status='connected',\nupdated_at=NOW()\nWHERE linkedin_url = $1
+    activate DB
+    DB --> API : prospect updated
+    deactivate DB
+
+  else action_type = send_message
+    API -> DB : INSERT/UPDATE prospects\nON CONFLICT (linkedin_url)\nDO UPDATE SET\nstatus = CASE WHEN status IN\n('identified','connected') THEN\n'contacted' ELSE status END,\nupdated_at = NOW()
+    activate DB
+    DB --> API : prospect updated\n(status → 'contacted')
+    deactivate DB
+  end
+
+  API --> Ext : 200 { success, action }
+  deactivate API
+end
+
+== 4. Consultation du Détail d'un Prospect ==
+
+autonumber 60
+User -> UI : Clic sur fiche prospect
+activate UI
+UI -> API : GET /api/prospects/{id}
+activate API
+
+API -> AUTH : assertAccess(req, id)
+activate AUTH
+AUTH -> DB : SELECT user_id FROM prospects\nWHERE id = $1
+activate DB
+DB --> AUTH : owner_id
+deactivate DB
+AUTH --> API : { ok: true, user }
+deactivate AUTH
+
+API -> DB : SELECT p.*,\nCOALESCE(json_agg(messages), '[]')\nFROM prospects p\nLEFT JOIN messages m ON p.id = m.prospect_id\nWHERE p.id = $1\nGROUP BY p.id
+activate DB
+DB --> API : prospect + messages[]\n+ campaign_id par message
+deactivate DB
+
+API --> UI : 200 { success, prospect }
+deactivate API
+UI --> User : Afficher fiche détaillée
+
+deactivate UI
+
+== 5. Mise à jour de Statut (Drag & Drop) ==
+
+autonumber 80
+User -> UI : Drag prospect vers nouvelle colonne
+activate UI
+UI -> UI : handleDragStart(prospect)\nsetDraggedProspect(p)
+
+UI -> UI : Optimistic Update\n(map sur allProspects +\norganizeProspects())
+UI --> User : Prospect déplacé visuellement
+
+UI -> API : PATCH /api/prospects/{id}\n{ status: targetStageId }
+activate API
+
+API -> AUTH : assertAccess(req, id)
+activate AUTH
+AUTH --> API : { ok: true }
+deactivate AUTH
+
+API -> API : prospectUpdateSchema.parse(body)
+
+API -> DB : UPDATE prospects\nSET status = $1, updated_at = NOW()\nWHERE id = $2\nRETURNING *
+activate DB
+DB --> API : prospect mis à jour
+deactivate DB
+
+API --> UI : 200 { success, prospect }
+deactivate API
+UI --> User : Statut confirmé
+
+deactivate UI
+
+alt Erreur API (network / 403 / 404 / 500)
+  autonumber 95
+  API --> UI : { error }
+  activate UI
+  UI -> API : GET /api/prospects (reload)
+  activate API
+  API --> UI : prospects[] (état réel)
+  deactivate API
+  UI -> UI : organizeProspects()\n(restauration état DB)
+  UI --> User : Retour à l'état réel
+  deactivate UI
+end
+
+== 6. Suppression d'un Prospect ==
+
+autonumber 100
+User -> UI : Hover sur carte prospect
+activate UI
+UI --> User : Apparition barre d'actions rapides\n(email, téléphone, corbeille)
+
+deactivate UI
+
+User -> UI : Clic icône corbeille
+activate UI
+UI -> UI : setDeleteConfirm({id, name})
+UI --> User : Afficher modal confirmation\n"Supprimer {name} ?"
+
+alt Annuler
+  User -> UI : Clic "Annuler"
+  UI -> UI : setDeleteConfirm(null)
+  UI --> User : Modal fermé, prospect conservé
+else Confirmer
+  User -> UI : Clic "Confirmer"
+  UI -> UI : setDeleting(true)
+  UI -> API : DELETE /api/prospects/{id}
+  activate API
+
+  API -> AUTH : assertAccess(req, id)
+  activate AUTH
+  AUTH -> DB : SELECT user_id FROM prospects\nWHERE id = $1
+  activate DB
+  DB --> AUTH : owner_id
+  deactivate DB
+  AUTH --> API : { ok: true }
+  deactivate AUTH
+
+  API -> DB : DELETE FROM messages\nWHERE prospect_id = $1
+  activate DB
+  DB --> API : messages liés supprimés
+  deactivate DB
+
+  API -> DB : DELETE FROM prospects\nWHERE id = $1\nRETURNING id
+  activate DB
+  DB --> API : prospect supprimé
+  deactivate DB
+
+  API --> UI : 200 { success, message: "Supprimé" }
+  deactivate API
+
+  UI -> UI : filter(p => p.id !== id)\norganizeProspects()\nsetDeleteConfirm(null)\nsetDeleting(false)
+  UI --> User : Prospect retiré du pipeline\n+ toast confirmation
+
+  deactivate UI
+
+  alt Erreur API (403 / 404 / 500)
+    API --> UI : { error: "Erreur lors de la suppression" }
+    activate UI
+    UI -> UI : setDeleting(false)\nalert(error)
+    UI --> User : Message d'erreur affiché\nProspect conservé dans le pipeline
+    deactivate UI
+  end
+end
+
+== 7. Recherche et Filtrage ==
+
+autonumber 115
+User -> UI : Saisir terme dans barre de recherche
+activate UI
+UI -> UI : setSearchQuery(query)
+UI -> UI : organizeProspects()\n(filter par name/company/role)
+UI --> User : Pipeline filtré en temps réel
+
+deactivate UI
+
+@enduml

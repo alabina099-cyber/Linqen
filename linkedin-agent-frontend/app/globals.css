@@ -1,11 +1,14 @@
 @import "tailwindcss";
 
+/* Activer la variante dark basée sur la classe .dark (manuel) */
+@variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
   --card-bg: #ffffff;
   --card-bg-alt: #f9fafb;
-  --sidebar-bg: #ffffff;
+  --nav-bg: #ffffff;
   --header-bg: #ffffff;
   --border: #e5e7eb;
   --border-light: #f3f4f6;
@@ -30,7 +33,7 @@ html.dark {
   --surface-3: #232d42;            /* hover / highlighted */
   --card-bg: #111827;
   --card-bg-alt: #1a2234;
-  --sidebar-bg: #0d1320;
+  --nav-bg: #0d1320;
   --header-bg: #0d1320;
   --input-bg: #0a0e1a;
 
@@ -92,11 +95,10 @@ html.dark body {
   background-attachment: fixed;
 }
 
-/* ---- Layout surfaces: Sidebar, Header, Nav ---- */
+/* ---- Layout surfaces: Header, Nav ---- */
 html.dark nav,
-html.dark header,
-html.dark aside {
-  background-color: var(--sidebar-bg) !important;
+html.dark header {
+  background-color: var(--nav-bg) !important;
   border-color: var(--border-light) !important;
 }
 
@@ -144,6 +146,10 @@ html.dark [class*="bg-purple-50"]   { background-color: rgba(168,85,247,0.10) !i
 html.dark [class*="bg-purple-100"]  { background-color: rgba(168,85,247,0.18) !important; }
 html.dark [class*="bg-indigo-50"]   { background-color: rgba(99,102,241,0.10) !important; }
 html.dark [class*="bg-indigo-100"]  { background-color: rgba(99,102,241,0.18) !important; }
+html.dark [class*="bg-violet-50"]   { background-color: rgba(139,92,246,0.10) !important; }
+html.dark [class*="bg-violet-100"]  { background-color: rgba(139,92,246,0.18) !important; }
+html.dark [class*="bg-fuchsia-50"]   { background-color: rgba(217,70,239,0.10) !important; }
+html.dark [class*="bg-fuchsia-100"]  { background-color: rgba(217,70,239,0.18) !important; }
 html.dark [class*="bg-red-50"]    { background-color: rgba(239,68,68,0.10) !important; }
 html.dark [class*="bg-red-100"]   { background-color: rgba(239,68,68,0.18) !important; }
 html.dark [class*="bg-rose-50"]   { background-color: rgba(244,63,94,0.10) !important; }
@@ -253,13 +259,26 @@ html.dark [class*="text-red-600"]    { color: #f87171 !important; }
 html.dark [class*="text-orange-700"],
 html.dark [class*="text-orange-800"] { color: #fdba74 !important; }
 html.dark [class*="text-orange-600"] { color: #fb923c !important; }
+html.dark [class*="text-yellow-700"],
+html.dark [class*="text-yellow-800"]  { color: #fde047 !important; }
 html.dark [class*="text-amber-700"],
 html.dark [class*="text-amber-800"]  { color: #fcd34d !important; }
+html.dark [class*="text-emerald-700"],
+html.dark [class*="text-emerald-800"] { color: #6ee7b7 !important; }
+html.dark [class*="text-rose-700"],
+html.dark [class*="text-rose-800"]   { color: #fda4af !important; }
 html.dark [class*="text-purple-700"],
 html.dark [class*="text-purple-800"] { color: #c4b5fd !important; }
 html.dark [class*="text-purple-600"] { color: #a78bfa !important; }
+html.dark [class*="text-indigo-600"]   { color: #818cf8 !important; }
 html.dark [class*="text-indigo-700"],
 html.dark [class*="text-indigo-800"] { color: #a5b4fc !important; }
+html.dark [class*="text-violet-600"]   { color: #a78bfa !important; }
+html.dark [class*="text-violet-700"],
+html.dark [class*="text-violet-800"] { color: #c4b5fd !important; }
+html.dark [class*="text-fuchsia-600"]   { color: #e879f9 !important; }
+html.dark [class*="text-fuchsia-700"],
+html.dark [class*="text-fuchsia-800"] { color: #f0abfc !important; }
 
 /* ---- Borders ---- */
 html.dark [class*="border-gray-100"],
@@ -363,16 +382,6 @@ html.dark [class*="bg-black/50"] { background-color: rgba(0,0,0,0.75) !important
   overflow-x: hidden;
 }
 
-/* Mobile sidebar overlay */
-.mobile-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 40;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
-
 /* Touch scroll for mobile */
 .touch-scroll {
   -webkit-overflow-scrolling: touch;
@@ -457,5 +466,58 @@ body {
 
 [class*="overflow-"]::-webkit-scrollbar {
   display: none;
+}
+
+/* ========================================
+   PRINT / PDF EXPORT — Intelligence Center
+   ======================================== */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  html, body {
+    background: white !important;
+    color: #111 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide chrome / nav / non-essentials */
+  header, nav, .print\:hidden,
+  button[aria-label],
+  [class*="sticky"] {
+    display: none !important;
+  }
+
+  main {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  /* Force light scheme on print */
+  html.dark {
+    background: white !important;
+    color: #111 !important;
+  }
+
+  /* Cards keep borders for clarity */
+  [class*="shadow"] {
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  /* Avoid splitting cards across pages */
+  .recharts-wrapper,
+  [class*="rounded-2xl"],
+  [class*="rounded-xl"] {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Compact spacing for print */
+  .print\:space-y-3 > * + * { margin-top: 0.75rem !important; }
+  .print\:py-2 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
 }
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DynamicStructuredTool } from "@langchain/core/tools";
-import { pool } from "./db";
+import { pool, insertLinkedInAction } from "./db";
 import { checkRateLimit, getRateLimitStatus, formatRateLimitStatus } from "./rate-limiter";
 
 // =============================================
@@ -43,11 +43,11 @@ export const linkedinSearchTool = new DynamicStructuredTool({
       // Sinon → action search classique
       const actionType = message_template ? 'search_and_message' : 'search';
       
-      const result = await pool.query(
-        `INSERT INTO linkedin_actions_queue (action_type, target_url, payload, status, created_at)
-         VALUES ($1, $2, $3, 'pending_approval', NOW()) RETURNING id`,
-        [actionType, searchUrl, JSON.stringify({ keywords, role, location, industry, company_size, network, limit, save_as_prospects: true, message_template: message_template || null })]
-      );
+      const actionId = await insertLinkedInAction({
+        action_type: actionType,
+        target_url: searchUrl,
+        payload: { keywords, role, location, industry, company_size, network, limit, save_as_prospects: true, message_template: message_template || null },
+      });
 
       const actionLabel = message_template 
         ? `Rechercher "${keywords}" et envoyer un message aux profils trouvés`
@@ -55,12 +55,12 @@ export const linkedinSearchTool = new DynamicStructuredTool({
 
       return JSON.stringify({
         success: true,
-        action_id: result.rows[0].id,
+        action_id: actionId,
         search_url: searchUrl,
         status: "pending_approval",
         requires_approval: true,
-        message: `✅ Action créée en attente d'approbation. Action #${result.rows[0].id} : ${actionLabel}${network === 'F' ? ' (dans mon réseau 1er degré)' : ''}. Approuvez dans l'onglet "Approbations" — une seule approbation suffit, tout le reste est automatique.`,
-        search_action_id: result.rows[0].id,
+        message: `✅ Action créée en attente d'approbation. Action #${actionId} : ${actionLabel}${network === 'F' ? ' (dans mon réseau 1er degré)' : ''}. Approuvez dans l'onglet "Approbations" — une seule approbation suffit, tout le reste est automatique.`,
+        search_action_id: actionId,
         daily_remaining: rateLimit.remainingToday,
         daily_used: rateLimit.dailyUsed + 1,
         daily_max: rateLimit.dailyMax,
@@ -95,18 +95,19 @@ export const linkedinVisitProfileTool = new DynamicStructuredTool({
         });
       }
 
-      const result = await pool.query(
-        `INSERT INTO linkedin_actions_queue (action_type, target_url, target_name, payload, status, created_at)
-         VALUES ('visit_profile', $1, $2, '{}', 'pending_approval', NOW()) RETURNING id`,
-        [linkedin_url, prospect_name || null]
-      );
+      const actionId = await insertLinkedInAction({
+        action_type: 'visit_profile',
+        target_url: linkedin_url,
+        target_name: prospect_name || null,
+        payload: {},
+      });
 
       return JSON.stringify({
         success: true,
-        action_id: result.rows[0].id,
+        action_id: actionId,
         status: "pending_approval",
         requires_approval: true,
-        message: `✅ Visite du profil ${prospect_name || linkedin_url} créée et en attente de votre approbation. Action #${result.rows[0].id}. Allez dans l'onglet "Approbations" pour approuver.`,
+        message: `✅ Visite du profil ${prospect_name || linkedin_url} créée et en attente de votre approbation. Action #${actionId}. Allez dans l'onglet "Approbations" pour approuver.`,
         daily_remaining: rateLimit.remainingToday,
         daily_used: rateLimit.dailyUsed + 1,
         daily_max: rateLimit.dailyMax,
@@ -144,18 +145,20 @@ export const linkedinSendConnectionTool = new DynamicStructuredTool({
         });
       }
 
-      const result = await pool.query(
-        `INSERT INTO linkedin_actions_queue (action_type, target_url, target_name, payload, status, campaign_id, created_at)
-         VALUES ('send_connection', $1, $2, $3, 'pending_approval', $4, NOW()) RETURNING id`,
-        [normalizedUrl, prospect_name, JSON.stringify({ note }), campaign_id || null]
-      );
+      const actionId = await insertLinkedInAction({
+        action_type: 'send_connection',
+        target_url: normalizedUrl,
+        target_name: prospect_name,
+        payload: { note },
+        campaign_id: campaign_id || null,
+      });
 
       return JSON.stringify({
         success: true,
-        action_id: result.rows[0].id,
+        action_id: actionId,
         status: "pending_approval",
         requires_approval: true,
-        message: `✅ Demande de connexion à ${prospect_name} créée et en attente de votre approbation. Action #${result.rows[0].id}. Note: "${note.substring(0, 50)}${note.length > 50 ? '...' : ''}". Allez dans l'onglet "Approbations" pour approuver.`,
+        message: `✅ Demande de connexion à ${prospect_name} créée et en attente de votre approbation. Action #${actionId}. Note: "${note.substring(0, 50)}${note.length > 50 ? '...' : ''}". Allez dans l'onglet "Approbations" pour approuver.`,
         daily_remaining: rateLimit.remainingToday,
         daily_used: rateLimit.dailyUsed + 1,
         daily_max: rateLimit.dailyMax,
@@ -226,11 +229,13 @@ export const linkedinSendMessageTool = new DynamicStructuredTool({
       }
 
       // Enregistrer dans la queue avec statut pending_approval
-      const actionResult = await pool.query(
-        `INSERT INTO linkedin_actions_queue (action_type, target_url, target_name, payload, status, campaign_id, created_at)
-         VALUES ('send_message', $1, $2, $3, 'pending_approval', $4, NOW()) RETURNING id`,
-        [normalizedUrl, prospect_name, JSON.stringify({ message, message_type }), campaign_id || null]
-      );
+      const actionId = await insertLinkedInAction({
+        action_type: 'send_message',
+        target_url: normalizedUrl,
+        target_name: prospect_name,
+        payload: { message, message_type },
+        campaign_id: campaign_id || null,
+      });
 
       // Aussi sauvegarder dans la table messages (non bloquant si prospect n'existe pas encore)
       try {
@@ -245,10 +250,10 @@ export const linkedinSendMessageTool = new DynamicStructuredTool({
 
       return JSON.stringify({
         success: true,
-        action_id: actionResult.rows[0].id,
+        action_id: actionId,
         status: "pending_approval",
         requires_approval: true,
-        message: `✅ Message pour ${prospect_name} créé et en attente de votre approbation. Action #${actionResult.rows[0].id}. Message: "${message.substring(0, 50)}${message.length > 50 ? '...' : ''}". Allez dans l'onglet "Approbations" pour approuver.`,
+        message: `✅ Message pour ${prospect_name} créé et en attente de votre approbation. Action #${actionId}. Message: "${message.substring(0, 50)}${message.length > 50 ? '...' : ''}". Allez dans l'onglet "Approbations" pour approuver.`,
         daily_remaining: rateLimit.remainingToday,
         daily_used: rateLimit.dailyUsed + 1,
         daily_max: rateLimit.dailyMax,
@@ -439,7 +444,7 @@ export const searchProspectsDbTool = new DynamicStructuredTool({
     company_size: z.string().optional().describe("Taille de l'entreprise"),
     location: z.string().optional().describe("Localisation"),
     role: z.string().optional().describe("Poste"),
-    status: z.string().optional().describe("Statut (new, contacted, replied, converted)"),
+    status: z.string().optional().describe("Statut (identified, connected, contacted, responded, interested, converted)"),
     min_score: z.number().optional().describe("Score minimum"),
     limit: z.number().default(10).describe("Nombre max de résultats"),
   }),
@@ -751,38 +756,32 @@ export const executeCampaignTool = new DynamicStructuredTool({
       }
 
       const dailyLimit = campaign.daily_limit || 20;
-      const result = await pool.query(
-        `INSERT INTO linkedin_actions_queue 
-         (action_type, target_url, target_name, payload, status, campaign_id, created_at)
-         VALUES ($1, $2, $3, $4, 'pending_approval', $5, NOW())
-         RETURNING id`,
-        [
-          actionType,
-          searchUrl,
-          `Campagne: ${campaign.name}`,
-          JSON.stringify({
-            message_template: messageTemplate,
-            campaign_type: campaignType,
-            campaign_id,
-            campaign_name: campaign.name,
-            target_role: campaign.target_role,
-            industry: campaign.industry,
-            location: campaign.location,
-            company_size: campaign.company_size,
-            daily_limit: dailyLimit,
-            follow_up_days: campaign.follow_up_days || 3,
-          }),
+      const actionId = await insertLinkedInAction({
+        action_type: actionType,
+        target_url: searchUrl,
+        target_name: `Campagne: ${campaign.name}`,
+        payload: {
+          message_template: messageTemplate,
+          campaign_type: campaignType,
           campaign_id,
-        ]
-      );
+          campaign_name: campaign.name,
+          target_role: campaign.target_role,
+          industry: campaign.industry,
+          location: campaign.location,
+          company_size: campaign.company_size,
+          daily_limit: dailyLimit,
+          follow_up_days: campaign.follow_up_days || 3,
+        },
+        campaign_id,
+      });
 
       const typeLabel = campaignType === "connections_only" ? "envoi de connexions" : "envoi de messages";
       return JSON.stringify({
         success: true,
-        action_id: result.rows[0].id,
+        action_id: actionId,
         action_type: actionType,
         campaign_type: campaignType,
-        message: `Action d'${typeLabel} créée (id=${result.rows[0].id}) en attente d'approbation. La campagne sera automatiquement activée et la recherche démarrera dès que vous approuverez l'action dans l'onglet Approbations. Limite: ${dailyLimit} connexions/jour, respect des cadences LinkedIn.`,
+        message: `Action d'${typeLabel} créée (id=${actionId}) en attente d'approbation. La campagne sera automatiquement activée et la recherche démarrera dès que vous approuverez l'action dans l'onglet Approbations. Limite: ${dailyLimit} connexions/jour, respect des cadences LinkedIn.`,
       });
     } catch (error) {
       return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
@@ -868,12 +867,14 @@ export const checkNetworkConnectionsTool = new DynamicStructuredTool({
 
       const actionIds: number[] = [];
       for (let i = 0; i < prospect_names.length; i++) {
-        const r = await pool.query(
-          `INSERT INTO linkedin_actions_queue (action_type, target_url, target_name, payload, status, created_at)
-           VALUES ('check_connection', $1, $2, $3, 'approved', NOW()) RETURNING id`,
-          [normalizeUrl(prospect_urls[i]), prospect_names[i], JSON.stringify({ check_only: true })]
-        );
-        actionIds.push(r.rows[0].id);
+        const r = await insertLinkedInAction({
+          action_type: 'check_connection',
+          target_url: normalizeUrl(prospect_urls[i]),
+          target_name: prospect_names[i],
+          payload: { check_only: true },
+          status: 'approved',
+        });
+        actionIds.push(r);
       }
 
       const estimatedSeconds = prospect_names.length * 20;
@@ -1031,7 +1032,7 @@ export const bulkSendMessagesTool = new DynamicStructuredTool({
     prospect_filter: z.object({
       role: z.string().optional().describe("Filtrer par poste (ex: 'ingénieur IA')"),
       location: z.string().optional().describe("Filtrer par localisation"),
-      status: z.string().optional().describe("Filtrer par statut (default: 'new')"),
+      status: z.string().optional().describe("Filtrer par statut (default: 'identified')"),
       limit: z.number().default(10).describe("Nombre max de prospects à contacter"),
     }).describe("Critères pour sélectionner les prospects de la DB"),
     message_template: z.string().describe("Template du message. Variables: {name}, {role}, {company}. Ex: 'Bonjour {name}, j'ai vu que vous êtes {role} chez {company}...'"),
@@ -1059,7 +1060,7 @@ export const bulkSendMessagesTool = new DynamicStructuredTool({
         params.push(prospect_filter.status);
         idx++;
       } else {
-        sql += ` AND status = 'new'`;
+        sql += ` AND status = 'identified'`;
       }
 
       if (prospect_filter.role) {

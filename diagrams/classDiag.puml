@@ -1,0 +1,310 @@
+@startuml
+
+skinparam classAttributeIconSize 0
+hide empty methods
+
+' ===========================================
+' USERS & AUTH
+' ===========================================
+
+class User {
+    - id: SERIAL
+    - name: VARCHAR(255)
+    - email: VARCHAR(255)
+    - company: VARCHAR(255)
+    - role: UserRole
+    - linkedin_connected: BOOLEAN
+    - linkedin_email: VARCHAR(255)
+    - settings: JSONB
+    - password_hash: VARCHAR(255)
+    - admin_id: INTEGER
+    - is_active: BOOLEAN
+    - created_at: TIMESTAMP
+    - updated_at: TIMESTAMP
+}
+
+class UserSession {
+    - id: SERIAL
+    - token_hash: VARCHAR(255)
+    - expires_at: TIMESTAMP
+    - created_at: TIMESTAMP
+}
+
+class Notification {
+    - id: SERIAL
+    - type: NotificationType
+    - title: VARCHAR(255)
+    - message: TEXT
+    - read: BOOLEAN
+    - data: JSONB
+    - created_at: TIMESTAMP
+}
+
+class AuditLog {
+    - id: SERIAL
+    - action: VARCHAR(100)
+    - details: JSONB
+    - ip_address: VARCHAR(45)
+    - created_at: TIMESTAMP
+}
+
+' ===========================================
+' CAMPAIGNS
+' ===========================================
+
+class Campaign {
+    - id: SERIAL
+    - name: VARCHAR(255)
+    - status: CampaignStatus
+    - target: VARCHAR(255)
+    - template: VARCHAR(255)
+    - description: TEXT
+    - industry: VARCHAR(100)
+    - location: VARCHAR(100)
+    - company_size: VARCHAR(50)
+    - target_role: VARCHAR(255)
+    - template_invitation: TEXT
+    - template_followup: TEXT
+    - objective: VARCHAR(100)
+    - seniority: TEXT
+    - campaign_type: VARCHAR(50)
+    - connections_sent: INTEGER
+    - connections_accepted: INTEGER
+    - daily_limit: INTEGER
+    - follow_up_days: INTEGER
+    - contacted: INTEGER
+    - replied: INTEGER
+    - clicked: INTEGER
+    - converted: INTEGER
+    - created_at: TIMESTAMP
+    - updated_at: TIMESTAMP
+}
+
+class Message {
+    - id: SERIAL
+    - recipient_name: VARCHAR(255)
+    - recipient_role: VARCHAR(255)
+    - recipient_company: VARCHAR(255)
+    - message_text: TEXT
+    - message_type: MessageType
+    - status: MessageStatus
+    - created_at: TIMESTAMP
+}
+
+class Template {
+    - id: SERIAL
+    - name: VARCHAR(255)
+    - tag: VARCHAR(100)
+    - text: TEXT
+    - usage_count: INTEGER
+    - conversion_rate: INTEGER
+    - created_at: TIMESTAMP
+    - updated_at: TIMESTAMP
+}
+
+' ===========================================
+' PROSPECTS
+' ===========================================
+
+class Prospect {
+    - id: SERIAL
+    - linkedin_url: VARCHAR(500)
+    - name: VARCHAR(255)
+    - role: VARCHAR(255)
+    - company: VARCHAR(255)
+    - industry: VARCHAR(100)
+    - location: VARCHAR(100)
+    - company_size: VARCHAR(50)
+    - email: VARCHAR(255)
+    - phone: VARCHAR(50)
+    - score: INTEGER
+    - status: ProspectStatus
+    - notes: TEXT
+    - last_seen: TIMESTAMP
+    - created_at: TIMESTAMP
+    - updated_at: TIMESTAMP
+}
+
+class ScheduledFollowUp {
+    - id: SERIAL
+    - message_text: TEXT
+    - scheduled_for: TIMESTAMP
+    - status: FollowUpStatus
+    - created_at: TIMESTAMP
+}
+
+' ===========================================
+' AI AGENT
+' ===========================================
+
+class AgentChatHistory {
+    - id: SERIAL
+    - role: AgentRole
+    - content: TEXT
+    - context: JSONB
+    - conversation_id: VARCHAR(36)
+    - created_at: TIMESTAMP
+}
+
+class AgentToolStep {
+    - id: SERIAL
+    - conversation_id: VARCHAR(36)
+    - tool_name: VARCHAR(100)
+    - args: JSONB
+    - result: TEXT
+    - status: ToolStatus
+    - created_at: TIMESTAMP
+}
+
+' ===========================================
+' LINKEDIN AUTOMATION
+' ===========================================
+
+class LinkedInAction {
+    - id: SERIAL
+    - action_type: ActionType
+    - target_url: VARCHAR(500)
+    - target_name: VARCHAR(255)
+    - payload: JSONB
+    - status: ActionStatus
+    - result: JSONB
+    - error_message: TEXT
+    - claimed_by: VARCHAR(255)
+    - claimed_at: TIMESTAMP
+    - created_at: TIMESTAMP
+    - executed_at: TIMESTAMP
+}
+
+class WorkerHeartbeat {
+    - worker_id: VARCHAR(255)
+    - last_seen: TIMESTAMP
+    - hostname: VARCHAR(255)
+    - created_at: TIMESTAMP
+}
+
+' ===========================================
+' LOGGING
+' ===========================================
+
+class ErrorLog {
+    - id: SERIAL
+    - level: LogLevel
+    - message: TEXT
+    - context: JSONB
+    - source: VARCHAR(100)
+    - created_at: TIMESTAMP
+}
+
+' ===========================================
+' ENUMS
+' ===========================================
+
+enum UserRole {
+    admin
+    user
+}
+
+enum ProspectStatus {
+    identified
+    connected
+    contacted
+    responded
+    interested
+    converted
+}
+
+enum CampaignStatus {
+    draft
+    active
+    paused
+    completed
+}
+
+enum MessageType {
+    connection
+    followup
+    response
+    custom
+}
+
+enum MessageStatus {
+    sent
+    delivered
+    read
+    replied
+}
+
+enum NotificationType {
+    message
+    reply
+    connection
+    alert
+}
+
+enum FollowUpStatus {
+    scheduled
+    sent
+    cancelled
+}
+
+enum ToolStatus {
+    success
+    error
+}
+
+enum AgentRole {
+    user
+    assistant
+    system
+}
+
+enum ActionStatus {
+    pending_approval
+    approved
+    processing
+    completed
+    failed
+    rejected
+    stopped
+}
+
+enum ActionType {
+    search
+    visit_profile
+    send_connection
+    send_message
+    search_and_connection
+    search_and_message
+    connection_accepted
+}
+
+enum LogLevel {
+    debug
+    info
+    warn
+    error
+    fatal
+}
+
+' ===========================================
+' ASSOCIATIONS
+' ===========================================
+
+User "1" -- "0..*" Campaign : owns
+User "1" -- "0..*" Notification
+User "1" -- "0..*" UserSession
+User "1" -- "0..*" AuditLog
+User "1" -- "0..*" AgentChatHistory
+User "1" -- "0..*" User : manages
+
+Campaign "1" -- "0..*" Message
+Campaign "1" -- "0..*" LinkedInAction
+Campaign "1" -- "0..*" ScheduledFollowUp
+
+Prospect "1" -- "0..*" Message
+Prospect "1" -- "0..*" LinkedInAction
+Prospect "1" -- "0..*" ScheduledFollowUp
+
+LinkedInAction "1" -- "0..1" WorkerHeartbeat : claimed by
+
+@enduml

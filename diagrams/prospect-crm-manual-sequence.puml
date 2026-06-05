@@ -1,0 +1,440 @@
+@startuml Prospect CRM - Prospection Manuelle via Agent IA
+!theme plain
+skinparam handwritten false
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+
+skinparam actor {
+  BackgroundColor #FEF3C7
+  BorderColor #D97706
+}
+
+skinparam participant {
+  BackgroundColor #EFF6FF
+  BorderColor #2563EB
+}
+
+skinparam database {
+  BackgroundColor #F3E8FF
+  BorderColor #7C3AED
+}
+
+skinparam sequenceBoxBackgroundColor #F0FDF4
+skinparam noteBackgroundColor #FEF9C3
+skinparam noteBorderColor #CA8A04
+
+title Diagramme de Séquence Objet : Création d'un Prospect via Prospection Manuelle
+
+actor "User" as U
+box "Frontend (React / Next.js)"
+  participant "AgentChat\n: React Component" as AC
+  participant "ApprovalQueue\n: React Component" as AQ
+  participant "ProspectsPipeline\n: React Component" as PP
+end box
+
+box "Backend API (Next.js App Router)"
+  participant "API_AgentChat\n: /api/agent/chat" as API_AC
+  participant "API_Approval\n: /api/linkedin-actions/approval" as API_APP
+  participant "API_LI_Actions\n: /api/linkedin-actions" as API_LI
+  participant "API_Prospects\n: /api/prospects" as API_PRO
+end box
+
+box "Intelligence Artificielle"
+  participant "Agent_IA\n: LangChain + OpenAI" as AGENT
+end box
+
+box "Extension Chrome"
+  participant "ExtensionChrome\n: background.js" as EXT
+  participant "LinkedIn\n: Site Web" as LI
+end box
+
+box "Base de Données PostgreSQL"
+  database "DB_AgentChat\n: agent_chat_history" as DB_HIST
+  database "DB_ToolSteps\n: agent_tool_steps" as DB_TOOL
+  database "DB_ActionsQueue\n: linkedin_actions_queue" as DB_ACT
+  database "DB_Prospects\n: prospects" as DB_PRO
+  database "DB_Messages\n: messages" as DB_MSG
+end box
+
+== 1. Conversation & Création de l'Action en Attente ==
+
+U -> AC : Tape une demande de prospection\n(ex: "contacte Jean Dupont CTO")
+activate AC
+
+AC -> API_AC : POST /api/agent/chat\n{message, conversationId, context}
+activate API_AC
+
+API_AC -> API_AC : getRequestUser() → ownerId\ngetScopeUserIds()
+
+API_AC -> DB_HIST : INSERT user message\n(role='user')
+activate DB_HIST
+DB_HIST --> API_AC : OK
+deactivate DB_HIST
+
+API_AC -> AGENT : chat(message, context, model)
+activate AGENT
+
+AGENT -> AGENT : Construit prompt système\n(tone + langue depuis settings)
+AGENT -> AGENT : LLM.invoke() → analyse intention
+
+note right of AGENT
+  Le LLM détecte l'intention et appelle
+  le tool approprié selon le workflow :
+  • linkedin_send_connection
+  • linkedin_send_message
+  • linkedin_search / search_and_message
+  • linkedin_visit_profile
+end note
+
+AGENT -> AGENT : linkedin_send_connection()\n(ou autre tool)
+activate AGENT #LightBlue
+
+AGENT -> AGENT : checkRateLimit(action_type)
+AGENT -> AGENT : Anti-doublon (1h window)
+
+AGENT -> DB_ACT : INSERT linkedin_actions_queue\n(status='pending_approval', user_id=ownerId)
+activate DB_ACT
+DB_ACT --> AGENT : action_id
+
+deactivate DB_ACT
+AGENT --> AGENT : {success:true, action_id, status:'pending_approval'}
+deactivate AGENT #LightBlue
+
+AGENT --> API_AC : {response, toolSteps[]}
+deactivate AGENT
+
+API_AC -> DB_HIST : INSERT assistant response
+activate DB_HIST
+DB_HIST --> API_AC : OK
+deactivate DB_HIST
+
+API_AC -> DB_TOOL : INSERT tool_steps
+activate DB_TOOL
+DB_TOOL --> API_AC : OK
+deactivate DB_TOOL
+
+API_AC --> AC : {success, response, toolSteps, conversationId}
+deactivate API_AC
+
+AC --> U : Affiche réponse confirmant\nl'action créée en attente
+
+deactivate AC
+
+== 2. Affichage dans la File d'Approbation ==
+
+AC -> AC : Démarrage polling activité\n(intervalle 4 secondes)
+
+AC -> API_AC : GET /api/agent/activity
+activate API_AC
+API_AC -> DB_ACT : SELECT actions (scope user)
+activate DB_ACT
+DB_ACT --> API_AC : rows[]
+deactivate DB_ACT
+API_AC --> AC : {timeline, stats}
+deactivate API_AC
+
+note over AC, AQ
+  L'action apparaît simultanément dans :
+  • Le panneau latéral "Actions de l'agent" d'AgentChat
+  • La page dédiée ApprovalQueue
+end note
+
+U -> AQ : Navigue vers "File d'approbation"\nVisualise l'action en attente
+activate AQ
+
+AQ -> API_APP : GET /api/linkedin-actions/approval
+activate API_APP
+API_APP -> API_APP : getRequestUser() + getScopeUserIds()
+API_APP -> DB_ACT : SELECT q.* + u.name as owner_name
+activate DB_ACT
+DB_ACT --> API_APP : rows[]
+deactivate DB_ACT
+API_APP --> AQ : {actions, stats}
+deactivate API_APP
+
+AQ --> U : Affiche action avec badge "En attente"\n+ boutons Approuver / Rejeter
+
+deactivate AQ
+
+== 3. Approbation par l'Utilisateur ==
+
+U -> AQ : Clique "Approuver" sur l'action
+activate AQ
+
+AQ -> API_APP : POST /api/linkedin-actions/approval\n{id, action:"approve"}
+activate API_APP
+
+API_APP -> API_APP : Vérifie ownership (scope)\nVérifie statut == 'pending_approval'
+
+API_APP -> DB_ACT : UPDATE status='approved'\nSET result = result || {approved_at}
+activate DB_ACT
+DB_ACT --> API_APP : row updated
+
+deactivate DB_ACT
+
+note right of API_APP
+  Si campaign_id est présent :
+  UPDATE campaigns SET status='active'
+  WHERE id = campaign_id AND status='draft'
+end note
+
+API_APP --> AQ : {success, message: "Action approuvée"}
+deactivate API_APP
+
+AQ -> AQ : Démarre polling rapide\n(5s x 6 = 30 secondes)
+
+AQ --> U : Affiche confirmation +\nnavigation vers onglet "Approuvées"
+
+deactivate AQ
+
+== 4. Récupération & Exécution par l'Extension Chrome ==
+
+note over EXT
+  Alarme Chrome : pollActions
+  periodInMinutes = 0.2 (toutes les 12 secondes)
+end note
+
+EXT -> EXT : onAlarm("pollActions") déclenché
+activate EXT
+
+EXT -> API_LI : GET /api/linkedin-actions?status=approved&limit=5
+activate API_LI
+
+API_LI -> API_LI : getRequestUser() + getScopeUserIds()
+API_LI -> API_LI : isWithinWorkingHours(userId)
+
+note right of API_LI
+  Vérification working hours :
+  • Jours configurés (workingDays)
+  • Plage horaire (workingHoursStart → End)
+  Si hors plage → retourne {actions:[], paused:true}
+end note
+
+API_LI -> DB_ACT : SELECT * FROM linkedin_actions_queue\nWHERE status='approved'\n  AND user_id = ANY(scopeIds)\n  AND (campaign_id IS NULL\n      OR campagne NOT IN ('paused','completed'))\nORDER BY created_at ASC
+activate DB_ACT
+DB_ACT --> API_LI : rows[]
+deactivate DB_ACT
+
+API_LI --> EXT : {actions: [action]}
+deactivate API_LI
+
+EXT -> EXT : Vérifie LinkedIn Guard\n(dailyCounters vs DAILY_LIMITS)
+
+note right of EXT
+  LinkedIn Guard côté extension :
+  • send_connection : 20/jour
+  • send_message : 30/jour
+  • visit_profile : 50/jour
+  • search : 25/jour
+  Si limite atteinte → ignore l'action
+end note
+
+EXT -> EXT : isProcessing = true\nupdateBadge(1)
+
+EXT -> LI : Ouvre onglet profil LinkedIn\nOu injecte content script
+activate LI
+
+note over EXT, LI
+  Exécution selon le type d'action :
+  • send_connection : clic "Se connecter",
+    remplit note personnalisée, envoie
+  • send_message : ouvre messagerie,
+    saisit message, envoie
+  • search_and_* : recherche + actions
+    en masse avec délais entre profils
+end note
+
+LI --> EXT : Confirmation visuelle de l'action\n(page mise à jour, toast LinkedIn)
+deactivate LI
+
+EXT -> EXT : getRandomDelay(action_type)\n(2–3 min pour connexion, etc.)
+
+EXT -> API_LI : PATCH /api/linkedin-actions\n{id, status:'completed',\n result: {sent:true, profile:{...}}}
+activate API_LI
+
+deactivate EXT
+
+== 5. Création du Prospect en Base ==
+
+API_LI -> API_LI : Vérifie ownership (scope)\nVérifie action != 'stopped'
+
+API_LI -> DB_ACT : UPDATE status='completed'\nSET result = $2, executed_at = NOW()
+activate DB_ACT
+DB_ACT --> API_LI : row updated
+
+deactivate DB_ACT
+
+note right of API_LI
+  Création / Mise à jour du Prospect :
+  INSERT INTO prospects (name, role, company,
+    linkedin_url, score, status, created_at)
+  VALUES (...)
+  ON CONFLICT (linkedin_url) DO UPDATE SET ...
+end note
+
+API_LI -> DB_PRO : INSERT ... ON CONFLICT\n(status='identified' pour connexion,\n 'contacted' pour message)
+activate DB_PRO
+DB_PRO --> API_LI : prospect créé / mis à jour
+
+deactivate DB_PRO
+
+API_LI -> DB_MSG : UPDATE messages SET status='sent'\nWHERE recipient_name = target_name
+activate DB_MSG
+DB_MSG --> API_LI : OK
+deactivate DB_MSG
+
+API_LI -> API_LI : createNotification()\n(in-app notification)
+
+note right of API_LI
+  Notifications créées selon le type :
+  • connection → "Invitation envoyée"
+  • message → "Message envoyé"
+  • failed → "Action échouée"
+end note
+
+API_LI --> EXT : {success, action}
+deactivate API_LI
+
+EXT -> EXT : isProcessing = false\nupdateBadge(0)
+
+== 6. Affichage dans le Pipeline CRM ==
+
+note over PP
+  Polling automatique toutes les 10 secondes
+  (fetchProspects(true) en silent mode)
+end note
+
+PP -> API_PRO : GET /api/prospects?limit=100
+activate PP
+activate API_PRO
+
+API_PRO -> API_PRO : buildScopeClause(user)
+API_PRO -> DB_PRO : SELECT p.* + owner.name\n+ COUNT(messages) + MAX(last_contact)\nFROM prospects p\nLEFT JOIN messages m ON ...\nLEFT JOIN users owner ON ...\nWHERE user_id = ANY(scopeIds)\nGROUP BY p.id\nORDER BY score DESC
+activate DB_PRO
+DB_PRO --> API_PRO : rows[]
+deactivate DB_PRO
+
+API_PRO --> PP : {prospects, pagination}
+deactivate API_PRO
+
+PP -> PP : organizeProspects()\n→ 6 colonnes Kanban par status
+
+PP --> U : Affiche le nouveau prospect dans\nla colonne appropriée (Identifiés / Contactés)
+
+deactivate PP
+
+== 7. Détections Automatiques (Parallèles / Périodiques) ==
+
+note over EXT, DB_PRO
+  L'extension Chrome exécute en parallèle
+  des vérifications automatiques indépendantes
+  des actions approuvées :
+end note
+
+group checkPendingConnectionsFast [toutes les 2 min]
+  EXT -> LI : Ouvre profil prospect (status='identified')
+  activate EXT
+  activate LI
+  LI --> EXT : Page profil chargée
+  deactivate LI
+  EXT -> EXT : Détecte degré de connexion\n(badge 1er degré ou bouton "Message")
+  EXT -> API_PRO : PATCH /api/prospects/{id}\n  {status:'connected'}
+  activate API_PRO
+  API_PRO -> DB_PRO : UPDATE status='connected'
+  activate DB_PRO
+  DB_PRO --> API_PRO : OK
+  deactivate DB_PRO
+  API_PRO --> EXT : OK
+  deactivate API_PRO
+  deactivate EXT
+end
+
+group checkInboxForReplies [toutes les 5 min]
+  EXT -> API_PRO : GET /api/prospects?status=contacted
+  activate EXT
+  activate API_PRO
+  API_PRO -> DB_PRO : SELECT * WHERE status='contacted'
+  activate DB_PRO
+  DB_PRO --> API_PRO : rows[]
+  deactivate DB_PRO
+  API_PRO --> EXT : prospects[]
+  deactivate API_PRO
+  
+  EXT -> LI : Ouvre https://linkedin.com/messaging/\nInjecte content script
+  activate LI
+  LI --> EXT : Conversations scrapées
+  deactivate LI
+  
+  EXT -> EXT : Match prospect name ↔ reply
+  EXT -> API_PRO : POST /api/prospects/update-status\n    {prospect_id, status:'responded'}
+  activate API_PRO
+  API_PRO -> DB_PRO : UPDATE status='responded'
+  activate DB_PRO
+  DB_PRO --> API_PRO : OK
+  deactivate DB_PRO
+  API_PRO --> EXT : OK
+  deactivate API_PRO
+  deactivate EXT
+end
+
+group recoverStaleActions [toutes les 2 min]
+  EXT -> API_LI : GET ?status=processing&limit=10
+  activate EXT
+  activate API_LI
+  API_LI -> DB_ACT : SELECT * WHERE status='processing'
+  activate DB_ACT
+  DB_ACT --> API_LI : rows[]
+  deactivate DB_ACT
+  API_LI --> EXT : actions[]
+  deactivate API_LI
+  
+  EXT -> EXT : Vérifie age > 5 minutes
+  alt Action bloquée > 5 min
+    EXT -> API_LI : PATCH {id, status:'completed',\n      result:{recovered:true}}
+    activate API_LI
+    API_LI -> DB_ACT : UPDATE status='completed'
+    activate DB_ACT
+    DB_ACT --> API_LI : OK
+    deactivate DB_ACT
+    API_LI --> EXT : OK
+    deactivate API_LI
+  end
+  deactivate EXT
+end
+
+== 8. Worker de File d'Attente (Alternative / Complément) ==
+
+note over EXT, DB_ACT
+  En parallèle de l'extension Chrome,
+  un Worker Node.js peut aussi claim
+  des actions depuis la queue :
+end note
+
+EXT -> DB_ACT : claimNextAction(workerId)\n(SELECT ... FOR UPDATE SKIP LOCKED)
+activate DB_ACT
+DB_ACT --> EXT : action | null
+
+deactivate DB_ACT
+
+note right of EXT
+  Le worker et l'extension utilisent
+  le même mécanisme de claiming :
+  UPDATE status='processing',
+    claimed_by=workerId,
+    claimed_at=NOW()
+  WHERE status='approved'
+    AND (claimed_by IS NULL
+         OR claimed_at < NOW() - 5 min)
+  ORDER BY created_at ASC
+  LIMIT 1
+end note
+
+EXT -> DB_ACT : completeAction(actionId, result)
+activate DB_ACT
+DB_ACT --> EXT : OK
+
+deactivate DB_ACT
+
+@enduml

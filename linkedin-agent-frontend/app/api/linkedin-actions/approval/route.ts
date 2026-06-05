@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { ensureOwnershipColumns, getRequestUser, getScopeUserIds } from '@/lib/requestAuth';
 
-// GET /api/linkedin-actions/approval - Récupérer les actions
+// GET /api/linkedin-actions/approval - Récupérer les actions (scopées par utilisateur)
 export async function GET(request: NextRequest) {
   try {
+    await ensureOwnershipColumns();
+    const user = await getRequestUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
+
+    const scopeIds = await getScopeUserIds(user);
+    const isAdmin = user.role === 'admin';
+    const scopeClause = isAdmin
+      ? '(user_id = ANY($1) OR user_id IS NULL)'
+      : 'user_id = ANY($1)';
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const limit = parseInt(searchParams.get('limit') || '500');
@@ -12,18 +24,22 @@ export async function GET(request: NextRequest) {
     let result;
     if (!status || status === 'all') {
       result = await query(
-        `SELECT * FROM linkedin_actions_queue 
+        `SELECT q.*, u.name as owner_name FROM linkedin_actions_queue q
+         LEFT JOIN users u ON u.id = q.user_id
+         WHERE ${scopeClause}
          ORDER BY created_at DESC 
-         LIMIT $1`,
-        [limit]
+         LIMIT $2`,
+        [scopeIds, limit]
       );
     } else {
       result = await query(
-        `SELECT * FROM linkedin_actions_queue 
-         WHERE status = $1 
+        `SELECT q.*, u.name as owner_name FROM linkedin_actions_queue q
+         LEFT JOIN users u ON u.id = q.user_id
+         WHERE ${scopeClause}
+           AND status = $2
          ORDER BY created_at DESC 
-         LIMIT $2`,
-        [status, limit]
+         LIMIT $3`,
+        [scopeIds, status, limit]
       );
     }
 
@@ -42,8 +58,10 @@ export async function GET(request: NextRequest) {
          ('stopped')
        ) AS s(status)
        LEFT JOIN linkedin_actions_queue a ON a.status = s.status
+         AND ${scopeClause}
        GROUP BY s.status
-       ORDER BY s.status`
+       ORDER BY s.status`,
+      [scopeIds]
     );
 
     return NextResponse.json({
@@ -64,6 +82,15 @@ export async function GET(request: NextRequest) {
 // POST /api/linkedin-actions/approval - Approuver ou rejeter une action
 export async function POST(request: NextRequest) {
   try {
+    await ensureOwnershipColumns();
+    const user = await getRequestUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
+
+    const scopeIds = await getScopeUserIds(user);
+    const isAdmin = user.role === 'admin';
+
     const body = await request.json();
     const { id, action, reason } = body;
 
@@ -105,7 +132,7 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    // Vérifier que l'action existe et est en attente d'approbation
+    // Vérifier que l'action existe et appartient au scope
     const checkResult = await query(
       `SELECT * FROM linkedin_actions_queue WHERE id = $1`,
       [id]
@@ -119,6 +146,11 @@ export async function POST(request: NextRequest) {
     }
 
     const actionData = checkResult.rows[0];
+    const ownerId = actionData.user_id;
+    const allowed = ownerId == null ? isAdmin : scopeIds.includes(ownerId);
+    if (!allowed) {
+      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+    }
 
     // Valider le statut actuel selon l'action demandée
     switch (action) {
@@ -227,6 +259,15 @@ export async function POST(request: NextRequest) {
 // DELETE /api/linkedin-actions/approval - Supprimer une action rejetée
 export async function DELETE(request: NextRequest) {
   try {
+    await ensureOwnershipColumns();
+    const user = await getRequestUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
+
+    const scopeIds = await getScopeUserIds(user);
+    const isAdmin = user.role === 'admin';
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -235,6 +276,16 @@ export async function DELETE(request: NextRequest) {
         { success: false, error: 'id est requis' },
         { status: 400 }
       );
+    }
+
+    // Vérifier l'ownership avant suppression
+    const ownerCheck = await query(`SELECT user_id FROM linkedin_actions_queue WHERE id = $1`, [id]);
+    if (ownerCheck.rows.length > 0) {
+      const ownerId = ownerCheck.rows[0].user_id;
+      const allowed = ownerId == null ? isAdmin : scopeIds.includes(ownerId);
+      if (!allowed) {
+        return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+      }
     }
 
     const result = await query(

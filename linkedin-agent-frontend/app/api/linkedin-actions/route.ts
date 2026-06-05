@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { createNotification } from '@/lib/notifications';
+import { ensureOwnershipColumns, getRequestUser, getScopeUserIds } from '@/lib/requestAuth';
 
 // OPTIONS — CORS preflight
 export async function OPTIONS() {
@@ -15,9 +16,11 @@ export async function OPTIONS() {
 }
 
 // Helper: check if current time is within working hours configured by the user
-async function isWithinWorkingHours(): Promise<{ allowed: boolean; reason?: string }> {
+async function isWithinWorkingHours(userId: number | null): Promise<{ allowed: boolean; reason?: string }> {
   try {
-    const userResult = await query('SELECT settings FROM users LIMIT 1');
+    const userResult = userId
+      ? await query('SELECT settings FROM users WHERE id = $1', [userId])
+      : await query("SELECT settings FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
     const automation = userResult.rows[0]?.settings?.automation || {};
 
     const workingDays: string[]   = automation.workingDays        || ['Mon','Tue','Wed','Thu','Fri'];
@@ -49,18 +52,34 @@ async function isWithinWorkingHours(): Promise<{ allowed: boolean; reason?: stri
   }
 }
 
-// GET /api/linkedin-actions - Récupérer les actions (appelé par l'extension Chrome)
+// GET /api/linkedin-actions - Récupérer les actions (appelé par l'extension Chrome + UI)
 export async function GET(request: NextRequest) {
   try {
+    await ensureOwnershipColumns();
+    const user = await getRequestUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
+
+    const scopeIds = await getScopeUserIds(user);
+    const isAdmin = user.role === 'admin';
+
     const { searchParams } = new URL(request.url);
     const actionId = searchParams.get('id');
 
-    // Si un id est fourni, récupérer cette action spécifique
+    // Si un id est fourni, vérifier l'ownership puis récupérer
     if (actionId) {
       const result = await query(
         `SELECT * FROM linkedin_actions_queue WHERE id = $1`,
         [parseInt(actionId)]
       );
+      if (result.rows.length > 0) {
+        const ownerId = result.rows[0].user_id;
+        const allowed = ownerId == null ? isAdmin : scopeIds.includes(ownerId);
+        if (!allowed) {
+          return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+        }
+      }
       return NextResponse.json({
         success: true,
         actions: result.rows,
@@ -73,7 +92,7 @@ export async function GET(request: NextRequest) {
 
     // Vérifier les heures de travail pour les actions approuvées
     if (status === 'approved') {
-      const workCheck = await isWithinWorkingHours();
+      const workCheck = await isWithinWorkingHours(user?.userId ?? null);
       if (!workCheck.allowed) {
         return NextResponse.json({
           success: true,
@@ -90,24 +109,34 @@ export async function GET(request: NextRequest) {
     // Pour les actions à exécuter (approved), exclure celles dont la campagne liée
     // est en pause ou terminée. L'utilisateur peut ainsi mettre une campagne en pause
     // dans l'UI et l'extension arrêtera de récupérer ses actions.
+    const scopeClause = isAdmin
+      ? `(q.user_id = ANY($1) OR q.user_id IS NULL)`
+      : `q.user_id = ANY($1)`;
+
     const result = await query(
       `SELECT q.* FROM linkedin_actions_queue q
        LEFT JOIN campaigns c ON c.id = q.campaign_id
-       WHERE q.status = $1
+       WHERE ${scopeClause}
+         AND q.status = $2
          AND (q.campaign_id IS NULL OR c.status NOT IN ('paused', 'completed'))
        ORDER BY q.created_at ASC 
-       LIMIT $2`,
-      [status, limit]
+       LIMIT $3`,
+      [scopeIds, status, limit]
     );
 
-    // Stats pour le dashboard
+    // Stats pour le dashboard (scopées)
+    const statsScope = isAdmin
+      ? '(user_id = ANY($1) OR user_id IS NULL)'
+      : 'user_id = ANY($1)';
     const stats = await query(
       `SELECT 
         status,
         COUNT(*) as count
        FROM linkedin_actions_queue 
        WHERE created_at >= CURRENT_DATE 
-       GROUP BY status`
+         AND ${statsScope}
+       GROUP BY status`,
+      [scopeIds]
     );
 
     return NextResponse.json({
@@ -128,6 +157,12 @@ export async function GET(request: NextRequest) {
 // POST /api/linkedin-actions - Créer une action (agent ou manuelle)
 export async function POST(request: NextRequest) {
   try {
+    await ensureOwnershipColumns();
+    const user = await getRequestUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { action_type, target_url, target_name, payload, campaign_id, source } = body;
 
@@ -143,10 +178,10 @@ export async function POST(request: NextRequest) {
     const status = source === 'agent' ? 'pending_approval' : 'approved';
 
     const result = await query(
-      `INSERT INTO linkedin_actions_queue (action_type, target_url, target_name, payload, status, campaign_id, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      `INSERT INTO linkedin_actions_queue (action_type, target_url, target_name, payload, status, campaign_id, user_id, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
        RETURNING *`,
-      [action_type, target_url || null, target_name || null, JSON.stringify(payload || {}), status, campaign_id || null]
+      [action_type, target_url || null, target_name || null, JSON.stringify(payload || {}), status, campaign_id || null, user.userId]
     );
 
     return NextResponse.json({
@@ -165,6 +200,12 @@ export async function POST(request: NextRequest) {
 // PATCH /api/linkedin-actions - Mettre à jour le statut d'une action (appelé par l'extension Chrome après exécution)
 export async function PATCH(request: NextRequest) {
   try {
+    await ensureOwnershipColumns();
+    const user = await getRequestUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { id, status, result: actionResult, error_message } = body;
 
@@ -173,6 +214,18 @@ export async function PATCH(request: NextRequest) {
         { success: false, error: 'id et status sont requis' },
         { status: 400 }
       );
+    }
+
+    // Vérifier l'ownership
+    const scopeIds = await getScopeUserIds(user);
+    const isAdmin = user.role === 'admin';
+    const ownerCheck = await query(`SELECT user_id FROM linkedin_actions_queue WHERE id = $1`, [id]);
+    if (ownerCheck.rows.length > 0) {
+      const ownerId = ownerCheck.rows[0].user_id;
+      const allowed = ownerId == null ? isAdmin : scopeIds.includes(ownerId);
+      if (!allowed) {
+        return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+      }
     }
 
     // Vérifier que l'action n'a pas été arrêtée par l'utilisateur
@@ -204,26 +257,8 @@ export async function PATCH(request: NextRequest) {
 
     const action = updateResult.rows[0];
 
-    // Si l'action est "visit_profile" et a réussi, sauvegarder les données du prospect
-    if (action.action_type === 'visit_profile' && status === 'completed' && actionResult?.profile) {
-      const profile = actionResult.profile;
-      await query(
-        `INSERT INTO prospects (name, role, company, linkedin_url, industry, location, company_size, score, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 50, NOW(), NOW())
-         ON CONFLICT (linkedin_url) DO UPDATE SET
-           name = COALESCE(EXCLUDED.name, prospects.name),
-           role = COALESCE(EXCLUDED.role, prospects.role),
-           company = COALESCE(EXCLUDED.company, prospects.company),
-           industry = COALESCE(EXCLUDED.industry, prospects.industry),
-           location = COALESCE(EXCLUDED.location, prospects.location),
-           updated_at = NOW()`,
-        [
-          profile.name || null, profile.role || null, profile.company || null,
-          action.target_url, profile.industry || null, profile.location || null,
-          profile.company_size || null
-        ]
-      );
-    }
+    // NOTE: visit_profile (scraping) NE crée PAS de prospect en DB.
+    // Un prospect n'est inséré que quand une vraie action est exécutée (send_connection, send_message).
 
     // Créer une notification in-app pour les actions importantes
     if (status === 'completed') {
@@ -232,14 +267,16 @@ export async function PATCH(request: NextRequest) {
           'connection',
           'Invitation envoyée',
           `Demande de connexion envoyée à ${action.target_name || 'un prospect'}`,
-          { action_id: action.id, target_url: action.target_url }
+          { action_id: action.id, target_url: action.target_url },
+          user.userId
         );
       } else if (action.action_type === 'send_message') {
         await createNotification(
           'message',
           'Message envoyé',
           `Message envoyé à ${action.target_name || 'un prospect'}`,
-          { action_id: action.id, target_url: action.target_url }
+          { action_id: action.id, target_url: action.target_url },
+          user.userId
         );
       }
     } else if (status === 'failed') {
@@ -247,7 +284,8 @@ export async function PATCH(request: NextRequest) {
         'alert',
         'Action échouée',
         `L'action ${action.action_type} vers ${action.target_name || 'un prospect'} a échoué`,
-        { action_id: action.id, error: error_message }
+        { action_id: action.id, error: error_message },
+        user.userId
       );
     }
 
@@ -263,7 +301,6 @@ export async function PATCH(request: NextRequest) {
            company = COALESCE(EXCLUDED.company, prospects.company),
            industry = COALESCE(EXCLUDED.industry, prospects.industry),
            location = COALESCE(EXCLUDED.location, prospects.location),
-           status = CASE WHEN prospects.status = 'new' THEN 'identified' ELSE prospects.status END,
            updated_at = NOW()`,
         [
           profile.name || action.target_name || null,
@@ -282,6 +319,32 @@ export async function PATCH(request: NextRequest) {
       await query(
         `UPDATE prospects SET status = 'connected', updated_at = NOW() WHERE linkedin_url = $1`,
         [action.target_url]
+      );
+    }
+
+    // Si l'action est "send_message" et a réussi, créer/mettre à jour le prospect en 'contacted'
+    if (action.action_type === 'send_message' && status === 'completed') {
+      const profile = actionResult?.profile || {};
+      await query(
+        `INSERT INTO prospects (name, role, company, linkedin_url, industry, location, company_size, score, status, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 50, 'contacted', NOW(), NOW())
+         ON CONFLICT (linkedin_url) DO UPDATE SET
+           name = COALESCE(EXCLUDED.name, prospects.name),
+           role = COALESCE(EXCLUDED.role, prospects.role),
+           company = COALESCE(EXCLUDED.company, prospects.company),
+           industry = COALESCE(EXCLUDED.industry, prospects.industry),
+           location = COALESCE(EXCLUDED.location, prospects.location),
+           status = CASE WHEN prospects.status IN ('identified', 'connected') THEN 'contacted' ELSE prospects.status END,
+           updated_at = NOW()`,
+        [
+          profile.name || action.target_name || null,
+          profile.role || null,
+          profile.company || null,
+          action.target_url,
+          profile.industry || null,
+          profile.location || null,
+          profile.company_size || null,
+        ]
       );
     }
 

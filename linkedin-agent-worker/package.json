@@ -1,0 +1,26 @@
+{
+  "name": "linkedin-agent-worker",
+  "version": "1.0.0",
+  "description": "Worker conteneurisé pour exécuter les actions LinkedIn via Puppeteer / Chrome headless",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "pg": "^8.20.0",
+    "puppeteer": "^21.11.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "tsx": "^4.11.0",
+    "@types/pg": "^8.11.6",
+    "@types/node": "^20.12.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { z } from "zod";
+import { ensureOwnershipColumns, getRequestUser, getScopeUserIds } from "@/lib/requestAuth";
 
 // Schema validation pour mise à jour
 const campaignUpdateSchema = z.object({
@@ -27,7 +28,24 @@ const campaignUpdateSchema = z.object({
   follow_up_days: z.number().optional(),
 });
 
-// GET /api/campaigns/[id] - Récupérer une campagne avec ses messages
+// Vérifie que le requester peut accéder à la campagne (sinon retourne null)
+async function assertAccess(request: NextRequest, campaignId: number) {
+  await ensureOwnershipColumns();
+  const user = await getRequestUser(request);
+  if (!user) return { ok: false as const, status: 401, error: "Non authentifié" };
+
+  const owner = await query("SELECT user_id FROM campaigns WHERE id = $1", [campaignId]);
+  if (owner.rows.length === 0) return { ok: false as const, status: 404, error: "Campagne non trouvée" };
+
+  const ownerId: number | null = owner.rows[0].user_id;
+  const scopeIds = await getScopeUserIds(user);
+  const allowed = ownerId == null ? user.role === "admin" : scopeIds.includes(ownerId);
+  if (!allowed) return { ok: false as const, status: 403, error: "Accès refusé" };
+
+  return { ok: true as const, user };
+}
+
+// GET /api/campaigns/[id]
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -37,6 +55,11 @@ export async function GET(
     const id = parseInt(idStr);
     if (isNaN(id)) {
       return NextResponse.json({ error: "ID invalide" }, { status: 400 });
+    }
+
+    const access = await assertAccess(request, id);
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
     }
 
     const result = await query(
@@ -65,10 +88,7 @@ export async function GET(
       return NextResponse.json({ error: "Campagne non trouvée" }, { status: 404 });
     }
 
-    return NextResponse.json({
-      success: true,
-      campaign: result.rows[0],
-    });
+    return NextResponse.json({ success: true, campaign: result.rows[0] });
   } catch (error) {
     console.error("GET /api/campaigns/[id] error:", error);
     return NextResponse.json(
@@ -78,7 +98,7 @@ export async function GET(
   }
 }
 
-// PUT /api/campaigns/[id] - Mettre à jour une campagne
+// PUT /api/campaigns/[id]
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -90,10 +110,14 @@ export async function PUT(
       return NextResponse.json({ error: "ID invalide" }, { status: 400 });
     }
 
+    const access = await assertAccess(request, id);
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
+    }
+
     const body = await request.json();
     const validated = campaignUpdateSchema.parse(body);
 
-    // Construire la requête UPDATE dynamique
     const updates: string[] = [];
     const values: any[] = [];
     let paramCount = 0;
@@ -121,10 +145,7 @@ export async function PUT(
       return NextResponse.json({ error: "Campagne non trouvée" }, { status: 404 });
     }
 
-    return NextResponse.json({
-      success: true,
-      campaign: result.rows[0],
-    });
+    return NextResponse.json({ success: true, campaign: result.rows[0] });
   } catch (error) {
     console.error("PUT /api/campaigns/[id] error:", error);
     if (error instanceof z.ZodError) {
@@ -140,7 +161,7 @@ export async function PUT(
   }
 }
 
-// DELETE /api/campaigns/[id] - Supprimer une campagne
+// DELETE /api/campaigns/[id]
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -152,23 +173,19 @@ export async function DELETE(
       return NextResponse.json({ error: "ID invalide" }, { status: 400 });
     }
 
-    // Supprimer d'abord les messages associés
-    await query("DELETE FROM messages WHERE campaign_id = $1", [id]);
+    const access = await assertAccess(request, id);
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
+    }
 
-    // Supprimer la campagne
-    const result = await query(
-      "DELETE FROM campaigns WHERE id = $1 RETURNING id",
-      [id]
-    );
+    await query("DELETE FROM messages WHERE campaign_id = $1", [id]);
+    const result = await query("DELETE FROM campaigns WHERE id = $1 RETURNING id", [id]);
 
     if (result.rows.length === 0) {
       return NextResponse.json({ error: "Campagne non trouvée" }, { status: 404 });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "Campagne supprimée avec succès",
-    });
+    return NextResponse.json({ success: true, message: "Campagne supprimée avec succès" });
   } catch (error) {
     console.error("DELETE /api/campaigns/[id] error:", error);
     return NextResponse.json(

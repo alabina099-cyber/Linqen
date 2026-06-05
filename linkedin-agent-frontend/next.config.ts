@@ -1,19 +1,10 @@
 import type { NextConfig } from "next";
 
+// NOTE: Les headers CORS sont gérés dynamiquement par middleware.ts
+// (whitelist : extension Chrome + localhost + domaine de production).
+// Ne PAS ajouter de headers CORS statiques ici sinon ils écrasent la whitelist.
 const nextConfig: NextConfig = {
   output: 'standalone',
-  async headers() {
-    return [
-      {
-        source: "/api/:path*",
-        headers: [
-          { key: "Access-Control-Allow-Origin", value: "*" },
-          { key: "Access-Control-Allow-Methods", value: "GET, POST, PUT, PATCH, DELETE, OPTIONS" },
-          { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization" },
-        ],
-      },
-    ];
-  },
 };
 
 export default nextConfig;

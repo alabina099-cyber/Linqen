@@ -1,13 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { getRequestUser } from "@/lib/requestAuth";
 import { checkRateLimit } from "@/lib/rate-limiter";
 
 // POST /api/followups/execute — Exécuter les relances planifiées
 export async function POST(request: NextRequest) {
   try {
+    const requestUser = await getRequestUser(request);
+    const userId = requestUser?.userId ?? null;
+
+    // Charger les settings de l'utilisateur courant (fallback admin pour cron/extension)
+    const settingsResult = userId
+      ? await query('SELECT settings FROM users WHERE id = $1', [userId])
+      : await query("SELECT settings FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
+    const settings = settingsResult.rows[0]?.settings || {};
+    const smartFollowUpEnabled = settings.ai?.smartFollowUp === true;
+
     // Récupérer les relances planifiées pour aujourd'hui
     const followupsResult = await query(
-      `SELECT sf.*, p.name, p.linkedin_url, c.name as campaign_name, c.template_followup
+      `SELECT sf.*, p.name, p.linkedin_url, p.notes, c.name as campaign_name, c.template_followup
        FROM scheduled_followups sf
        INNER JOIN prospects p ON sf.prospect_id = p.id
        INNER JOIN campaigns c ON sf.campaign_id = c.id
@@ -26,13 +37,19 @@ export async function POST(request: NextRequest) {
       try {
         // Vérifier si le prospect a répondu depuis la planification
         const prospectStatusResult = await query(
-          `SELECT status FROM prospects WHERE id = $1`,
+          `SELECT status, notes FROM prospects WHERE id = $1`,
           [followup.prospect_id]
         );
         const prospectStatus = prospectStatusResult.rows[0]?.status;
+        const prospectNotes: string = prospectStatusResult.rows[0]?.notes || '';
 
-        // Si le prospect a répondu, annuler la relance
-        if (prospectStatus === 'replied' || prospectStatus === 'converted') {
+        // Si le prospect a répondu ou est déjà converti, annuler la relance
+        if (
+          prospectStatus === 'replied' ||
+          prospectStatus === 'converted' ||
+          prospectStatus === 'auto_replied' ||
+          prospectStatus === 'responded'
+        ) {
           await query(
             `UPDATE scheduled_followups SET status = 'cancelled', updated_at = NOW() WHERE id = $1`,
             [followup.id]
@@ -41,6 +58,20 @@ export async function POST(request: NextRequest) {
             followup_id: followup.id,
             prospect_name: followup.name,
             reason: `Prospect déjà ${prospectStatus}`,
+          });
+          continue;
+        }
+
+        // Smart Follow-Up: annuler si le prospect a un sentiment négatif détecté
+        if (smartFollowUpEnabled && prospectNotes.includes('[Sentiment: negative')) {
+          await query(
+            `UPDATE scheduled_followups SET status = 'cancelled', updated_at = NOW() WHERE id = $1`,
+            [followup.id]
+          );
+          skipped.push({
+            followup_id: followup.id,
+            prospect_name: followup.name,
+            reason: 'Smart Follow-Up: sentiment négatif détecté — relance annulée automatiquement',
           });
           continue;
         }

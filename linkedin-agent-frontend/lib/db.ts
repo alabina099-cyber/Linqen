@@ -198,4 +198,132 @@ export async function getOnlineProspectsCount(minutes: number = 5) {
   return parseInt(result.rows[0]?.count || '0');
 }
 
+// ==========================================
+// Fonctions Worker Queue (mode cloud workers)
+// ==========================================
+
+export async function claimNextAction(workerId: string) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      `UPDATE linkedin_actions_queue
+       SET status = 'processing',
+           claimed_by = $1,
+           claimed_at = NOW()
+       WHERE id = (
+         SELECT id FROM linkedin_actions_queue
+         WHERE status = 'approved'
+           AND (claimed_by IS NULL OR claimed_at < NOW() - INTERVAL '5 minutes')
+         ORDER BY created_at ASC
+         FOR UPDATE SKIP LOCKED
+         LIMIT 1
+       )
+       RETURNING *;`,
+      [workerId]
+    );
+    await client.query('COMMIT');
+    return result.rows[0] || null;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function completeAction(actionId: number, result: Record<string, any>) {
+  await query(
+    `UPDATE linkedin_actions_queue
+     SET status = 'completed',
+         result = $2::jsonb,
+         executed_at = NOW(),
+         claimed_by = NULL
+     WHERE id = $1;`,
+    [actionId, JSON.stringify(result)]
+  );
+}
+
+export async function failAction(actionId: number, error: string, details?: string) {
+  await query(
+    `UPDATE linkedin_actions_queue
+     SET status = 'failed',
+         error_message = $2,
+         result = COALESCE(result, '{}') || $3::jsonb,
+         claimed_by = NULL
+     WHERE id = $1;`,
+    [actionId, error, JSON.stringify({ error_details: details || null, failed_at: new Date().toISOString() })]
+  );
+}
+
+export async function releaseStuckActions(timeoutMinutes: number = 5) {
+  const result = await query(
+    `UPDATE linkedin_actions_queue
+     SET status = 'approved',
+         claimed_by = NULL,
+         claimed_at = NULL
+     WHERE status = 'processing'
+       AND claimed_at < NOW() - INTERVAL '${timeoutMinutes} minutes'
+     RETURNING id;`
+  );
+  return result.rows.length;
+}
+
+export async function getQueueStats() {
+  const result = await query(
+    `SELECT status, COUNT(*) as count
+     FROM linkedin_actions_queue
+     WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
+     GROUP BY status;`
+  );
+  const stats: Record<string, number> = {};
+  for (const row of result.rows) {
+    stats[row.status] = parseInt(row.count, 10);
+  }
+  return stats;
+}
+
+export async function updateWorkerHeartbeat(workerId: string) {
+  await query(
+    `INSERT INTO worker_heartbeats (worker_id, last_seen, hostname)
+     VALUES ($1, NOW(), $2)
+     ON CONFLICT (worker_id)
+     DO UPDATE SET last_seen = NOW(), hostname = $2;`,
+    [workerId, process.env.HOSTNAME || 'unknown']
+  );
+}
+
+// Helper: insérer une action LinkedIn avec user_id depuis le contexte agent
+import { agentContext } from './agent-context';
+
+export async function insertLinkedInAction(columns: {
+  action_type: string;
+  target_url: string;
+  target_name?: string | null;
+  payload?: Record<string, any>;
+  status?: string;
+  campaign_id?: number | null;
+  prospect_id?: number | null;
+}) {
+  const ctx = agentContext.getStore();
+  const userId = ctx?.userId ?? null;
+
+  const result = await query(
+    `INSERT INTO linkedin_actions_queue
+     (action_type, target_url, target_name, payload, status, campaign_id, prospect_id, user_id, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW()) RETURNING id`,
+    [
+      columns.action_type,
+      columns.target_url,
+      columns.target_name ?? null,
+      JSON.stringify(columns.payload || {}),
+      columns.status || 'pending_approval',
+      columns.campaign_id ?? null,
+      columns.prospect_id ?? null,
+      userId,
+    ]
+  );
+  return result.rows[0].id as number;
+}
+
 export default pool;

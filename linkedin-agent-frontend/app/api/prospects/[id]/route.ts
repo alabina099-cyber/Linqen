@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { z } from "zod";
+import { ensureOwnershipColumns, getRequestUser, getScopeUserIds } from "@/lib/requestAuth";
 
 // Schema validation pour mise à jour partielle
 const prospectUpdateSchema = z.object({
@@ -18,7 +19,24 @@ const prospectUpdateSchema = z.object({
   notes: z.string().optional(),
 });
 
-// GET /api/prospects/[id] - Récupérer un prospect
+// Vérifie que le requester peut accéder au prospect
+async function assertAccess(request: NextRequest, prospectId: number) {
+  await ensureOwnershipColumns();
+  const user = await getRequestUser(request);
+  if (!user) return { ok: false as const, status: 401, error: "Non authentifié" };
+
+  const owner = await query("SELECT user_id FROM prospects WHERE id = $1", [prospectId]);
+  if (owner.rows.length === 0) return { ok: false as const, status: 404, error: "Prospect non trouvé" };
+
+  const ownerId: number | null = owner.rows[0].user_id;
+  const scopeIds = await getScopeUserIds(user);
+  const allowed = ownerId == null ? user.role === "admin" : scopeIds.includes(ownerId);
+  if (!allowed) return { ok: false as const, status: 403, error: "Accès refusé" };
+
+  return { ok: true as const, user };
+}
+
+// GET /api/prospects/[id]
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -30,8 +48,13 @@ export async function GET(
       return NextResponse.json({ error: "ID invalide" }, { status: 400 });
     }
 
+    const access = await assertAccess(request, id);
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
+    }
+
     const result = await query(
-      `SELECT p.*, 
+      `SELECT p.*,
         COALESCE(json_agg(
           json_build_object(
             'id', m.id,
@@ -52,10 +75,7 @@ export async function GET(
       return NextResponse.json({ error: "Prospect non trouvé" }, { status: 404 });
     }
 
-    return NextResponse.json({
-      success: true,
-      prospect: result.rows[0],
-    });
+    return NextResponse.json({ success: true, prospect: result.rows[0] });
   } catch (error) {
     console.error("GET /api/prospects/[id] error:", error);
     return NextResponse.json(
@@ -65,7 +85,7 @@ export async function GET(
   }
 }
 
-// PUT /api/prospects/[id] - Mettre à jour un prospect
+// PUT /api/prospects/[id]
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -77,10 +97,14 @@ export async function PUT(
       return NextResponse.json({ error: "ID invalide" }, { status: 400 });
     }
 
+    const access = await assertAccess(request, id);
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
+    }
+
     const body = await request.json();
     const validated = prospectUpdateSchema.parse(body);
 
-    // Construire la requête UPDATE dynamique
     const updates: string[] = [];
     const values: any[] = [];
     let paramCount = 0;
@@ -108,10 +132,7 @@ export async function PUT(
       return NextResponse.json({ error: "Prospect non trouvé" }, { status: 404 });
     }
 
-    return NextResponse.json({
-      success: true,
-      prospect: result.rows[0],
-    });
+    return NextResponse.json({ success: true, prospect: result.rows[0] });
   } catch (error) {
     console.error("PUT /api/prospects/[id] error:", error);
     if (error instanceof z.ZodError) {
@@ -139,6 +160,11 @@ export async function PATCH(
       return NextResponse.json({ error: "ID invalide" }, { status: 400 });
     }
 
+    const access = await assertAccess(request, id);
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
+    }
+
     const body = await request.json();
     const validated = prospectUpdateSchema.parse(body);
 
@@ -169,10 +195,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Prospect non trouvé" }, { status: 404 });
     }
 
-    return NextResponse.json({
-      success: true,
-      prospect: result.rows[0],
-    });
+    return NextResponse.json({ success: true, prospect: result.rows[0] });
   } catch (error) {
     console.error("PATCH /api/prospects/[id] error:", error);
     if (error instanceof z.ZodError) {
@@ -188,8 +211,7 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/prospects/[id] - Supprimer un prospect
-// Force recompile: 2026-03-13
+// DELETE /api/prospects/[id]
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -201,23 +223,19 @@ export async function DELETE(
       return NextResponse.json({ error: "ID invalide" }, { status: 400 });
     }
 
-    // Supprimer d'abord les messages associés
-    await query("DELETE FROM messages WHERE prospect_id = $1", [id]);
+    const access = await assertAccess(request, id);
+    if (!access.ok) {
+      return NextResponse.json({ error: access.error }, { status: access.status });
+    }
 
-    // Supprimer le prospect
-    const result = await query(
-      "DELETE FROM prospects WHERE id = $1 RETURNING id",
-      [id]
-    );
+    await query("DELETE FROM messages WHERE prospect_id = $1", [id]);
+    const result = await query("DELETE FROM prospects WHERE id = $1 RETURNING id", [id]);
 
     if (result.rows.length === 0) {
       return NextResponse.json({ error: "Prospect non trouvé" }, { status: 404 });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "Prospect supprimé avec succès",
-    });
+    return NextResponse.json({ success: true, message: "Prospect supprimé avec succès" });
   } catch (error) {
     console.error("DELETE /api/prospects/[id] error:", error);
     return NextResponse.json(

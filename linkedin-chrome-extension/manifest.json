@@ -28,7 +28,14 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["http://localhost:3000/*", "http://127.0.0.1:3000/*"],
+      "matches": [
+        "http://localhost:3000/*",
+        "http://127.0.0.1:3000/*",
+        "http://localhost:58681/*",
+        "http://127.0.0.1:58681/*",
+        "http://localhost:*/*",
+        "http://127.0.0.1:*/*"
+      ],
       "js": ["bridge.js"],
       "run_at": "document_start"
     }

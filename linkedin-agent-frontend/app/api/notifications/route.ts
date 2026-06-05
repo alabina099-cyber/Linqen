@@ -1,19 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { getRequestUser, getScopeUserIds } from '@/lib/requestAuth';
 
-// GET /api/notifications - Get notifications and stats
+// GET /api/notifications - Get notifications and stats (scoped by user)
 export async function GET(request: NextRequest) {
   try {
-    // Get unread count
+    const user = await getRequestUser(request);
+    const isAdmin = user?.role === 'admin';
+    const scopeIds = user ? await getScopeUserIds(user) : [];
+
+    const scopeClause = isAdmin
+      ? '(user_id = ANY($1) OR user_id IS NULL)'
+      : 'user_id = ANY($1)';
+
+    // Get unread count (scoped)
     const unreadResult = await query(
-      `SELECT COUNT(*) as count FROM notifications WHERE read = false`
+      `SELECT COUNT(*) as count FROM notifications WHERE read = false AND ${scopeClause}`,
+      [scopeIds]
     );
-    
-    // Get total notifications with limit
+
+    // Get total notifications with limit (scoped)
     const notificationsResult = await query(
-      `SELECT * FROM notifications 
-       ORDER BY created_at DESC 
-       LIMIT 50`
+      `SELECT * FROM notifications
+       WHERE ${scopeClause}
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [scopeIds]
     );
 
     // Get online prospects (last seen within 5 minutes)
@@ -48,14 +60,15 @@ export async function GET(request: NextRequest) {
 // POST /api/notifications - Create a notification
 export async function POST(request: NextRequest) {
   try {
+    const user = await getRequestUser(request);
     const body = await request.json();
     const { type, title, message, data } = body;
 
     const result = await query(
-      `INSERT INTO notifications (type, title, message, data) 
-       VALUES ($1, $2, $3, $4) 
+      `INSERT INTO notifications (type, title, message, data, user_id)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [type, title, message, JSON.stringify(data || {})]
+      [type, title, message, JSON.stringify(data || {}), user?.userId ?? null]
     );
 
     return NextResponse.json({
@@ -71,10 +84,19 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE /api/notifications - Delete all notifications
-export async function DELETE() {
+// DELETE /api/notifications - Delete all notifications for current user
+export async function DELETE(request: NextRequest) {
   try {
-    await query(`DELETE FROM notifications`);
+    const user = await getRequestUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
+    const isAdmin = user.role === 'admin';
+    if (isAdmin) {
+      await query(`DELETE FROM notifications`);
+    } else {
+      await query(`DELETE FROM notifications WHERE user_id = $1`, [user.userId]);
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting notifications:', error);
@@ -88,18 +110,30 @@ export async function DELETE() {
 // PATCH /api/notifications - Mark as read
 export async function PATCH(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body: any = {};
+    try {
+      body = await request.json();
+    } catch {
+      // no body = mark all as read
+    }
     const { id, read } = body;
 
+    const user = await getRequestUser(request);
+    const isAdmin = user?.role === 'admin';
+    const scopeIds = user ? await getScopeUserIds(user) : [];
+    const scopeClause = isAdmin
+      ? '(user_id = ANY($1) OR user_id IS NULL)'
+      : 'user_id = ANY($1)';
+
     if (id) {
-      // Mark specific notification as read
+      // Mark specific notification as read (only if belongs to user)
       await query(
-        `UPDATE notifications SET read = $1 WHERE id = $2`,
-        [read, id]
+        `UPDATE notifications SET read = $1 WHERE id = $2 AND ${scopeClause}`,
+        [read ?? true, id, scopeIds]
       );
     } else {
-      // Mark all as read
-      await query(`UPDATE notifications SET read = true`);
+      // Mark all as read (scoped)
+      await query(`UPDATE notifications SET read = true WHERE ${scopeClause}`, [scopeIds]);
     }
 
     return NextResponse.json({ success: true });

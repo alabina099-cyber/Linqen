@@ -25,6 +25,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface PendingAction {
   id: number;
@@ -36,6 +37,8 @@ interface PendingAction {
   created_at: string;
   error_message?: string | null;
   result?: any;
+  user_id?: number | null;
+  owner_name?: string | null;
 }
 
 interface ActionStats {
@@ -44,6 +47,7 @@ interface ActionStats {
 }
 
 export default function ApprovalQueue() {
+  const { user } = useAuth();
   const [actions, setActions] = useState<PendingAction[]>([]);
   const [allActions, setAllActions] = useState<PendingAction[]>([]);
   const [stats, setStats] = useState<ActionStats[]>([]);
@@ -458,122 +462,122 @@ export default function ApprovalQueue() {
       {/* Stats cards */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
         {/* En attente */}
-        <Card 
-          className={`border-0 bg-gradient-to-br from-yellow-100 to-amber-100 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
+        <Card
+          className={`border-0 bg-gradient-to-br from-yellow-100 to-amber-100 dark:from-yellow-200/80 dark:to-amber-200/80 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
             selectedStatus === "pending_approval" ? "ring-2 ring-yellow-500 ring-offset-2 shadow-md" : "shadow-sm"
           }`}
           onClick={() => filterByStatus("pending_approval")}
         >
           <CardContent className="p-3 flex items-center justify-between">
             <div>
-              <p className="text-xs text-yellow-700 font-medium">
+              <p className="text-xs font-medium" style={{ color: '#92400e' }}>
                 En attente
               </p>
-              <p className="text-xl font-bold text-yellow-800">
+              <p className="text-xl font-bold" style={{ color: '#78350f' }}>
                 {pendingCount}
               </p>
             </div>
-            <Clock className="w-7 h-7 text-yellow-500" />
+            <Clock className="w-7 h-7" style={{ color: '#ca8a04' }} />
           </CardContent>
         </Card>
 
         {/* Approuvées = VERT */}
-        <Card 
-          className={`border-0 bg-gradient-to-br from-green-100 to-emerald-100 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
+        <Card
+          className={`border-0 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-200/80 dark:to-emerald-200/80 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
             selectedStatus === "approved" ? "ring-2 ring-green-500 ring-offset-2 shadow-md" : "shadow-sm"
           }`}
           onClick={() => filterByStatus("approved")}
         >
           <CardContent className="p-3 flex items-center justify-between">
             <div>
-              <p className="text-xs text-green-700 font-medium">
+              <p className="text-xs font-medium" style={{ color: '#166534' }}>
                 Approuvées
               </p>
-              <p className="text-xl font-bold text-green-800">
+              <p className="text-xl font-bold" style={{ color: '#14532d' }}>
                 {approvedCount}
               </p>
             </div>
-            <Check className="w-7 h-7 text-green-500" />
+            <Check className="w-7 h-7" style={{ color: '#16a34a' }} />
           </CardContent>
         </Card>
 
         {/* En cours = ORANGE */}
-        <Card 
-          className={`border-0 bg-gradient-to-br from-orange-100 to-amber-100 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
+        <Card
+          className={`border-0 bg-gradient-to-br from-orange-100 to-amber-100 dark:from-orange-200/80 dark:to-amber-200/80 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
             selectedStatus === "processing_stopped" ? "ring-2 ring-orange-500 ring-offset-2 shadow-md" : "shadow-sm"
           }`}
           onClick={() => filterByStatus("processing_stopped")}
         >
           <CardContent className="p-3 flex items-center justify-between">
             <div>
-              <p className="text-xs text-orange-700 font-medium">
+              <p className="text-xs font-medium" style={{ color: '#9a3412' }}>
                 En cours
               </p>
-              <p className="text-xl font-bold text-orange-800">
+              <p className="text-xl font-bold" style={{ color: '#7c2d12' }}>
                 {processingCount}
               </p>
             </div>
-            <Loader2 className="w-7 h-7 text-orange-500" />
+            <Loader2 className="w-7 h-7" style={{ color: '#ea580c' }} />
           </CardContent>
         </Card>
 
         {/* Terminées = BLEU (cohérent avec campaigns) */}
-        <Card 
-          className={`border-0 bg-gradient-to-br from-blue-100 to-sky-100 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
+        <Card
+          className={`border-0 bg-gradient-to-br from-blue-100 to-sky-100 dark:from-blue-200/80 dark:to-sky-200/80 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
             selectedStatus === "completed" ? "ring-2 ring-blue-500 ring-offset-2 shadow-md" : "shadow-sm"
           }`}
           onClick={() => filterByStatus("completed")}
         >
           <CardContent className="p-3 flex items-center justify-between">
             <div>
-              <p className="text-xs text-blue-700 font-medium">
+              <p className="text-xs font-medium" style={{ color: '#1d4ed8' }}>
                 Terminées
               </p>
-              <p className="text-xl font-bold text-blue-800">
+              <p className="text-xl font-bold" style={{ color: '#1e40af' }}>
                 {completedCount}
               </p>
             </div>
-            <CheckCircle className="w-7 h-7 text-blue-500" />
+            <CheckCircle className="w-7 h-7" style={{ color: '#2563eb' }} />
           </CardContent>
         </Card>
 
         {/* Rejetées / échouées = ROUGE */}
-        <Card 
-          className={`border-0 bg-gradient-to-br from-red-100 to-rose-100 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
+        <Card
+          className={`border-0 bg-gradient-to-br from-red-100 to-rose-100 dark:from-red-200/80 dark:to-rose-200/80 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
             selectedStatus === "rejected_failed" ? "ring-2 ring-red-500 ring-offset-2 shadow-md" : "shadow-sm"
           }`}
           onClick={() => filterByStatus("rejected_failed")}
         >
           <CardContent className="p-3 flex items-center justify-between">
             <div>
-              <p className="text-xs text-red-700 font-medium">
+              <p className="text-xs font-medium" style={{ color: '#991b1b' }}>
                 Rejetées / échouées
               </p>
-              <p className="text-xl font-bold text-red-800">
+              <p className="text-xl font-bold" style={{ color: '#7f1d1d' }}>
                 {rejectedCount}
               </p>
             </div>
-            <X className="w-7 h-7 text-red-500" />
+            <X className="w-7 h-7" style={{ color: '#dc2626' }} />
           </CardContent>
         </Card>
 
         {/* Total = VIOLET */}
-        <Card 
-          className={`border-0 bg-gradient-to-br from-purple-100 to-violet-100 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
+        <Card
+          className={`border-0 bg-gradient-to-br from-purple-100 to-violet-100 dark:from-purple-200/80 dark:to-violet-200/80 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02] rounded-xl ${
             selectedStatus === null ? "ring-2 ring-purple-500 ring-offset-2 shadow-md" : "shadow-sm"
           }`}
           onClick={() => filterByStatus(null)}
         >
           <CardContent className="p-3 flex items-center justify-between">
             <div>
-              <p className="text-xs text-purple-700 font-medium">
+              <p className="text-xs font-medium" style={{ color: '#7e22ce' }}>
                 Total
               </p>
-              <p className="text-xl font-bold text-purple-800">
+              <p className="text-xl font-bold" style={{ color: '#6b21a8' }}>
                 {totalToday}
               </p>
             </div>
-            <AlertCircle className="w-7 h-7 text-purple-500" />
+            <AlertCircle className="w-7 h-7" style={{ color: '#a855f7' }} />
           </CardContent>
         </Card>
       </div>
@@ -702,6 +706,14 @@ export default function ApprovalQueue() {
                           {action.id}
                         </Badge>
                         {getStatusBadge(action.status)}
+                        {user?.role === "admin" && action.owner_name && (
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-600 border-blue-200"
+                          >
+                            {action.owner_name}
+                          </Badge>
+                        )}
                       </div>
 
                       {action.target_name && (

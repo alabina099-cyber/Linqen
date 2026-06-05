@@ -1,0 +1,244 @@
+@startuml
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 180
+
+title DS - Gestion des Prospects CRM (Académique)
+
+actor User
+boundary "ProspectsPipeline" as UI
+control "ProspectsAPI" as API
+control "AuthService" as AUTH
+entity "ProspectValidator" as VALID
+control "ProspectScoreService" as SCORE
+database "PostgreSQL" as DB
+
+' ============================================================
+' 1. CONSULTATION DU PIPELINE
+' ============================================================
+== 1. Consultation du Pipeline ==
+
+autonumber 1
+User -> UI : naviguerVersProspects()
+activate UI
+
+UI -> API : GET /api/prospects?limit=100
+activate API
+
+API -> AUTH : verifyIdentity(request)
+activate AUTH
+AUTH --> API : user { userId, role, adminId }
+deactivate AUTH
+
+API -> AUTH : buildScopeClause(user)
+activate AUTH
+AUTH --> API : scopeFilter
+note right of AUTH
+  admin: (user_id = ANY($1) OR user_id IS NULL)
+  user: user_id = $1
+end note
+deactivate AUTH
+
+API -> DB : queryProspects(scopeFilter, [filters])
+activate DB
+DB --> API : prospects[] + message_count + last_contact
+DB --> API : totalCount
+deactivate DB
+
+API --> UI : 200 { prospects[], pagination }
+deactivate API
+
+UI -> UI : organizePipeline(prospects)
+note right of UI
+  6 stages: Identifiés → Convertis
+  tri par score DESC
+end note
+UI --> User : afficherPipeline(stages)
+
+deactivate UI
+
+' ============================================================
+' 2. CRÉATION MANUELLE
+' ============================================================
+== 2. Création Manuelle d'un Prospect ==
+
+autonumber 20
+User -> UI : cliquerAjouter(stageId)
+activate UI
+UI --> User : afficherModalFormulaire()
+
+User -> UI : remplirFormulaire(data)
+UI -> UI : validateClientSide(data)
+alt données invalides
+  UI --> User : afficherErreurValidation()
+else données valides
+  UI -> API : POST /api/prospects(data)
+  activate API
+
+  API -> AUTH : verifyIdentity(request)
+  activate AUTH
+  AUTH --> API : user
+  deactivate AUTH
+
+  API -> VALID : validate(prospectSchema, data)
+  activate VALID
+  VALID --> API : validatedData
+  deactivate VALID
+
+  alt schema invalide
+    API --> UI : 400 Bad Request
+    UI --> User : afficherErreurServeur()
+  else schema valide
+    API -> SCORE : calculateScore(validatedData)
+    activate SCORE
+    SCORE --> API : score (0-100)
+    deactivate SCORE
+
+    API -> DB : INSERT prospects(data, score, userId)
+    activate DB
+    DB --> API : newProspect
+    deactivate DB
+
+    API --> UI : 201 Created { prospect }
+    deactivate API
+
+    UI -> UI : addToPipeline(prospect)
+    UI --> User : confirmerCreation()
+  end
+end
+deactivate UI
+
+' ============================================================
+' 3. CONSULTATION DÉTAIL
+' ============================================================
+== 3. Consultation du Détail d'un Prospect ==
+
+autonumber 40
+User -> UI : sélectionnerProspect(id)
+activate UI
+
+UI -> API : GET /api/prospects/{id}
+activate API
+
+API -> AUTH : assertAccess(request, id)
+activate AUTH
+AUTH -> DB : SELECT user_id FROM prospects WHERE id = $1
+activate DB
+DB --> AUTH : ownerId
+deactivate DB
+AUTH -> AUTH : checkScope(user, ownerId)
+alt accès refusé
+  AUTH --> API : 403 Forbidden
+  API --> UI : 403 { error: "Accès refusé" }
+  UI --> User : afficherErreurAccès()
+else accès autorisé
+  AUTH --> API : accessGranted
+  deactivate AUTH
+
+  API -> DB : getProspectWithMessages(id)
+  activate DB
+  DB --> API : prospect + messages[]
+  deactivate DB
+
+  API --> UI : 200 { prospect, messages }
+  deactivate API
+  UI --> User : afficherProfil(prospect, messages)
+end
+deactivate UI
+
+' ============================================================
+' 4. MISE À JOUR STATUT (DRAG & DROP)
+' ============================================================
+== 4. Mise à Jour de Statut (Drag & Drop) ==
+
+autonumber 60
+User -> UI : dragAndDrop(prospect, stageCible)
+activate UI
+
+UI -> UI : optimisticUpdate(prospect, stageCible)
+note right of UI
+  allProspects.map() → setAllProspects()
+  → organizeProspects()
+end note
+UI --> User : déplacementVisuelInstantané()
+
+UI -> API : PATCH /api/prospects/{id} { status }
+activate API
+
+API -> AUTH : assertAccess(request, id)
+activate AUTH
+AUTH --> API : accessGranted
+deactivate AUTH
+
+API -> VALID : validate(prospectUpdateSchema, status)
+activate VALID
+VALID --> API : validatedStatus
+deactivate VALID
+
+API -> DB : UPDATE prospects SET status = $1 WHERE id = $2
+activate DB
+DB --> API : updatedProspect
+deactivate DB
+
+alt mise à jour réussie
+  API --> UI : 200 OK { prospect }
+  deactivate API
+  UI --> User : confirmerNouveauStatut()
+else erreur API
+  API --> UI : 4xx/5xx Error
+  deactivate API
+  UI -> UI : revertOptimisticUpdate()
+  UI -> API : GET /api/prospects
+  API --> UI : prospects[] (état réel)
+  UI -> UI : restorePipeline(data)
+  UI --> User : restaurerÉtatInitial()
+end
+deactivate UI
+
+' ============================================================
+' 5. SUPPRESSION
+' ============================================================
+== 5. Suppression d'un Prospect ==
+
+autonumber 80
+User -> UI : survolerCarte(prospect)
+activate UI
+UI --> User : afficherActionsRapides()
+
+User -> UI : cliquerCorbeille(id)
+UI -> UI : showConfirmModal(name)
+UI --> User : modalConfirmation()
+
+alt annuler
+  User -> UI : cliquerAnnuler()
+  UI --> User : fermerModal()
+else confirmer
+  User -> UI : cliquerConfirmer()
+  UI -> API : DELETE /api/prospects/{id}
+  activate API
+
+  API -> AUTH : assertAccess(request, id)
+  activate AUTH
+  AUTH --> API : accessGranted
+  deactivate AUTH
+
+  API -> DB : DELETE FROM messages WHERE prospect_id = $1
+  activate DB
+  DB --> API : messagesSupprimés
+  deactivate DB
+
+  API -> DB : DELETE FROM prospects WHERE id = $1
+  activate DB
+  DB --> API : prospectSupprimé
+  deactivate DB
+
+  API --> UI : 200 OK { deleted: true }
+  deactivate API
+
+  UI -> UI : removeFromPipeline(id)
+  UI --> User : confirmerSuppression()
+end
+deactivate UI
+
+@enduml
