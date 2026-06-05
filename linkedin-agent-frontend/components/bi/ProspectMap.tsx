@@ -13,7 +13,7 @@ import { MapPin, Globe, Target, BarChartHorizontal, LayoutGrid, Download } from 
 import { BIRange, downloadCSV } from "./biTypes";
 
 interface GeoRow { location: string; total: number; converted: number; avgScore: number; conversionRate: number; }
-interface IndRow { name: string; size: number; avgScore: number; converted: number; }
+interface IndRow { name: string; size: number; avgScore: number; converted: number; [key: string]: any; }
 interface ScoreBucket { bucket: string; count: number; converted: number; }
 interface ICPRow { id: number; name: string; company: string; score: number; engagement: number; status: string; }
 
