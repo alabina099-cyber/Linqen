@@ -20,7 +20,7 @@ export default function BIShell() {
   const [range, setRange] = useState<BIRange>(30);
   const [now, setNow] = useState<Date | null>(null);
 
-  useEffect(() => { setNow(new Date()); }, []);
+  useEffect(() => { queueMicrotask(() => setNow(new Date())); }, []);
 
   const handlePrint = () => window.print();
 

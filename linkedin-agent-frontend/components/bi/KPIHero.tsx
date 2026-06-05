@@ -48,7 +48,7 @@ export default function KPIHero({ range }: KPIHeroProps) {
 
   useEffect(() => {
     let cancel = false;
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
     fetch(`/api/bi/kpi?range=${range}`)
       .then(r => r.json())
       .then(j => {

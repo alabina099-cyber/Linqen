@@ -33,7 +33,7 @@ export default function AgentAnalytics({ range }: { range: BIRange }) {
 
   useEffect(() => {
     let cancel = false;
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
     fetch(`/api/bi/agent?range=${range}`)
       .then(r => r.json())
       .then(j => {

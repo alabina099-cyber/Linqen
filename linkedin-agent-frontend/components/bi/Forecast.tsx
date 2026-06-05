@@ -42,7 +42,7 @@ export default function Forecast({ range }: { range: BIRange }) {
 
   useEffect(() => {
     let cancel = false;
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
     fetch(`/api/bi/forecast?range=${range}&horizon=30`)
       .then(r => r.json())
       .then(j => {

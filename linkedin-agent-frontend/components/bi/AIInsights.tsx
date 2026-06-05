@@ -22,7 +22,7 @@ export default function AIInsights({ range }: { range: BIRange }) {
 
   useEffect(() => {
     let cancel = false;
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
     Promise.all([
       fetch(`/api/bi/kpi?range=${range}`).then(r => r.json()).catch(() => null),
       fetch(`/api/bi/conversion?range=${range}`).then(r => r.json()).catch(() => null),

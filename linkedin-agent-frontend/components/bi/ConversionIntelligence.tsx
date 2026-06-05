@@ -78,7 +78,7 @@ export default function ConversionIntelligence({ range }: { range: BIRange }) {
 
   useEffect(() => {
     let cancel = false;
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
     fetch(`/api/bi/conversion?range=${range}`)
       .then(r => r.json())
       .then(j => {

@@ -33,12 +33,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   // Load from localStorage on mount
   useEffect(() => {
-    setMounted(true);
+    queueMicrotask(() => setMounted(true));
     try {
       const saved = localStorage.getItem("app-settings");
       if (saved) {
         const parsed = JSON.parse(saved);
-        setSettings({ ...defaultSettings, ...parsed });
+        queueMicrotask(() => setSettings({ ...defaultSettings, ...parsed }));
       }
     } catch {
       // ignore

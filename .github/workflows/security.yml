@@ -85,6 +85,8 @@ jobs:
   codeql:
     name: CodeQL Static Analysis
     runs-on: ubuntu-latest
+    # Temporaire : le repo n'a pas Code Scanning activé dans Settings > Security
+    continue-on-error: true
     permissions:
       security-events: write
       actions: read
