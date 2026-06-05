@@ -88,7 +88,7 @@ RAPPEL CRITIQUE:
 
       // Boucle multi-tool: le LLM peut appeler des tools, recevoir les résultats,
       // puis décider d'appeler d'autres tools — jusqu'à ce qu'il donne une réponse finale
-      let currentMessages = [...messages];
+      const currentMessages = [...messages];
       let finalOutput = "";
 
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {

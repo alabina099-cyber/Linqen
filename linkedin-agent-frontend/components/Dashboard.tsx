@@ -37,12 +37,14 @@ export default function Dashboard() {
     if (!initialized.current) {
       initialized.current = true;
       const hash = window.location.hash.replace("#", "");
-      if (hash && validTabs.includes(hash)) {
-        setActiveTab(hash);
-      } else {
-        // Admin → dashboard BI, User → chat agent
-        setActiveTab(user.role === "admin" ? "dashboard" : "agent");
-      }
+      queueMicrotask(() => {
+        if (hash && validTabs.includes(hash)) {
+          setActiveTab(hash);
+        } else {
+          // Admin → dashboard BI, User → chat agent
+          setActiveTab(user.role === "admin" ? "dashboard" : "agent");
+        }
+      });
     }
 
     const onHashChange = () => {

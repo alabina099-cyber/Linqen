@@ -222,7 +222,7 @@ export default function Campaigns() {
       const data = await response.json();
       if (data.success) {
         // Mapper les données API au format Campaign
-        const mappedCampaigns: Campaign[] = data.campaigns.map((c: any) => ({
+        const mappedCampaigns: Campaign[] = data.campaigns.map((c: Record<string, string | number | undefined>) => ({
           id: c.id,
           name: c.name,
           status: c.status,
@@ -1150,7 +1150,7 @@ export default function Campaigns() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Taille d'entreprise</label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Taille d&apos;entreprise</label>
                         <Dropdown
                           ariaLabel="Taille d'entreprise"
                           leftIcon={Users}

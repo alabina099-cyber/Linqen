@@ -798,13 +798,13 @@ export default function ApprovalQueue() {
               </h4>
               <p className="text-sm text-blue-800 mt-1 space-y-1">
                 <span className="block">
-                  1. L'agent crée une action (recherche, connexion, message) qui apparaît ici en attente d'approbation.
+                  1. L&apos;agent crée une action (recherche, connexion, message) qui apparaît ici en attente d&apos;approbation.
                 </span>
                 <span className="block">
-                  2. Vous pouvez approuver ou rejeter chaque action, ainsi que la réessayer ou l'arrêter.
+                  2. Vous pouvez approuver ou rejeter chaque action, ainsi que la réessayer ou l&apos;arrêter.
                 </span>
                 <span className="block">
-                  3. Les actions approuvées sont exécutées automatiquement par l'extension Chrome, puis passent au statut « terminées ».
+                  3. Les actions approuvées sont exécutées automatiquement par l&apos;extension Chrome, puis passent au statut « terminées ».
                 </span>
               </p>
             </div>
