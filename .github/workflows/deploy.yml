@@ -1,4 +1,4 @@
-name: Deploy - Build & Push Docker Image
+name: Deploy - Build, Push & Scan Docker Image
 
 on:
   push:
@@ -23,6 +23,7 @@ jobs:
       packages: write
     outputs:
       image-tag: ${{ steps.meta.outputs.version }}
+      image-digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -48,6 +49,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -62,20 +64,66 @@ jobs:
         run: |
           echo "## ✅ Docker Image Published" >> $GITHUB_STEP_SUMMARY
           echo "**Tags:** \`${{ steps.meta.outputs.tags }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Digest:** \`${{ steps.build.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+
+  security-scan:
+    name: Scan Image with Trivy
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull image for scanning
+        run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
+      - name: Fail on critical vulnerabilities
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+          exit-code: 1
+          severity: CRITICAL
 
   deploy:
     name: Deploy to Coolify
     runs-on: ubuntu-latest
-    needs: build-and-push
-    # Ne se déclenche que si les secrets de déploiement sont configurés
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    needs: [build-and-push, security-scan]
     steps:
       - name: Trigger Coolify deployment
-        if: ${{ secrets.COOLIFY_WEBHOOK_URL != '' }}
+        env:
+          WEBHOOK_URL: ${{ secrets.COOLIFY_WEBHOOK_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
-          curl -X POST "${{ secrets.COOLIFY_WEBHOOK_URL }}" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "⚠️ COOLIFY_WEBHOOK_URL non configuré — déploiement manuel nécessaire"
+            exit 0
+          fi
+          curl -X POST "$WEBHOOK_URL" \
+            -H "Authorization: Bearer $COOLIFY_TOKEN" \
             -H "Content-Type: application/json"
+          echo "✅ Webhook Coolify déclenché"
 
       - name: Deployment summary
         run: |

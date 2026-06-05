@@ -1,0 +1,65 @@
+name: CI - Chrome Extension Check
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'linkedin-chrome-extension/**'
+      - '.github/workflows/chrome-extension-ci.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'linkedin-chrome-extension/**'
+
+jobs:
+  validate:
+    name: Validate Extension
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: linkedin-chrome-extension
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate manifest.json syntax
+        run: |
+          python3 -c "import json; json.load(open('manifest.json'))"
+          echo "✅ manifest.json is valid JSON"
+
+      - name: Check referenced files exist
+        run: |
+          errors=0
+          for file in $(python3 -c "
+          import json
+          m = json.load(open('manifest.json'))
+          files = []
+          # Background service worker
+          if 'background' in m and 'service_worker' in m['background']:
+            files.append(m['background']['service_worker'])
+          # Content scripts
+          for cs in m.get('content_scripts', []):
+            files.extend(cs.get('js', []))
+            files.extend(cs.get('css', []))
+          # Action popup
+          if 'action' in m and 'default_popup' in m['action']:
+            files.append(m['action']['default_popup'])
+          # Icons
+          for size, path in m.get('icons', {}).items():
+            files.append(path)
+          # Action default_icon
+          if 'action' in m and 'default_icon' in m['action']:
+            for size, path in m['action']['default_icon'].items():
+              files.append(path)
+          for f in files:
+            print(f)
+          "); do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing file: $file"
+              errors=$((errors + 1))
+            fi
+          done
+          if [ $errors -gt 0 ]; then
+            exit 1
+          fi
+          echo "✅ All referenced files exist"

@@ -1,0 +1,36 @@
+name: CI - Worker Build & Lint
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'linkedin-agent-worker/**'
+      - '.github/workflows/worker-ci.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'linkedin-agent-worker/**'
+
+jobs:
+  build:
+    name: Build Worker
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: linkedin-agent-worker
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: linkedin-agent-worker/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript compile
+        run: npm run build
