@@ -34,7 +34,7 @@ interface TeamMember {
   created_at: string;
 }
 
-const authHeaders = () => {
+const authHeaders = (): Record<string, string> => {
   const token = localStorage.getItem("auth_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
