@@ -83,28 +83,35 @@ jobs:
         if: always()
         run: kill $(cat app.pid) || true
 
-  codeql:
-    name: CodeQL Static Analysis
+  static-analysis:
+    name: Static Analysis (Trivy + Semgrep)
     runs-on: ubuntu-latest
-    # Temporaire : le repo n'a pas Code Scanning activé dans Settings > Security
-    continue-on-error: true
     permissions:
-      security-events: write
-      actions: read
       contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+      - name: Trivy - Scan filesystem (secrets + vulnérabilités)
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
-          languages: javascript-typescript
+          scan-type: fs
+          scan-ref: .
+          format: table
+          exit-code: '0'
+          severity: CRITICAL,HIGH
+          scanners: vuln,secret,misconfig
 
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+      - name: Semgrep - Analyse statique de sécurité
+        uses: semgrep/semgrep-action@v1
         with:
-          category: "/language:javascript-typescript"
+          config: >-
+            p/javascript
+            p/typescript
+            p/react
+            p/nodejs
+            p/owasp-top-ten
+        continue-on-error: true
 
   secrets-scan:
     name: Detect Leaked Secrets
