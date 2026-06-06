@@ -1,0 +1,84 @@
+﻿
+> linkedin-agent-frontend@0.1.0 build
+> next build
+
+node.exe : ÔÜá Warning: Next.js inferred your workspace root, but it may not be correct.
+Au caractère Ligne:1 : 1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (ÔÜá Warning: Ne...not be correct.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+ We detected multiple lockfiles and selected the directory of C:\Users\OrdiOne\pnpm-lock.yaml as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * C:\Users\OrdiOne\Desktop\LinkedInProject\linkedin-agent-frontend\package-lock.json
+
+Ôû▓ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+ÔÜá The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+Ô£ô Compiled successfully in 29.0s
+  Running TypeScript ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/42) ...
+  Generating static pages using 7 workers (10/42) 
+  Generating static pages using 7 workers (20/42) 
+  Generating static pages using 7 workers (31/42) 
+Ô£ô Generating static pages using 7 workers (42/42) in 1439.6ms
+  Finalizing page optimization ...
+
+Route (app)
+Ôöî Ôùï /
+Ôö£ Ôùï /_not-found
+Ôö£ ãÆ /api/agent-config
+Ôö£ ãÆ /api/agent/activity
+Ôö£ ãÆ /api/agent/chat
+Ôö£ ãÆ /api/auth/login
+Ôö£ ãÆ /api/auth/me
+Ôö£ ãÆ /api/auto-reply
+Ôö£ ãÆ /api/bi/agent
+Ôö£ ãÆ /api/bi/conversion
+Ôö£ ãÆ /api/bi/forecast
+Ôö£ ãÆ /api/bi/geo
+Ôö£ ãÆ /api/bi/kpi
+Ôö£ ãÆ /api/bi/templates
+Ôö£ ãÆ /api/campaigns
+Ôö£ ãÆ /api/campaigns/[id]
+Ôö£ ãÆ /api/campaigns/[id]/check-followups
+Ôö£ ãÆ /api/campaigns/[id]/execute
+Ôö£ ãÆ /api/campaigns/update-stats
+Ôö£ ãÆ /api/db-columns
+Ôö£ ãÆ /api/debug/actions
+Ôö£ ãÆ /api/followups/execute
+Ôö£ ãÆ /api/health
+Ôö£ ãÆ /api/linkedin-actions
+Ôö£ ãÆ /api/linkedin-actions/approval
+Ôö£ ãÆ /api/linkedin-actions/auto-approve
+Ôö£ ãÆ /api/linkedin-auth
+Ôö£ ãÆ /api/messages
+Ôö£ ãÆ /api/migrate
+Ôö£ ãÆ /api/monitoring
+Ôö£ ãÆ /api/notifications
+Ôö£ ãÆ /api/performance
+Ôö£ ãÆ /api/prospects
+Ôö£ ãÆ /api/prospects/[id]
+Ôö£ ãÆ /api/prospects/bulk
+Ôö£ ãÆ /api/prospects/recalculate-scores
+Ôö£ ãÆ /api/prospects/update-status
+Ôö£ ãÆ /api/settings/agent
+Ôö£ ãÆ /api/stats
+Ôö£ ãÆ /api/templates
+Ôö£ ãÆ /api/test-db
+Ôö£ ãÆ /api/users/me
+Ôö£ ãÆ /api/users/team
+Ôöö Ôùï /login
+
+
+ãÆ Proxy (Middleware)
+
+Ôùï  (Static)   prerendered as static content
+ãÆ  (Dynamic)  server-rendered on demand
+
