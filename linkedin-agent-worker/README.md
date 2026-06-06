@@ -74,3 +74,4 @@ Chaque worker récupère les actions via `FOR UPDATE SKIP LOCKED` : aucun confli
 
 <!-- 2026-06-06 07:04 -->
 
+
