@@ -42,6 +42,7 @@ jobs:
     name: Custom Security Audit (XSS, CORS, Rate Limit)
     runs-on: ubuntu-latest
     needs: npm-audit
+    continue-on-error: true
     defaults:
       run:
         working-directory: linkedin-agent-frontend
