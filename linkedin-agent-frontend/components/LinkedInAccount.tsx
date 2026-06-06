@@ -16,7 +16,6 @@ import {
   EyeOff,
   Copy,
   Check,
-  Linkedin,
   User,
   Mail,
   Calendar,
@@ -201,7 +200,7 @@ export default function LinkedInAccount() {
             {/* Status Icon — aligned with title */}
             <div className="flex items-center justify-center mt-0.5">
               {status?.connected
-                ? <Linkedin className="w-5 h-5 text-blue-600" strokeWidth={1.5} />
+                ? <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
                 : <WifiOff className="w-5 h-5 text-gray-400" strokeWidth={1.5} />
               }
             </div>
@@ -549,7 +548,7 @@ export default function LinkedInAccount() {
               {status?.connected && (status.name || status.email) && (
                 <div className="mt-5 p-3 bg-gray-50 border border-gray-100 rounded-xl flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                    <Linkedin className="w-4 h-4 text-blue-600" />
+                    <svg className="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
                   </div>
                   <div className="min-w-0 flex-1">
                     {status.name && <div className="text-sm font-semibold text-gray-900 truncate">{status.name}</div>}

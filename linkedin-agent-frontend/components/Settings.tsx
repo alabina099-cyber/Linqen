@@ -15,7 +15,6 @@ import { Dropdown } from "./ui/dropdown";
 import LinkedInAccount from "./LinkedInAccount";
 import {
   User,
-  Linkedin,
   Bell,
   Shield,
   Target,
