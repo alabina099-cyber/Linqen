@@ -1,4 +1,4 @@
-# run: final-verification
+# run: final-verification-v2
 name: Lighthouse CI (Performance)
 
 on:

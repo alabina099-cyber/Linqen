@@ -1,4 +1,4 @@
-# run: final-verification
+# run: final-verification-v2
 name: Deploy - Build, Push & Scan Docker Image
 
 on:
