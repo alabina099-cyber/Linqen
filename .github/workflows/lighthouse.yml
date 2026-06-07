@@ -1,0 +1,54 @@
+name: Lighthouse CI (Performance)
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'linkedin-agent-frontend/**'
+      - '.github/workflows/lighthouse.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'linkedin-agent-frontend/**'
+  workflow_dispatch:
+
+jobs:
+  lighthouse:
+    name: Lighthouse Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: linkedin-agent-frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: linkedin-agent-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js app
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://dummy:dummy@localhost:5432/dummy' }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'sk-dummy' }}
+          NEXT_TELEMETRY_DISABLED: 1
+        run: npm run build
+
+      - name: Run Lighthouse CI
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://dummy:dummy@localhost:5432/dummy' }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'sk-dummy' }}
+        run: npm run lighthouse
+        continue-on-error: true
+
+      - name: Lighthouse summary
+        if: always()
+        run: |
+          echo "## Lighthouse CI Audit terminé" >> $GITHUB_STEP_SUMMARY
+          echo "Rapport disponible via le lien temporary-public-storage dans les logs ci-dessus." >> $GITHUB_STEP_SUMMARY

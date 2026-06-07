@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DevOps Toolchain — LinkedIn Agent</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'Segoe UI', Arial, sans-serif;
+    background:#f8f9fa;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:100vh;
+    padding:40px;
+  }
+  .wrap {
+    background:white;
+    border-radius:14px;
+    padding:36px 44px;
+    box-shadow:0 4px 20px rgba(0,0,0,0.08);
+    max-width:950px;
+    width:100%;
+  }
+  h2 {
+    text-align:center;
+    font-size:18px;
+    color:#1a1a2e;
+    margin-bottom:28px;
+    font-weight:700;
+    letter-spacing:0.3px;
+  }
+  table {
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+  }
+  thead th {
+    background:#1a1a2e;
+    color:#fff;
+    padding:12px 16px;
+    text-align:left;
+    font-weight:600;
+    font-size:12.5px;
+    letter-spacing:0.4px;
+  }
+  thead th:first-child { border-radius:8px 0 0 0; }
+  thead th:last-child  { border-radius:0 8px 0 0; }
+  tbody td {
+    padding:11px 16px;
+    border-bottom:1px solid #e9ecef;
+    color:#37474f;
+    vertical-align:middle;
+  }
+  tbody tr:last-child td { border-bottom:none; }
+  tbody tr:last-child td:first-child { border-radius:0 0 0 8px; }
+  tbody tr:last-child td:last-child  { border-radius:0 0 8px 0; }
+  tbody tr:nth-child(even) { background:#f8f9fa; }
+  .cat-ci       { color:#2e7d32; font-weight:700; }
+  .cat-security { color:#e65100; font-weight:700; }
+  .cat-infra    { color:#1565c0; font-weight:700; }
+  .cat-deploy   { color:#6a1b9a; font-weight:700; }
+  .cat-cron     { color:#00695c; font-weight:700; }
+  .badge {
+    display:inline-block;
+    font-size:10px;
+    font-weight:700;
+    padding:2px 8px;
+    border-radius:12px;
+    margin-left:6px;
+    vertical-align:middle;
+  }
+  .badge-removed { background:#ffebee; color:#c62828; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>DevOps Toolchain — LinkedIn Agent</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:22%">Category</th>
+        <th style="width:32%">Tool Used</th>
+        <th style="width:46%">Justification</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="cat-ci">CI - Lint</td>
+        <td>ESLint</td>
+        <td>JS/TS standard enforcement</td>
+      </tr>
+      <tr>
+        <td class="cat-ci">CI - Types</td>
+        <td>TypeScript Compiler (<code>tsc --noEmit</code>)</td>
+        <td>Type safety at build time</td>
+      </tr>
+      <tr>
+        <td class="cat-ci">CI - Build</td>
+        <td>Next.js Build</td>
+        <td>Production validation before deploy</td>
+      </tr>
+      <tr>
+        <td class="cat-ci">CI - Worker</td>
+        <td>TypeScript Compile</td>
+        <td>Worker TypeScript build validation</td>
+      </tr>
+      <tr>
+        <td class="cat-ci">CI - Extension</td>
+        <td>Chrome Extension Validation</td>
+        <td>Manifest &amp; extension integrity check</td>
+      </tr>
+      <tr>
+        <td class="cat-security">Security - Deps (SCA)</td>
+        <td>npm audit</td>
+        <td>Detect vulnerable dependencies</td>
+      </tr>
+      <tr>
+        <td class="cat-security">Security - SAST</td>
+        <td>Semgrep (OWASP Top 10)</td>
+        <td>Free static analysis for JS/TS/Node.js</td>
+      </tr>
+      <tr>
+        <td class="cat-security">Security - Files</td>
+        <td>Trivy FS Scan</td>
+        <td>Vulnerabilities + secrets + misconfig</td>
+      </tr>
+      <tr>
+        <td class="cat-security">Security - Secrets</td>
+        <td>Gitleaks</td>
+        <td>Detect leaked API keys &amp; tokens</td>
+      </tr>
+      <tr>
+        <td class="cat-infra">Containerization</td>
+        <td>Docker (multi-stage Dockerfile)</td>
+        <td>Industry standard + standalone output</td>
+      </tr>
+      <tr>
+        <td class="cat-infra">Registry</td>
+        <td>GitHub Container Registry (GHCR)</td>
+        <td>Native integration + free for public repos</td>
+      </tr>
+      <tr>
+        <td class="cat-deploy">Deployment</td>
+        <td>Coolify (webhook trigger)</td>
+        <td>Open-source self-hosted PaaS</td>
+      </tr>
+      <tr>
+        <td class="cat-deploy">Monitoring</td>
+        <td>Custom <code>/api/health</code> endpoint</td>
+        <td>Real-time DB + memory + uptime status</td>
+      </tr>
+      <tr>
+        <td class="cat-cron">Backup</td>
+        <td>GitHub Actions CRON</td>
+        <td>Daily PostgreSQL dump (2h UTC) + 30d retention</td>
+      </tr>
+      <tr>
+        <td class="cat-cron">Dependency Mgmt</td>
+        <td>Dependabot (npm + Actions + Docker)</td>
+        <td>Weekly grouped PRs for automated updates</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+</body>
+</html>

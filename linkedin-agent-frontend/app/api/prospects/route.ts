@@ -3,10 +3,7 @@ import { query } from "@/lib/db";
 import { z } from "zod";
 import { calculateProspectScore } from "@/lib/prospectScore";
 import { ensureOwnershipColumns, getRequestUser, buildScopeClause } from "@/lib/requestAuth";
-
-// Regex pour rejeter les tentatives d'injection HTML / XSS
-const SAFE_TEXT = /^[^<>]*$/;
-const LINKEDIN_URL_REGEX = /^https?:\/\/(www\.)?linkedin\.com\/[a-zA-Z0-9\-_/?&=%.]+$/i;
+import { SAFE_TEXT, LINKEDIN_URL_REGEX } from "@/lib/validators";
 
 // Schema validation — anti XSS/injection
 const prospectSchema = z.object({

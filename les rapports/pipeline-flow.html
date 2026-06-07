@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Pipeline DevSecOps - LinkedIn Agent</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'Segoe UI', Arial, sans-serif;
+    background:#ffffff;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:100vh;
+    padding:20px;
+  }
+  .wrap { width:1180px; }
+  h2 { text-align:center; font-size:18px; color:#1a1a2e; margin-bottom:30px; font-weight:700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<h2>Pipeline DevSecOps CI/CD — LinkedIn Agent</h2>
+<svg viewBox="0 0 1180 360" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#b0b8c1"/>
+    </marker>
+  </defs>
+
+  <!-- ============ CONNECTING LINES ============ -->
+  <!-- main horizontal line through nodes -->
+  <g stroke="#b0b8c1" stroke-width="2" fill="none">
+    <!-- Push -> Lint -->
+    <line x1="95"  y1="180" x2="150" y2="180" marker-end="url(#arrow)"/>
+    <!-- Lint -> Build -->
+    <line x1="230" y1="180" x2="285" y2="180" marker-end="url(#arrow)"/>
+    <!-- Build -> branch fork point -->
+    <line x1="365" y1="180" x2="410" y2="180"/>
+    <!-- fork to 3 scans -->
+    <path d="M410,180 C440,180 440,80 470,80" marker-end="url(#arrow)"/>
+    <path d="M410,180 L470,180" marker-end="url(#arrow)"/>
+    <path d="M410,180 C440,180 440,280 470,280" marker-end="url(#arrow)"/>
+    <!-- merge from 3 scans -->
+    <path d="M550,80  C580,80  580,180 610,180"/>
+    <path d="M550,180 L610,180"/>
+    <path d="M550,280 C580,280 580,180 610,180"/>
+    <!-- merge -> Gitleaks -->
+    <line x1="610" y1="180" x2="635" y2="180" marker-end="url(#arrow)"/>
+    <!-- Gitleaks -> GHCR -->
+    <line x1="715" y1="180" x2="770" y2="180" marker-end="url(#arrow)"/>
+    <!-- GHCR -> Coolify -->
+    <line x1="850" y1="180" x2="905" y2="180" marker-end="url(#arrow)"/>
+    <!-- Coolify -> Health -->
+    <line x1="985" y1="180" x2="1040" y2="180" marker-end="url(#arrow)"/>
+    <!-- Coolify -> Success (up) -->
+    <path d="M945,140 C945,90 1090,110 1095,70" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- ============ NODES ============ -->
+  <!-- 1. Code Push -->
+  <g>
+    <circle cx="55" cy="180" r="34" fill="#e3f0ff" stroke="#1565c0" stroke-width="2.5"/>
+    <text x="55" y="186" font-size="24" text-anchor="middle">📝</text>
+    <text x="55" y="240" font-size="11.5" font-weight="700" text-anchor="middle" fill="#37474f">Code Push</text>
+    <text x="55" y="255" font-size="9.5" text-anchor="middle" fill="#90a4ae">branch: main</text>
+  </g>
+
+  <!-- 2. Lint + TypeCheck -->
+  <g>
+    <rect x="150" y="150" width="80" height="60" rx="12" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2.5"/>
+    <text x="190" y="178" font-size="20" text-anchor="middle">🔍</text>
+    <text x="190" y="200" font-size="10" font-weight="700" text-anchor="middle" fill="#2e7d32">Lint + TS</text>
+    <text x="190" y="240" font-size="11.5" font-weight="700" text-anchor="middle" fill="#37474f">ESLint + tsc</text>
+    <text x="190" y="255" font-size="9.5" text-anchor="middle" fill="#90a4ae">ci.yml</text>
+  </g>
+
+  <!-- 3. Build -->
+  <g>
+    <rect x="285" y="150" width="80" height="60" rx="12" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2.5"/>
+    <text x="325" y="178" font-size="20" text-anchor="middle">🏗️</text>
+    <text x="325" y="200" font-size="10" font-weight="700" text-anchor="middle" fill="#2e7d32">Build</text>
+    <text x="325" y="240" font-size="11.5" font-weight="700" text-anchor="middle" fill="#37474f">Next.js Build</text>
+    <text x="325" y="255" font-size="9.5" text-anchor="middle" fill="#90a4ae">npm run build</text>
+  </g>
+
+  <!-- 4a. SCA Scan (top) -->
+  <g>
+    <rect x="470" y="52" width="80" height="56" rx="12" fill="#fff3e0" stroke="#e65100" stroke-width="2.5"/>
+    <text x="510" y="78" font-size="18" text-anchor="middle">📦</text>
+    <text x="510" y="98" font-size="10" font-weight="700" text-anchor="middle" fill="#e65100">NPM Audit</text>
+    <text x="510" y="40" font-size="10" font-weight="700" text-anchor="middle" fill="#90a4ae">SCA Scan</text>
+  </g>
+
+  <!-- 4b. SAST Scan (middle) -->
+  <g>
+    <rect x="470" y="152" width="80" height="56" rx="12" fill="#fff3e0" stroke="#e65100" stroke-width="2.5"/>
+    <text x="510" y="178" font-size="18" text-anchor="middle">🔬</text>
+    <text x="510" y="198" font-size="10" font-weight="700" text-anchor="middle" fill="#e65100">Semgrep</text>
+    <text x="510" y="228" font-size="10" font-weight="700" text-anchor="middle" fill="#90a4ae">SAST Scan</text>
+  </g>
+
+  <!-- 4c. Container Scan (bottom) -->
+  <g>
+    <rect x="470" y="252" width="80" height="56" rx="12" fill="#fff3e0" stroke="#e65100" stroke-width="2.5"/>
+    <text x="510" y="278" font-size="18" text-anchor="middle">🐳</text>
+    <text x="510" y="298" font-size="10" font-weight="700" text-anchor="middle" fill="#e65100">Trivy FS</text>
+    <text x="510" y="328" font-size="10" font-weight="700" text-anchor="middle" fill="#90a4ae">Filesystem Scan</text>
+  </g>
+
+  <!-- 5. Gitleaks (Quality/Secret gate) -->
+  <g>
+    <rect x="635" y="150" width="80" height="60" rx="12" fill="#fff3e0" stroke="#e65100" stroke-width="2.5"/>
+    <text x="675" y="178" font-size="20" text-anchor="middle">🔑</text>
+    <text x="675" y="200" font-size="10" font-weight="700" text-anchor="middle" fill="#e65100">Gitleaks</text>
+    <text x="675" y="240" font-size="11.5" font-weight="700" text-anchor="middle" fill="#37474f">Secrets Scan</text>
+    <text x="675" y="255" font-size="9.5" text-anchor="middle" fill="#90a4ae">security.yml</text>
+  </g>
+
+  <!-- 6. Build & Push GHCR -->
+  <g>
+    <rect x="770" y="150" width="80" height="60" rx="12" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="2.5"/>
+    <text x="810" y="178" font-size="20" text-anchor="middle">📦</text>
+    <text x="810" y="200" font-size="9.5" font-weight="700" text-anchor="middle" fill="#6a1b9a">Push GHCR</text>
+    <text x="810" y="240" font-size="11" font-weight="700" text-anchor="middle" fill="#37474f">Docker Image</text>
+    <text x="810" y="255" font-size="9.5" text-anchor="middle" fill="#90a4ae">ghcr.io</text>
+  </g>
+
+  <!-- 7. Deploy Coolify -->
+  <g>
+    <circle cx="945" cy="180" r="34" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="2.5"/>
+    <text x="945" y="186" font-size="22" text-anchor="middle">🚀</text>
+    <text x="945" y="240" font-size="11.5" font-weight="700" text-anchor="middle" fill="#37474f">Deploy Coolify</text>
+    <text x="945" y="255" font-size="9.5" text-anchor="middle" fill="#90a4ae">Webhook</text>
+  </g>
+
+  <!-- 8. Health Check -->
+  <g>
+    <circle cx="1075" cy="180" r="34" fill="#e0f7fa" stroke="#00695c" stroke-width="2.5"/>
+    <text x="1075" y="186" font-size="22" text-anchor="middle">❤️</text>
+    <text x="1075" y="240" font-size="11.5" font-weight="700" text-anchor="middle" fill="#37474f">Health Check</text>
+    <text x="1075" y="255" font-size="9.5" text-anchor="middle" fill="#90a4ae">/api/health</text>
+  </g>
+
+  <!-- Success -->
+  <g>
+    <circle cx="1110" cy="55" r="26" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2.5"/>
+    <text x="1110" y="63" font-size="22" text-anchor="middle">✅</text>
+    <text x="1110" y="20" font-size="11" font-weight="700" text-anchor="middle" fill="#2e7d32">Success</text>
+  </g>
+
+</svg>
+
+<!-- second row : scheduled automation -->
+<svg viewBox="0 0 1180 130" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif" style="margin-top:10px;">
+  <text x="20" y="20" font-size="11" font-weight="800" fill="#90a4ae" letter-spacing="1">SCHEDULED AUTOMATION (GITHUB CRON + DEPENDABOT)</text>
+  <g stroke="#b0b8c1" stroke-width="2" fill="none">
+    <line x1="175" y1="75" x2="230" y2="75" marker-end="url(#arrow)"/>
+    <line x1="310" y1="75" x2="365" y2="75" marker-end="url(#arrow)"/>
+    <line x1="600" y1="75" x2="655" y2="75" marker-end="url(#arrow)"/>
+    <line x1="735" y1="75" x2="790" y2="75" marker-end="url(#arrow)"/>
+  </g>
+  <!-- Backup chain -->
+  <g>
+    <rect x="95" y="50" width="80" height="50" rx="12" fill="#e0f7fa" stroke="#00695c" stroke-width="2.5"/>
+    <text x="135" y="72" font-size="16" text-anchor="middle">⏰</text>
+    <text x="135" y="90" font-size="9.5" font-weight="700" text-anchor="middle" fill="#00695c">CRON 2h UTC</text>
+  </g>
+  <g>
+    <rect x="230" y="50" width="80" height="50" rx="12" fill="#e0f7fa" stroke="#00695c" stroke-width="2.5"/>
+    <text x="270" y="72" font-size="16" text-anchor="middle">💾</text>
+    <text x="270" y="90" font-size="9.5" font-weight="700" text-anchor="middle" fill="#00695c">pg_dump</text>
+  </g>
+  <g>
+    <rect x="365" y="50" width="95" height="50" rx="12" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2.5"/>
+    <text x="412" y="72" font-size="16" text-anchor="middle">🗂️</text>
+    <text x="412" y="90" font-size="9" font-weight="700" text-anchor="middle" fill="#2e7d32">Artifacts 30d</text>
+  </g>
+  <!-- Dependabot chain -->
+  <g>
+    <rect x="520" y="50" width="80" height="50" rx="12" fill="#e0f7fa" stroke="#00695c" stroke-width="2.5"/>
+    <text x="560" y="72" font-size="16" text-anchor="middle">📅</text>
+    <text x="560" y="90" font-size="9.5" font-weight="700" text-anchor="middle" fill="#00695c">Weekly Monday</text>
+  </g>
+  <g>
+    <rect x="655" y="50" width="80" height="50" rx="12" fill="#e0f7fa" stroke="#00695c" stroke-width="2.5"/>
+    <text x="695" y="70" font-size="16" text-anchor="middle">🤖</text>
+    <text x="695" y="88" font-size="8.5" font-weight="700" text-anchor="middle" fill="#00695c">npm+actions+docker</text>
+  </g>
+  <g>
+    <rect x="790" y="50" width="90" height="50" rx="12" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2.5"/>
+    <text x="835" y="72" font-size="16" text-anchor="middle">🔀</text>
+    <text x="835" y="90" font-size="9" font-weight="700" text-anchor="middle" fill="#2e7d32">Grouped PRs</text>
+  </g>
+</svg>
+</div>
+</body>
+</html>

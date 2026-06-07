@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Pipeline DevOps CI/CD - LinkedIn Agent</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #f8f9fa;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 30px;
+  }
+  .diagram {
+    background: white;
+    border-radius: 16px;
+    padding: 40px 50px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+    max-width: 1200px;
+    width: 100%;
+  }
+  h2 {
+    text-align: center;
+    font-size: 20px;
+    color: #1a1a2e;
+    margin-bottom: 32px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 18px;
+    gap: 0;
+  }
+  .label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #6c757d;
+    width: 100px;
+    min-width: 100px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 11.5px;
+    font-weight: 600;
+    min-width: 110px;
+    text-align: center;
+    line-height: 1.4;
+    position: relative;
+  }
+  .box .icon { font-size: 18px; margin-bottom: 3px; }
+  .box-trigger  { background:#e3f0ff; color:#1565c0; border:2px solid #90caf9; }
+  .box-ci       { background:#e8f5e9; color:#2e7d32; border:2px solid #a5d6a7; }
+  .box-security { background:#fff3e0; color:#e65100; border:2px solid #ffcc80; }
+  .box-deploy   { background:#f3e5f5; color:#6a1b9a; border:2px solid #ce93d8; }
+  .box-cron     { background:#e0f7fa; color:#00695c; border:2px solid #80deea; }
+  .box-success  { background:#e8f5e9; color:#1b5e20; border:2px solid #66bb6a; min-width:60px; }
+  .box-parallel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .arrow {
+    font-size: 18px;
+    color: #adb5bd;
+    margin: 0 6px;
+    flex-shrink: 0;
+  }
+  .arrow-down {
+    font-size: 18px;
+    color: #adb5bd;
+    text-align: center;
+    margin: 4px 0 4px 100px;
+  }
+  .divider {
+    border: none;
+    border-top: 1.5px dashed #dee2e6;
+    margin: 14px 0;
+  }
+  .section-title {
+    font-size: 10px;
+    font-weight: 800;
+    color: #adb5bd;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    margin-left: 100px;
+  }
+  .badge {
+    font-size: 9px;
+    background: rgba(255,255,255,0.7);
+    border-radius: 4px;
+    padding: 1px 5px;
+    margin-top: 3px;
+    font-weight: 500;
+  }
+  .tool-name {
+    font-size: 9.5px;
+    opacity: 0.75;
+    margin-top: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="diagram">
+  <h2>🚀 Pipeline DevOps CI/CD — LinkedIn Agent</h2>
+
+  <!-- TRIGGER -->
+  <div class="section-title">Déclencheur</div>
+  <div class="row">
+    <div class="label"></div>
+    <div class="box box-trigger">
+      <div class="icon">📝</div>
+      Code Push<br><span class="tool-name">branch: main</span>
+    </div>
+    <div class="arrow">➜</div>
+    <div style="font-size:11px; color:#6c757d; font-style:italic;">déclenche en parallèle ↓</div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- INTÉGRATION CONTINUE -->
+  <div class="section-title">Intégration Continue (CI)</div>
+
+  <div class="row">
+    <div class="label">Frontend</div>
+    <div class="box box-ci"><div class="icon">🔍</div>ESLint<div class="tool-name">ci.yml</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-ci"><div class="icon">🔷</div>TypeScript<br>Type Check<div class="tool-name">tsc --noEmit</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-ci"><div class="icon">🏗️</div>Next.js<br>Build<div class="tool-name">npm run build</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-success"><div class="icon">✅</div></div>
+  </div>
+
+  <div class="row">
+    <div class="label">Worker</div>
+    <div class="box box-ci"><div class="icon">⚙️</div>TypeScript<br>Lint<div class="tool-name">worker-ci.yml</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-ci"><div class="icon">🏗️</div>Build<br>Worker<div class="tool-name">tsc compile</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-success"><div class="icon">✅</div></div>
+  </div>
+
+  <div class="row">
+    <div class="label">Extension</div>
+    <div class="box box-ci"><div class="icon">🧩</div>Validate<br>Extension<div class="tool-name">chrome-ext-ci.yml</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-success"><div class="icon">✅</div></div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- SÉCURITÉ -->
+  <div class="section-title">Sécurité automatisée (DevSecOps)</div>
+
+  <div class="row">
+    <div class="label">Security</div>
+    <div class="box box-security"><div class="icon">📦</div>NPM Audit<div class="tool-name">SCA</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-security"><div class="icon">🔬</div>Semgrep<br>OWASP Top 10<div class="tool-name">SAST</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-security"><div class="icon">🐳</div>Trivy FS<br>Scan<div class="tool-name">Container/FS</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-security"><div class="icon">🔑</div>Gitleaks<div class="tool-name">Secrets Scan</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-success"><div class="icon">✅</div></div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- DÉPLOIEMENT CONTINU -->
+  <div class="section-title">Déploiement Continu (CD)</div>
+
+  <div class="row">
+    <div class="label">Deploy</div>
+    <div class="box box-deploy"><div class="icon">🐳</div>Docker<br>Build<div class="tool-name">multi-stage</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-deploy"><div class="icon">📦</div>Push GHCR<div class="tool-name">ghcr.io</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-deploy"><div class="icon">🚀</div>Deploy<br>Coolify<div class="tool-name">Webhook</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-success"><div class="icon">✅</div>Production</div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- AUTOMATISATION PLANIFIÉE -->
+  <div class="section-title">Automatisation planifiée</div>
+
+  <div class="row">
+    <div class="label">Backup</div>
+    <div class="box box-cron"><div class="icon">⏰</div>CRON<div class="tool-name">quotidien 2h UTC</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-cron"><div class="icon">💾</div>Backup<br>PostgreSQL<div class="tool-name">pg_dump</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-cron"><div class="icon">🗂️</div>GitHub<br>Artifacts<div class="tool-name">retention 30j</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-success"><div class="icon">✅</div></div>
+  </div>
+
+  <div class="row">
+    <div class="label">Dependabot</div>
+    <div class="box box-cron"><div class="icon">📅</div>Weekly<br>Lundi<div class="tool-name">06:00 Paris</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-cron"><div class="icon">🤖</div>NPM<br>Actions<br>Docker<div class="tool-name">3 écosystèmes</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-cron"><div class="icon">🔀</div>Pull<br>Requests<br>groupées<div class="tool-name">auto-merge CI</div></div>
+    <div class="arrow">→</div>
+    <div class="box box-success"><div class="icon">✅</div></div>
+  </div>
+
+</div>
+</body>
+</html>
