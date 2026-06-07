@@ -1,3 +1,4 @@
+# run: final-verification
 name: CI - Chrome Extension Check
 
 on:
@@ -63,3 +64,66 @@ jobs:
             exit 1
           fi
           echo "✅ All referenced files exist"
+
+      - name: Check Manifest V3 compliance
+        run: |
+          MV=$(python3 -c "import json; print(json.load(open('manifest.json'))['manifest_version'])")
+          if [ "$MV" != "3" ]; then
+            echo "❌ manifest_version must be 3 (got $MV)"
+            exit 1
+          fi
+          echo "✅ Manifest V3 confirmed"
+
+      - name: Setup Node.js for JS syntax check
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: JavaScript syntax check
+        run: |
+          errors=0
+          for file in background.js bridge.js content.js popup.js selectors.js; do
+            if [ -f "$file" ]; then
+              node --check "$file" && echo "✅ $file — OK" || { echo "❌ $file — syntax error"; errors=$((errors + 1)); }
+            fi
+          done
+          if [ $errors -gt 0 ]; then exit 1; fi
+
+  package:
+    name: Package Extension (.zip)
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from manifest
+        id: version
+        run: |
+          VERSION=$(python3 -c "import json; print(json.load(open('manifest.json'))['version'])" \
+            linkedin-chrome-extension/manifest.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extension version: $VERSION"
+
+      - name: Create extension zip
+        run: |
+          cd linkedin-chrome-extension
+          zip -r "../linkedin-agent-extension-v${{ steps.version.outputs.version }}.zip" \
+            manifest.json \
+            background.js bridge.js content.js popup.js popup.html selectors.js styles.css \
+            icons/
+          echo "✅ Extension packaged"
+
+      - name: Upload extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chrome-extension-v${{ steps.version.outputs.version }}
+          path: linkedin-agent-extension-v${{ steps.version.outputs.version }}.zip
+          retention-days: 30
+
+      - name: Packaging summary
+        run: |
+          echo "## 📦 Chrome Extension Packaged" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Artifact:** \`chrome-extension-v${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Retention:** 30 days" >> $GITHUB_STEP_SUMMARY
