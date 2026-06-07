@@ -1,3 +1,4 @@
+# run: final-verification
 name: CI - Worker Build & Lint
 
 on:

@@ -1,3 +1,4 @@
+# run: final-verification
 name: Lighthouse CI (Performance)
 
 on:

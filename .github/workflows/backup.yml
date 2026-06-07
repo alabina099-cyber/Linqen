@@ -1,6 +1,11 @@
+# run: final-verification
 name: Database Backup (Cron)
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/backup.yml'
   schedule:
     # Tous les jours à 2h UTC (3h Paris l'hiver, 4h l'été)
     - cron: '0 2 * * *'
