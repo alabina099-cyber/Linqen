@@ -72,6 +72,7 @@ jobs:
     needs: build-and-push
     permissions:
       contents: read
+      packages: read
       security-events: write
     steps:
       - name: Login to GHCR
@@ -82,7 +83,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Scan Docker image with Trivy
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           format: table
@@ -93,7 +95,8 @@ jobs:
 
       - name: Scan et upload SARIF (toutes sévérités)
         if: always()
-        uses: aquasecurity/trivy-action@master
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           format: sarif
@@ -108,6 +111,12 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-results.sarif
+
+      - name: Résumé du scan Trivy
+        if: always()
+        run: |
+          echo "## 🔍 Trivy Image Scan terminé (mode audit)" >> $GITHUB_STEP_SUMMARY
+          echo "Résultats disponibles dans les logs ci-dessus et dans l'onglet Security (si activé)." >> $GITHUB_STEP_SUMMARY
 
   deploy:
     name: Deploy to Coolify

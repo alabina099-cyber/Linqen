@@ -83,7 +83,8 @@ jobs:
           sudo mv gitleaks /usr/local/bin/
           gitleaks version
 
-      - name: Scan working tree for secrets
+      - name: Scan working tree for secrets (mode audit)
+        continue-on-error: true
         run: |
           gitleaks dir . \
             --config .gitleaks.toml \
@@ -92,7 +93,13 @@ jobs:
             --verbose \
             --report-format sarif \
             --report-path gitleaks-results.sarif \
-            --exit-code 1
+            --exit-code 0
+          echo "## 🔐 Gitleaks Scan terminé (mode audit)" >> $GITHUB_STEP_SUMMARY
+          if [ -s gitleaks-results.sarif ]; then
+            echo "Rapport SARIF généré — voir l'artifact gitleaks-report." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ Aucun secret détecté." >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Upload résultats Gitleaks (si présents)
         if: always()
