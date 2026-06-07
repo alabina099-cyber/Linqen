@@ -100,8 +100,7 @@ jobs:
       - name: Get version from manifest
         id: version
         run: |
-          VERSION=$(python3 -c "import json; print(json.load(open('manifest.json'))['version'])" \
-            linkedin-chrome-extension/manifest.json)
+          VERSION=$(python3 -c "import json; print(json.load(open('linkedin-chrome-extension/manifest.json'))['version'])")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Extension version: $VERSION"
 
