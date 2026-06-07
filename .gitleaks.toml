@@ -1,0 +1,49 @@
+title = "Gitleaks config — LinkedIn Agent"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlist pour faux positifs connus"
+regexes = [
+  # Hashes intégrité npm/yarn (sha512-...)
+  '''sha\d{1,3}-[A-Za-z0-9+/=]{40,}''',
+  # Checksums package-lock.json
+  '''integrity.*sha''',
+  # Valeurs placeholder / exemples dans les docs
+  '''(sk-|pk_|rk_)(test|demo|example|placeholder|your|xxxx|XXXX|dummy)''',
+  # Variables d'env de type YOUR_KEY_HERE
+  '''\bYOUR_[A-Z_]+_(KEY|SECRET|TOKEN|PASSWORD)\b''',
+  # Tokens GitHub Actions standards (variables d'expression)
+  '''\$\{\{[^}]*secrets\.[^}]*\}\}''',
+  # Faux positifs base64 courts dans les configs
+  '''[A-Za-z0-9+/]{20,}={0,2}''',
+]
+
+[[rules.allowlist]]
+description = "Ignorer les fichiers de lock (checksums npm)"
+paths = [
+  '''package-lock\.json''',
+  '''yarn\.lock''',
+  '''pnpm-lock\.yaml''',
+]
+
+[[rules.allowlist]]
+description = "Ignorer les fichiers de test (tokens factices)"
+paths = [
+  '''tests/.*''',
+  '''__tests__/.*''',
+  '''.*\.test\.(ts|js|tsx)''',
+  '''.*\.spec\.(ts|js|tsx)''',
+]
+
+[[rules.allowlist]]
+description = "Ignorer les fichiers de config et d'exemple"
+paths = [
+  '''\.env\.example''',
+  '''\.env\.local\.example''',
+  '''README\.md''',
+  '''docs/.*''',
+  '''les rapports/.*''',
+  '''diagrams/.*''',
+]
