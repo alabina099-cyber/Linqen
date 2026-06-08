@@ -33,6 +33,14 @@ jobs:
       - name: Install pg dependency
         run: npm ci --omit=dev
 
+      - name: Check DATABASE_URL secret
+        run: |
+          if [ -z "${{ secrets.DATABASE_URL }}" ]; then
+            echo "⚠️ DATABASE_URL secret not configured — skipping backup for CI demonstration."
+            echo "ℹ️  Configurez DATABASE_URL dans Settings > Secrets and variables > Actions pour activer les backups réels."
+            exit 0
+          fi
+
       - name: Run backup script
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

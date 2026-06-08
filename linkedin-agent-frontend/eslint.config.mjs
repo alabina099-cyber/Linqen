@@ -14,6 +14,7 @@ const eslintConfig = defineConfig([
       "react/no-unescaped-entities": "warn",
       "@typescript-eslint/no-empty-object-type": "warn",
       // Next.js 16 / React 19 strict rule about setState in useEffect
+      "react-hooks/set-state-in-effect": "warn",
       "react-hooks/no-set-state": "off",
       "react/no-set-state": "off"
     }

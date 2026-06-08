@@ -6,6 +6,8 @@ const browser_1 = require("./browser");
 const connect_1 = require("./actions/connect");
 const message_1 = require("./actions/message");
 const visit_1 = require("./actions/visit");
+const health_server_1 = require("./health-server");
+const pg_1 = require("pg");
 const config = {
     workerId: process.env.WORKER_ID || `worker-${process.env.HOSTNAME || Math.random().toString(36).slice(2, 8)}`,
     pollIntervalMs: parseInt(process.env.POLL_INTERVAL_MS || '5000', 10),
@@ -20,6 +22,18 @@ const config = {
 let isShuttingDown = false;
 let consecutiveErrors = 0;
 const MAX_CONSECUTIVE_ERRORS = 10;
+const healthState = {
+    workerId: config.workerId,
+    startTime: Date.now(),
+    lastPollAt: Date.now(),
+    lastSuccessAt: null,
+    consecutiveErrors: 0,
+    totalProcessed: 0,
+    totalSucceeded: 0,
+    totalFailed: 0,
+    isShuttingDown: false,
+};
+let healthServer = null;
 /**
  * Gestion gracieuse des signaux d'arrêt (SIGTERM, SIGINT).
  */
@@ -27,7 +41,11 @@ function setupGracefulShutdown() {
     const shutdown = async (signal) => {
         console.log(`[${config.workerId}] Signal ${signal} reçu. Arrêt gracieux...`);
         isShuttingDown = true;
+        healthState.isShuttingDown = true;
         try {
+            if (healthServer) {
+                await new Promise((resolve) => healthServer.close(() => resolve()));
+            }
             await (0, browser_1.closeBrowser)();
             await (0, queue_1.closePool)();
         }
@@ -80,15 +98,21 @@ async function processAction() {
             default:
                 result = { success: false, error: `Type d'action non supporté: ${action.action_type}` };
         }
+        healthState.totalProcessed++;
         if (result.success) {
             await (0, queue_1.completeAction)(action.id, result);
             console.log(`[${config.workerId}] Action #${action.id} terminée avec succès.`);
             consecutiveErrors = 0;
+            healthState.consecutiveErrors = 0;
+            healthState.totalSucceeded++;
+            healthState.lastSuccessAt = Date.now();
         }
         else {
             await (0, queue_1.failAction)(action.id, result.error || 'Erreur inconnue', result.details);
             console.warn(`[${config.workerId}] Action #${action.id} échouée: ${result.error}`);
             consecutiveErrors++;
+            healthState.consecutiveErrors = consecutiveErrors;
+            healthState.totalFailed++;
         }
     }
     catch (err) {
@@ -96,6 +120,8 @@ async function processAction() {
         await (0, queue_1.failAction)(action.id, `Exception worker: ${message}`);
         console.error(`[${config.workerId}] Exception sur action #${action.id}:`, message);
         consecutiveErrors++;
+        healthState.consecutiveErrors = consecutiveErrors;
+        healthState.totalFailed++;
     }
     finally {
         try {
@@ -205,14 +231,26 @@ async function main() {
     heartbeatLoop();
     recoveryLoop();
     statsLoop();
+    // Démarrer le serveur HTTP health/metrics
+    const healthPort = parseInt(process.env.HEALTH_PORT || '9090', 10);
+    const healthPool = new pg_1.Pool({
+        connectionString: config.databaseUrl,
+        ssl: { rejectUnauthorized: false },
+        max: 1,
+        idleTimeoutMillis: 10000,
+        connectionTimeoutMillis: 5000,
+    });
+    healthServer = (0, health_server_1.createHealthServer)(healthState, healthPool, healthPort);
     // Boucle principale
     while (!isShuttingDown) {
+        healthState.lastPollAt = Date.now();
         try {
             await processAction();
         }
         catch (err) {
             console.error(`[${config.workerId}] Erreur dans la boucle principale:`, err);
             consecutiveErrors++;
+            healthState.consecutiveErrors = consecutiveErrors;
         }
         // Si trop d'erreurs consécutives, attendre plus longtemps
         if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
