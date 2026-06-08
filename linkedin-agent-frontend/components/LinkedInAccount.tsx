@@ -71,7 +71,7 @@ export default function LinkedInAccount() {
 
   async function connectViaCookie() {
     if (!cookieValue.trim()) {
-      setError("Le cookie est requis.");
+      setError("The cookie is required.");
       return;
     }
     setSaving(true);
@@ -90,17 +90,17 @@ export default function LinkedInAccount() {
       });
       const data = await res.json();
       if (res.ok) {
-        setSuccess("Compte LinkedIn connecté avec succés via cookie !");
+        setSuccess("LinkedIn account successfully connected via cookie!");
         setSelectedMethod(null);
         setCookieValue("");
         setCookieName("");
         setCookieEmail("");
         await fetchStatus();
       } else {
-        setError(data.error || "Erreur lors de la connexion.");
+        setError(data.error || "Error during connection.");
       }
     } catch {
-      setError("Erreur réseau. Vérifiez que le serveur est lancé.");
+      setError("Network error. Check that the server is running.");
     } finally {
       setSaving(false);
     }
@@ -116,9 +116,9 @@ export default function LinkedInAccount() {
         setCookieValue(result.cookie);
         setShowCookie(false);
       } else {
-        const msg = result.error || "Impossible de récupérer le cookie.";
+        const msg = result.error || "Unable to fetch the cookie.";
         if (msg.includes("n'a pas répondu")) {
-          setError("Extension Chrome non détectée. Installez/activez l'extension puis rechargez cette page.");
+          setError("Chrome extension not detected. Install/enable the extension then reload this page.");
         } else {
           setError(msg);
         }
@@ -136,21 +136,21 @@ export default function LinkedInAccount() {
       // Demander à l'extension de capturer le cookie li_at et de l'envoyer au backend
       const result = await sendExtensionRequest("CAPTURE_LINKEDIN_COOKIE");
       if (result.success) {
-        setSuccess(result.message || "Compte LinkedIn connecté via l'extension !");
+        setSuccess(result.message || "LinkedIn account connected via the extension!");
         setSelectedMethod(null);
         await fetchStatus();
       } else {
-        const msg = result.error || "Erreur lors de la capture par l'extension.";
+        const msg = result.error || "Error during extension capture.";
         if (msg.toLowerCase().includes("li_at") || msg.toLowerCase().includes("cookie")) {
-          setError("Cookie LinkedIn introuvable. Connectez-vous d'abord sur linkedin.com puis réessayez.");
+          setError("LinkedIn cookie not found. Log in first on linkedin.com then try again.");
         } else if (msg.includes("n'a pas répondu")) {
-          setError("Extension Chrome non détectée. Installez/activez l'extension LinkedIn Agent puis rechargez cette page.");
+          setError("Chrome extension not detected. Install/enable the LinkedIn Agent extension then reload this page.");
         } else {
           setError(msg);
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur inconnue.");
+      setError(err instanceof Error ? err.message : "Unknown error.");
     } finally {
       setSaving(false);
     }
@@ -164,14 +164,14 @@ export default function LinkedInAccount() {
       setStatus({ connected: false, email: null, name: null, auth_method: null, connected_at: null });
       setShowDisconnectModal(false);
     } catch {
-      setError("Erreur lors de la déconnexion.");
+      setError("Error during disconnection.");
     } finally {
       setDisconnecting(false);
     }
   }
 
   function copyInstructions() {
-    const text = "Comment trouver votre cookie LinkedIn :\n1. Ouvrez LinkedIn.com dans Chrome et connectez-vous\n2. Appuyez sur F12 pour ouvrir les DevTools\n3. Allez dans l'onglet Application > Cookies > linkedin.com\n4. Trouvez le cookie et copiez sa valeur";
+    const text = "How to find your LinkedIn cookie:\n1. Open LinkedIn.com in Chrome and log in\n2. Press F12 to open DevTools\n3. Go to Application > Cookies > linkedin.com\n4. Find the li_at cookie and copy its value";
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -182,7 +182,7 @@ export default function LinkedInAccount() {
       <div className="flex items-center justify-center h-40">
         <div className="flex flex-col items-center gap-3">
           <RefreshCw className="w-6 h-6 animate-spin text-blue-500" />
-          <span className="text-sm text-gray-500">Chargement...</span>
+          <span className="text-sm text-gray-500">Loading...</span>
         </div>
       </div>
     );
@@ -208,13 +208,13 @@ export default function LinkedInAccount() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-gray-900">
-                  {status?.connected ? "Compte LinkedIn connecté" : "Aucun compte connecté"}
+                  {status?.connected ? "LinkedIn account connected" : "No account connected"}
                 </span>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${status?.connected
                   ? "bg-blue-100 text-blue-700"
                   : "bg-gray-100 text-gray-500"
                 }`}>
-                  {status?.connected ? "Connecté" : "Déconnecté"}
+                  {status?.connected ? "Connected" : "Disconnected"}
                 </span>
               </div>
               {status?.connected ? (
@@ -243,12 +243,12 @@ export default function LinkedInAccount() {
                   {status.connected_at && (
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                      {new Date(status.connected_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
+                      {new Date(status.connected_at).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}
                     </span>
                   )}
                 </div>
               ) : (
-                <p className="text-xs text-gray-500 mt-1">Connectez votre compte pour activer les actions LinkedIn</p>
+                <p className="text-xs text-gray-500 mt-1">Connect your account to enable LinkedIn actions</p>
               )}
             </div>
           </div>
@@ -257,7 +257,7 @@ export default function LinkedInAccount() {
             <button
               onClick={fetchStatus}
               className="p-2 rounded-lg hover:bg-white/60 text-gray-400 hover:text-gray-600 transition-colors"
-              title="Rafra\u00eechir le statut"
+              title="Refresh status"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
@@ -267,7 +267,7 @@ export default function LinkedInAccount() {
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-white/80 hover:bg-red-50 border border-gray-200 hover:border-red-300 text-gray-600 hover:text-red-600 rounded-lg text-xs font-medium transition-all"
               >
                 <LogOut className="w-3.5 h-3.5" />
-                Déconnecter
+                Disconnect
               </button>
             )}
           </div>
@@ -286,7 +286,7 @@ export default function LinkedInAccount() {
       {!selectedMethod && (
         <div>
           <h3 className="text-sm font-semibold text-gray-700 mb-3">
-            {status?.connected ? "Changer de méthode" : "Méthode de connexion"}
+            {status?.connected ? "Change method" : "Connection method"}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* Cookie Method */}
@@ -302,7 +302,7 @@ export default function LinkedInAccount() {
                   <span className="font-semibold text-gray-900 text-sm">Via Cookie</span>
                   <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded text-[10px] font-bold uppercase">Recommanded</span>
                 </div>
-                <p className="text-xs text-gray-500 mt-0.5">Copiez le cookie depuis votre navigateur Chrome</p>
+                <p className="text-xs text-gray-500 mt-0.5">Copy the cookie from your Chrome browser</p>
               </div>
               <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-orange-400 transition-colors shrink-0" />
             </button>
@@ -318,9 +318,9 @@ export default function LinkedInAccount() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-gray-900 text-sm">Via Extension</span>
-                  <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold uppercase">Automatique</span>
+                  <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold uppercase">Automatic</span>
                 </div>
-                <p className="text-xs text-gray-500 mt-0.5">{"Capture automatique de session via l'extension Chrome"}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{"Automatic session capture via the Chrome extension"}</p>
               </div>
               <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-blue-400 transition-colors shrink-0" />
             </button>
@@ -330,7 +330,7 @@ export default function LinkedInAccount() {
           <div className="mt-3 flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
             <Info className="w-4 h-4 text-blue-500 shrink-0" />
             <p className="text-xs text-gray-600">
-              {"L'extension LinkedIn Agent doit \u00eatre installée et active dans Chrome. Le statut \u00ab Connecté \u00bb dans le popup de l'extension confirme que tout est opérationnel."}
+              {"The LinkedIn Agent extension must be installed and active in Chrome. The \"Connected\" status in the extension popup confirms everything is working."}
             </p>
           </div>
         </div>
@@ -342,28 +342,28 @@ export default function LinkedInAccount() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Cookie className="w-5 h-5 text-orange-600" />
-              <h3 className="font-bold text-gray-900 text-sm">Connexion par Cookie</h3>
+              <h3 className="font-bold text-gray-900 text-sm">Cookie Connection</h3>
             </div>
             <button onClick={() => setSelectedMethod(null)} className="text-xs text-gray-400 hover:text-gray-600 font-medium px-2 py-1 hover:bg-white/50 rounded-lg transition-colors">
-              Annuler
+              Cancel
             </button>
           </div>
 
           {/* Instructions */}
           <div className="bg-white rounded-lg border border-orange-100 p-3.5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-gray-700">Comment trouver votre cookie</span>
+              <span className="text-xs font-semibold text-gray-700">How to find your cookie</span>
               <button onClick={copyInstructions} className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800">
                 {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                {copied ? "Copié !" : "Copier"}
+                {copied ? "Copied!" : "Copy"}
               </button>
             </div>
             <div className="flex flex-wrap gap-2">
               {[
-                { n: "1", t: "Ouvrez linkedin.com" },
+                { n: "1", t: "Open linkedin.com" },
                 { n: "2", t: "F12 \u2192 DevTools" },
                 { n: "3", t: "Application \u2192 Cookies" },
-                { n: "4", t: "Copiez" },
+                { n: "4", t: "Copy" },
               ].map((step) => (
                 <div key={step.n} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-orange-50 rounded-lg">
                   <span className="w-4 h-4 bg-orange-200 text-orange-800 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0">{step.n}</span>
@@ -385,7 +385,7 @@ export default function LinkedInAccount() {
                   className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50"
                 >
                   <Puzzle className="w-3 h-3" />
-                  Récupérer via extension
+                  Fetch via extension
                 </button>
               </div>
               <div className="relative">
@@ -393,7 +393,7 @@ export default function LinkedInAccount() {
                   type={showCookie ? "text" : "password"}
                   value={cookieValue}
                   onChange={(e) => setCookieValue(e.target.value)}
-                  placeholder="Collez votre cookie li_at ou cliquez sur Récupérer via extension"
+                  placeholder="Paste your li_at cookie or click Fetch via extension"
                   className="w-full pr-10 pl-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400 bg-white"
                 />
                 <button
@@ -407,22 +407,22 @@ export default function LinkedInAccount() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Nom <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Name <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={cookieName}
                   onChange={(e) => setCookieName(e.target.value)}
-                  placeholder="Prénom Nom"
+                  placeholder="First Last"
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400 bg-white"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Email (optionnel)</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Email (optional)</label>
                 <input
                   type="email"
                   value={cookieEmail}
                   onChange={(e) => setCookieEmail(e.target.value)}
-                  placeholder="exemple@exemple.com"
+                  placeholder="example@example.com"
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-400 focus:border-orange-400 bg-white"
                 />
               </div>
@@ -435,7 +435,7 @@ export default function LinkedInAccount() {
             className="w-full py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2 text-sm shadow-sm"
           >
             {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Cookie className="w-4 h-4" />}
-            {saving ? "Connexion en cours..." : "Connecter via Cookie"}
+            {saving ? "Connecting..." : "Connect via Cookie"}
           </button>
         </div>
       )}
@@ -446,21 +446,21 @@ export default function LinkedInAccount() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Shield className="w-5 h-5 text-blue-600" />
-              <h3 className="font-bold text-gray-900 text-sm">Connexion via Extension</h3>
+              <h3 className="font-bold text-gray-900 text-sm">Connect via Extension</h3>
             </div>
             <button onClick={() => setSelectedMethod(null)} className="text-xs text-gray-400 hover:text-gray-600 font-medium px-2 py-1 hover:bg-white/50 rounded-lg transition-colors">
-              Annuler
+              Cancel
             </button>
           </div>
 
           <div className="bg-white rounded-lg border border-blue-100 p-3.5">
-            <span className="text-xs font-semibold text-gray-700 mb-2 block">Comment fonctionne</span>
+            <span className="text-xs font-semibold text-gray-700 mb-2 block">How it works</span>
             <div className="flex flex-wrap gap-2">
               {[
-                { n: "1", t: "Activez la capture" },
-                { n: "2", t: "Extension détecte la session" },
-                { n: "3", t: "Connectez-vous sur LinkedIn" },
-                { n: "4", t: "Cookie capturé automatiquement" },
+                { n: "1", t: "Activate capture" },
+                { n: "2", t: "Extension detects session" },
+                { n: "3", t: "Log in on LinkedIn" },
+                { n: "4", t: "Cookie captured automatically" },
               ].map((step) => (
                 <div key={step.n} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 rounded-lg">
                   <span className="w-4 h-4 bg-blue-200 text-blue-800 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0">{step.n}</span>
@@ -472,22 +472,22 @@ export default function LinkedInAccount() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Nom (optionnel)</label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Name (optional)</label>
               <input
                 type="text"
                 value={cookieName}
                 onChange={(e) => setCookieName(e.target.value)}
-                placeholder="Prénom Nom"
+                placeholder="First Last"
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 bg-white"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Email (optionnel)</label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Email (optional)</label>
               <input
                 type="email"
                 value={cookieEmail}
                 onChange={(e) => setCookieEmail(e.target.value)}
-                placeholder="exemple@exemple.com"
+                placeholder="example@example.com"
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400 bg-white"
               />
             </div>
@@ -501,7 +501,7 @@ export default function LinkedInAccount() {
               className="flex-1 py-2.5 bg-white border border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-700 hover:text-blue-700 font-semibold rounded-lg transition-all flex items-center justify-center gap-2 text-sm"
             >
               <ExternalLink className="w-4 h-4" />
-              Ouvrir LinkedIn
+              Open LinkedIn
             </a>
             <button
               onClick={connectViaExtension}
@@ -509,7 +509,7 @@ export default function LinkedInAccount() {
               className="flex-1 py-2.5 bg-gradient-to-r from-blue-500 to-sky-500 hover:from-blue-600 hover:to-sky-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2 text-sm shadow-sm"
             >
               {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
-              {saving ? "Activation..." : "Activer la capture"}
+              {saving ? "Activating..." : "Activate capture"}
             </button>
           </div>
         </div>
@@ -536,10 +536,10 @@ export default function LinkedInAccount() {
                 </div>
                 <div className="flex-1 pt-1">
                   <h3 className="text-lg font-bold text-gray-900 leading-tight">
-                    Déconnecter le compte LinkedIn ?
+                    Disconnect LinkedIn account?
                   </h3>
                   <p className="mt-1.5 text-sm text-gray-500 leading-relaxed">
-                    Vous devrez reconnecter votre compte pour continuer à exécuter des actions LinkedIn. Vos campagnes seront mises en pause.
+                    You will need to reconnect your account to continue executing LinkedIn actions. Your campaigns will be paused.
                   </p>
                 </div>
               </div>
@@ -564,7 +564,7 @@ export default function LinkedInAccount() {
                   disabled={disconnecting}
                   className="flex-1 px-4 py-2.5 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl transition-all text-sm disabled:opacity-50"
                 >
-                  Annuler
+                  Cancel
                 </button>
                 <button
                   onClick={confirmDisconnect}
@@ -574,12 +574,12 @@ export default function LinkedInAccount() {
                   {disconnecting ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      Déconnexion...
+                      Disconnecting...
                     </>
                   ) : (
                     <>
                       <LogOut className="w-4 h-4" />
-                      Déconnecter
+                      Disconnect
                     </>
                   )}
                 </button>

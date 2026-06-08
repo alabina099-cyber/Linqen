@@ -201,13 +201,13 @@ export default function ApprovalQueue() {
 
   const getActionLabel = (type: string) => {
     const labels: Record<string, string> = {
-      search: "Recherche LinkedIn",
-      search_and_message: "Recherche et Envoi de message",
-      search_and_connection: "Recherche et Envoi de connexion",
-      visit_profile: "Visiter profil",
-      send_connection: "Demande de connexion",
-      send_message: "Envoyer un message",
-      check_connection: "Vérification réseau",
+      search: "LinkedIn Search",
+      search_and_message: "Search and Send Message",
+      search_and_connection: "Search and Send Connection",
+      visit_profile: "Visit Profile",
+      send_connection: "Connection Request",
+      send_message: "Send Message",
+      check_connection: "Network Check",
     };
     return labels[type] || type;
   };
@@ -304,19 +304,19 @@ export default function ApprovalQueue() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending_approval":
-        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-[10px]">En attente</Badge>;
+        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-[10px]">Pending</Badge>;
       case "approved":
-        return <Badge className="bg-green-100 text-green-800 border-green-300 text-[10px]">Approuvée</Badge>;
+        return <Badge className="bg-green-100 text-green-800 border-green-300 text-[10px]">Approved</Badge>;
       case "processing":
-        return <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300 text-[10px]">En cours</Badge>;
+        return <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300 text-[10px]">Processing</Badge>;
       case "completed":
-        return <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-[10px]">Terminée</Badge>;
+        return <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-[10px]">Completed</Badge>;
       case "rejected":
-        return <Badge className="bg-red-100 text-red-800 border-red-300 text-[10px]">Rejetée</Badge>;
+        return <Badge className="bg-red-100 text-red-800 border-red-300 text-[10px]">Rejected</Badge>;
       case "failed":
-        return <Badge className="bg-red-100 text-red-800 border-red-300 text-[10px]">Échouée</Badge>;
+        return <Badge className="bg-red-100 text-red-800 border-red-300 text-[10px]">Failed</Badge>;
       case "stopped":
-        return <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-[10px]">Arrêtée</Badge>;
+        return <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-[10px]">Stopped</Badge>;
       default:
         return <Badge className="bg-gray-100 text-gray-800 text-[10px]">{status}</Badge>;
     }
@@ -341,7 +341,7 @@ export default function ApprovalQueue() {
               ) : (
                 <Check className="w-3.5 h-3.5 mr-1" />
               )}
-              Approuver
+              Approve
             </Button>
             <Button
               size="sm"
@@ -351,7 +351,7 @@ export default function ApprovalQueue() {
               className="bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 h-8 px-2.5 text-xs font-medium shadow-none"
             >
               <X className="w-3.5 h-3.5 mr-1" />
-              Rejeter
+              Reject
             </Button>
           </>
         );
@@ -388,7 +388,7 @@ export default function ApprovalQueue() {
             ) : (
               <Play className="w-3.5 h-3.5 mr-1" />
             )}
-            Continuer
+            Continue
           </Button>
         );
 
@@ -407,7 +407,7 @@ export default function ApprovalQueue() {
             ) : (
               <RefreshCw className="w-3.5 h-3.5 mr-1" />
             )}
-            Réessayer
+            Retry
           </Button>
         );
       
@@ -437,11 +437,11 @@ export default function ApprovalQueue() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
             <Clock className="w-7 h-7 text-blue-600" />
-            File d&apos;approbation
+            Approval Queue
           </h1>
           <p className="text-gray-500 mt-1">
-            Les actions LinkedIn créées par l&apos;agent attendent votre
-            approbation avant d&apos;être exécutées.
+            LinkedIn actions created by the agent are waiting for your
+            approval before being executed.
           </p>
         </div>
         <Button
@@ -455,7 +455,7 @@ export default function ApprovalQueue() {
               isRefreshing ? "animate-spin text-blue-600" : "text-gray-600"
             }`}
           />
-          {isRefreshing ? "Chargement..." : "Rafraîchir"}
+          {isRefreshing ? "Loading..." : "Refresh"}
         </Button>
       </motion.div>
 
@@ -471,7 +471,7 @@ export default function ApprovalQueue() {
           <CardContent className="p-3 flex items-center justify-between">
             <div>
               <p className="text-xs font-medium" style={{ color: '#92400e' }}>
-                En attente
+                Pending
               </p>
               <p className="text-xl font-bold" style={{ color: '#78350f' }}>
                 {pendingCount}
@@ -491,7 +491,7 @@ export default function ApprovalQueue() {
           <CardContent className="p-3 flex items-center justify-between">
             <div>
               <p className="text-xs font-medium" style={{ color: '#166534' }}>
-                Approuvées
+                Approved
               </p>
               <p className="text-xl font-bold" style={{ color: '#14532d' }}>
                 {approvedCount}
@@ -511,7 +511,7 @@ export default function ApprovalQueue() {
           <CardContent className="p-3 flex items-center justify-between">
             <div>
               <p className="text-xs font-medium" style={{ color: '#9a3412' }}>
-                En cours
+                In Progress
               </p>
               <p className="text-xl font-bold" style={{ color: '#7c2d12' }}>
                 {processingCount}
@@ -531,7 +531,7 @@ export default function ApprovalQueue() {
           <CardContent className="p-3 flex items-center justify-between">
             <div>
               <p className="text-xs font-medium" style={{ color: '#1d4ed8' }}>
-                Terminées
+                Completed
               </p>
               <p className="text-xl font-bold" style={{ color: '#1e40af' }}>
                 {completedCount}
@@ -551,7 +551,7 @@ export default function ApprovalQueue() {
           <CardContent className="p-3 flex items-center justify-between">
             <div>
               <p className="text-xs font-medium" style={{ color: '#991b1b' }}>
-                Rejetées / échouées
+                Rejected / Failed
               </p>
               <p className="text-xl font-bold" style={{ color: '#7f1d1d' }}>
                 {rejectedCount}
@@ -586,12 +586,12 @@ export default function ApprovalQueue() {
       <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm">
         <CardHeader className="py-3">
           <CardTitle className="text-base flex items-center gap-2">
-            {selectedStatus === "pending_approval" && "Actions en attente d'approbation"}
-            {selectedStatus === "approved" && "Actions approuvées"}
-            {selectedStatus === "processing_stopped" && "Actions en cours"}
-            {selectedStatus === "completed" && "Actions terminées"}
-            {selectedStatus === "rejected_failed" && "Actions rejetées / échouées"}
-            {selectedStatus === null && "Toutes les actions"}
+            {selectedStatus === "pending_approval" && "Actions pending approval"}
+            {selectedStatus === "approved" && "Approved actions"}
+            {selectedStatus === "processing_stopped" && "Actions in progress"}
+            {selectedStatus === "completed" && "Completed actions"}
+            {selectedStatus === "rejected_failed" && "Rejected / failed actions"}
+            {selectedStatus === null && "All actions"}
             {selectedStatus === "pending_approval" && pendingCount > 0 && (
               <Badge
                 variant="secondary"
@@ -646,30 +646,30 @@ export default function ApprovalQueue() {
           {isLoading ? (
             <div className="text-center py-8 text-gray-500">
               <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
-              Chargement...
+              Loading...
             </div>
           ) : actions.length === 0 ? (
             <div className="text-center py-10 text-gray-400">
               <Clock className="w-10 h-10 mx-auto mb-3 opacity-60" />
               <p className="text-base font-medium">
                 {selectedStatus === null 
-                  ? "Aucune action" 
+                  ? "No action" 
                   : selectedStatus === "pending_approval"
-                    ? "Aucune action en attente"
+                    ? "No pending action"
                     : selectedStatus === "approved"
-                      ? "Aucune action approuvée"
+                      ? "No approved action"
                       : selectedStatus === "processing_stopped"
-                        ? "Aucune action en cours"
+                        ? "No action in progress"
                         : selectedStatus === "completed"
-                          ? "Aucune action terminée"
+                          ? "No completed action"
                           : selectedStatus === "rejected_failed"
-                            ? "Aucune action rejetée ou échouée"
-                            : "Aucune action dans cette catégorie"}
+                            ? "No rejected or failed action"
+                            : "No action in this category"}
               </p>
               <p className="text-xs mt-1">
                 {selectedStatus === null 
-                  ? "Les actions créées par l'agent apparaîtront ici."
-                  : "Cliquez sur une autre carte pour voir les actions."}
+                  ? "Actions created by the agent will appear here."
+                  : "Click another card to see actions."}
               </p>
             </div>
           ) : (
@@ -730,9 +730,9 @@ export default function ApprovalQueue() {
                           className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1"
                         >
                           {action.action_type === "search_and_message"
-                            ? "Voir la liste des prospects"
+                            ? "View prospect list"
                             : action.action_type === "search_and_connection"
-                            ? "Voir la liste des connexions"
+                            ? "View connection list"
                             : `${action.target_url.substring(0, 60)}...`}
                           <ExternalLink className="w-3 h-3" />
                         </a>
@@ -755,7 +755,7 @@ export default function ApprovalQueue() {
                               className="mt-1 flex items-center gap-1 text-[11px] text-purple-600 hover:text-purple-800 font-medium"
                             >
                               {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                              {isExpanded ? "Réduire" : "Voir le message complet"}
+                              {isExpanded ? "Collapse" : "View full message"}
                             </button>
                           </div>
                         );
@@ -772,7 +772,7 @@ export default function ApprovalQueue() {
                         <Clock className="w-3 h-3" />
                         {new Date(
                           action.created_at
-                        ).toLocaleString("fr-FR")}
+                        ).toLocaleString("en-US")}
                       </p>
                     </div>
 
@@ -794,17 +794,17 @@ export default function ApprovalQueue() {
             <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
             <div>
               <h4 className="font-medium text-blue-900">
-                Comment ça marche ?
+                How does it work?
               </h4>
               <p className="text-sm text-blue-800 mt-1 space-y-1">
                 <span className="block">
-                  1. L&apos;agent crée une action (recherche, connexion, message) qui apparaît ici en attente d&apos;approbation.
+                  1. The agent creates an action (search, connection, message) which appears here pending approval.
                 </span>
                 <span className="block">
-                  2. Vous pouvez approuver ou rejeter chaque action, ainsi que la réessayer ou l&apos;arrêter.
+                  2. You can approve or reject each action, as well as retry or stop it.
                 </span>
                 <span className="block">
-                  3. Les actions approuvées sont exécutées automatiquement par l&apos;extension Chrome, puis passent au statut « terminées ».
+                  3. Approved actions are automatically executed by the Chrome extension, then move to &quot;completed&quot; status.
                 </span>
               </p>
             </div>

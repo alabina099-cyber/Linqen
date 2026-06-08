@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -39,7 +39,7 @@ const NODE_COLORS = ["#94a3b8", "#60a5fa", "#3b82f6", "#8b5cf6", "#a855f7", "#10
 
 function SankeyNode({ x, y, width, height, index, payload }: any) {
   const color = NODE_COLORS[index % NODE_COLORS.length];
-  const isLeft = index < 0;
+  const isLeft = index === 0;
   const labelOffset = isLeft ? 12 : 8;
   return (
     <Layer>
@@ -69,28 +69,11 @@ function SankeyNode({ x, y, width, height, index, payload }: any) {
   );
 }
 
-export default function ConversionIntelligence({ range }: { range: BIRange }) {
-  const [funnel, setFunnel] = useState<FunnelStep[]>([]);
-  const [cycle, setCycle] = useState<CycleStep[]>([]);
-  const [cohorts, setCohorts] = useState<CohortRow[]>([]);
-  const [sankey, setSankey] = useState<SankeyData>({ nodes: [], links: [] });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancel = false;
-    queueMicrotask(() => setLoading(true));
-    fetch(`/api/bi/conversion?range=${range}`)
-      .then(r => r.json())
-      .then(j => {
-        if (cancel || !j.success) return;
-        setFunnel(j.funnel || []);
-        setCycle(j.cycleTime || []);
-        setCohorts(j.cohorts || []);
-        setSankey(j.sankey || { nodes: [], links: [] });
-      })
-      .finally(() => !cancel && setLoading(false));
-    return () => { cancel = true; };
-  }, [range]);
+export default function ConversionIntelligence({ data: apiData, loading, range }: { data: any; loading: boolean; range: BIRange }) {
+  const funnel = useMemo<FunnelStep[]>(() => apiData?.funnel ?? [], [apiData]);
+  const cycle = useMemo<CycleStep[]>(() => apiData?.cycleTime ?? [], [apiData]);
+  const cohorts = useMemo<CohortRow[]>(() => apiData?.cohorts ?? [], [apiData]);
+  const sankey = useMemo<SankeyData>(() => apiData?.sankey ?? { nodes: [], links: [] }, [apiData]);
 
   const totalDropOff = funnel.reduce((s, f) => s + f.dropOff, 0);
   const overallConversion = funnel.length > 1 && funnel[0].value > 0
@@ -110,13 +93,12 @@ export default function ConversionIntelligence({ range }: { range: BIRange }) {
             <div>
               <CardTitle className="text-lg">Conversion Intelligence</CardTitle>
               <p className="text-xs text-gray-500 mt-0.5">
-                Parcours prospect → client • drop-off, cycle time, cohortes
-              </p>
+Analyzing the Prospect-to-Customer Journey              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Badge className="bg-blue-100 text-blue-700 border-0">
-              {overallConversion}% conversion globale
+              {overallConversion}% global conversion
             </Badge>
             <button
               onClick={() => downloadCSV(`funnel_${range}j.csv`, funnel)}
@@ -137,7 +119,7 @@ export default function ConversionIntelligence({ range }: { range: BIRange }) {
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                 <GitBranch className="w-4 h-4 text-blue-500" />
-                Flux de conversion (Sankey)
+                Conversion flow (Sankey)
               </h4>
             </div>
             <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-100 p-3" style={{ height: 360 }}>
@@ -158,7 +140,7 @@ export default function ConversionIntelligence({ range }: { range: BIRange }) {
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center text-sm text-gray-400">
-                  {loading ? "Chargement..." : "Pas assez de données pour la période sélectionnée"}
+                  {loading ? "Loading..." : "Not enough data for the selected period"}
                 </div>
               )}
             </div>
@@ -169,10 +151,10 @@ export default function ConversionIntelligence({ range }: { range: BIRange }) {
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                 <ListChecks className="w-4 h-4 text-indigo-500" />
-                Étapes du funnel & drop-off
+                Funnel steps & drop-off
               </h4>
               <span className="text-xs text-rose-600 font-semibold">
-                Pertes totales: {totalDropOff}
+                Total losses: {totalDropOff}
               </span>
             </div>
             <div className="space-y-2">
@@ -200,7 +182,7 @@ export default function ConversionIntelligence({ range }: { range: BIRange }) {
                               ? "bg-amber-50 text-amber-700"
                               : "bg-rose-50 text-rose-700"
                           }`}>
-                            {step.conversionFromPrev}% vs étape précédente
+                            {step.conversionFromPrev}% vs previous step
                           </Badge>
                         )}
                       </div>
@@ -218,7 +200,7 @@ export default function ConversionIntelligence({ range }: { range: BIRange }) {
                       />
                       {i > 0 && step.dropOff > 0 && (
                         <div className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
-                          −{step.dropOff} perdus
+                          −{step.dropOff} lost
                         </div>
                       )}
                     </div>
@@ -235,18 +217,18 @@ export default function ConversionIntelligence({ range }: { range: BIRange }) {
           <div>
             <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
               <Timer className="w-4 h-4 text-amber-500" />
-              Cycle time moyen par étape
+              Average cycle time by step
             </h4>
             <div style={{ height: 240 }} className="bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-100 p-3">
               {cycle.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={cycle} margin={{ top: 10, right: 20, left: 0, bottom: 0 }} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
-                    <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} unit="j" />
+                    <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} unit="d" />
                     <YAxis dataKey="status" type="category" width={90} axisLine={false} tickLine={false} tick={{ fill: "#475569", fontSize: 11, fontWeight: 500 }} />
                     <RTooltip
                       contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0" }}
-                      formatter={(v: any) => [`${v} jours`, "Durée moyenne"]}
+                      formatter={(v: any) => [`${v} days`, "Average duration"]}
                     />
                     <Bar dataKey="avgDays" radius={[0, 8, 8, 0]} barSize={20}>
                       {cycle.map((_, i) => (
@@ -257,7 +239,7 @@ export default function ConversionIntelligence({ range }: { range: BIRange }) {
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center text-sm text-gray-400">
-                  Aucune donnée de cycle disponible
+                  No cycle data available
                 </div>
               )}
             </div>
@@ -267,19 +249,19 @@ export default function ConversionIntelligence({ range }: { range: BIRange }) {
           <div>
             <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
               <Table className="w-4 h-4 text-violet-500" />
-              Cohortes hebdomadaires
+              Weekly cohorts
             </h4>
             <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-100 p-3 overflow-x-auto" style={{ minHeight: 240 }}>
               {cohorts.length > 0 ? (
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="text-gray-500">
-                      <th className="text-left p-1.5 font-semibold">Semaine</th>
+                      <th className="text-left p-1.5 font-semibold">Week</th>
                       <th className="p-1.5 font-semibold">Total</th>
-                      <th className="p-1.5 font-semibold">Connectés</th>
-                      <th className="p-1.5 font-semibold">Contactés</th>
-                      <th className="p-1.5 font-semibold">Répondu</th>
-                      <th className="p-1.5 font-semibold">Convertis</th>
+                      <th className="p-1.5 font-semibold">Connected</th>
+                      <th className="p-1.5 font-semibold">Contacted</th>
+                      <th className="p-1.5 font-semibold">Replied</th>
+                      <th className="p-1.5 font-semibold">Converted</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -315,7 +297,7 @@ export default function ConversionIntelligence({ range }: { range: BIRange }) {
                 </table>
               ) : (
                 <div className="h-full flex items-center justify-center text-sm text-gray-400">
-                  Pas de cohortes pour la période
+                  No cohorts for the period
                 </div>
               )}
             </div>

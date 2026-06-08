@@ -2,7 +2,7 @@ import { Pool, PoolClient } from 'pg';
 
 // Configuration de la connexion Neon DB
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_uzan40Povxwp@ep-tiny-term-ai0m9euo-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require',
+  connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false,
   },
@@ -120,14 +120,17 @@ export async function createMessage(data: {
   campaign_id: number;
   recipient_name: string;
   recipient_role?: string;
+  recipient_company?: string;
   message_text: string;
+  message_type?: string;
   status?: string;
+  prospect_id?: number;
 }) {
   const result = await query(
-    `INSERT INTO messages (campaign_id, recipient_name, recipient_role, message_text, status, created_at)
-     VALUES ($1, $2, $3, $4, $5, NOW())
+    `INSERT INTO messages (campaign_id, recipient_name, recipient_role, recipient_company, message_text, message_type, status, prospect_id, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
      RETURNING *`,
-    [data.campaign_id, data.recipient_name, data.recipient_role, data.message_text, data.status || 'sent']
+    [data.campaign_id, data.recipient_name, data.recipient_role ?? null, data.recipient_company ?? null, data.message_text, data.message_type ?? 'message', data.status ?? 'sent', data.prospect_id ?? null]
   );
   return result.rows[0];
 }

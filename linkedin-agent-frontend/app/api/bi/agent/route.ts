@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
         COUNT(*) FILTER (WHERE status = 'success') AS success,
         COUNT(*) FILTER (WHERE status = 'error') AS errors
       FROM agent_tool_steps
-      WHERE created_at > NOW() - INTERVAL '${range} days'
+      WHERE created_at > NOW() - INTERVAL '1 day' * $1
       GROUP BY tool_name
       ORDER BY total DESC
     `;
@@ -30,14 +30,14 @@ export async function GET(req: NextRequest) {
         status,
         COUNT(*) AS count
       FROM linkedin_actions_queue
-      WHERE created_at > NOW() - INTERVAL '${range} days'
+      WHERE created_at > NOW() - INTERVAL '1 day' * $1
       GROUP BY action_type, status
     `;
 
     const timelineSql = `
       WITH days AS (
         SELECT generate_series(
-          DATE_TRUNC('day', NOW() - INTERVAL '${range} days'),
+          DATE_TRUNC('day', NOW() - INTERVAL '1 day' * $1),
           DATE_TRUNC('day', NOW()),
           INTERVAL '1 day'
         )::date AS day
@@ -56,14 +56,14 @@ export async function GET(req: NextRequest) {
         COUNT(DISTINCT conversation_id) AS conversations,
         COUNT(*) AS messages
       FROM agent_chat_history
-      WHERE created_at > NOW() - INTERVAL '${range} days'
+      WHERE created_at > NOW() - INTERVAL '1 day' * $1
     `;
 
     const [toolsR, queueR, timelineR, convR] = await Promise.all([
-      pool.query(toolsSql),
-      pool.query(queueSql),
-      pool.query(timelineSql),
-      pool.query(conversationsSql),
+      pool.query(toolsSql, [range]),
+      pool.query(queueSql, [range]),
+      pool.query(timelineSql, [range]),
+      pool.query(conversationsSql, [range]),
     ]);
 
     const tools = toolsR.rows.map(r => ({

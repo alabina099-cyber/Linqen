@@ -78,7 +78,7 @@ export default function Settings() {
     avatar: "DB",
     linkedInConnected: true,
     linkedInEmail: "dorraboucharbia@gmail.com",
-    lastSync: "Il y a 5 min",
+    lastSync: "5 min ago",
   });
 
   // Prospection Limits
@@ -125,10 +125,10 @@ export default function Settings() {
 
   // Default Targeting
   const [targeting, setTargeting] = useState({
-    defaultIndustry: "Technologie / SaaS",
-    defaultCompanySize: "11-50 employés",
+    defaultIndustry: "Technology / SaaS",
+    defaultCompanySize: "11-50 employees",
     defaultLocation: "France",
-    defaultSeniority: "Cadre / Directeur",
+    defaultSeniority: "Manager / Director",
     defaultFunction: "IT / Engineering / Marketing",
     excludeCompetitors: true,
     excludeExistingCustomers: true,
@@ -307,7 +307,7 @@ export default function Settings() {
   const [billing] = useState({
     plan: "Pro",
     status: "active",
-    renewDate: "15 Mars 2026",
+    renewDate: "March 15, 2026",
     seats: 3,
     usedSeats: 2,
     monthlyContacts: 5000,
@@ -354,18 +354,18 @@ export default function Settings() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
             <Settings2 className="w-8 h-8 text-blue-600" />
-            Paramètres
+            Settings
           </h1>
-          <p className="text-gray-600 mt-1">Configurez votre agent LinkedIn et vos préférences</p>
+          <p className="text-gray-600 mt-1">Configure your LinkedIn agent and preferences</p>
         </div>
       </motion.div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-gray-100/50 p-2 rounded-2xl border border-gray-200/50 h-auto">
-          <TabsTrigger value="account" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-500 hover:border-blue-200 hover:text-blue-500 data-[state=active]:border-blue-400 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all px-2 sm:px-3 py-2"><User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />Compte</TabsTrigger>
+          <TabsTrigger value="account" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-500 hover:border-blue-200 hover:text-blue-500 data-[state=active]:border-blue-400 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all px-2 sm:px-3 py-2"><User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />Account</TabsTrigger>
           <TabsTrigger value="agent" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-500 hover:border-blue-200 hover:text-blue-500 data-[state=active]:border-blue-400 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all px-2 sm:px-3 py-2"><Bot className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />Agent</TabsTrigger>
           <TabsTrigger value="notifications" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-500 hover:border-blue-200 hover:text-blue-500 data-[state=active]:border-blue-400 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all px-2 sm:px-3 py-2"><Bell className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" /><span className="hidden sm:inline">Notifications</span><span className="sm:hidden">Notif</span></TabsTrigger>
-          <TabsTrigger value="appearance" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-500 hover:border-blue-200 hover:text-blue-500 data-[state=active]:border-blue-400 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all px-2 sm:px-3 py-2"><Palette className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />Affichage</TabsTrigger>
+          <TabsTrigger value="appearance" className="text-xs sm:text-sm rounded-xl border-2 border-gray-200 bg-white text-gray-500 hover:border-blue-200 hover:text-blue-500 data-[state=active]:border-blue-400 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all px-2 sm:px-3 py-2"><Palette className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />Display</TabsTrigger>
         </TabsList>
 
         {/* ACCOUNT TAB */}
@@ -377,8 +377,8 @@ export default function Settings() {
               <CardTitle className="flex items-center gap-3">
                 <User className="w-7 h-7 text-blue-500" />
                 <div>
-                  <span className="text-lg font-bold text-gray-900">Compte LinkedIn</span>
-                  <CardDescription className="mt-0.5">Gérez votre connexion et vos informations de compte</CardDescription>
+                  <span className="text-lg font-bold text-gray-900">LinkedIn Account</span>
+                  <CardDescription className="mt-0.5">Manage your connection and account information</CardDescription>
                 </div>
               </CardTitle>
             </CardHeader>
@@ -402,12 +402,12 @@ export default function Settings() {
                 <Bot className="w-7 h-7 text-blue-500" />
                 <div className="flex-1">
                   <span className="text-lg font-bold text-gray-900">Agent</span>
-                  <CardDescription className="mt-0.5">Modèle IA, timing et comportement de l'agent</CardDescription>
+                  <CardDescription className="mt-0.5">AI model, timing and agent behavior</CardDescription>
                 </div>
                 {agentSaving && (
                   <span className="flex items-center gap-1.5 text-xs text-blue-600 font-medium animate-pulse">
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    Enregistrement...
+                    Saving...
                   </span>
                 )}
               </CardTitle>
@@ -416,7 +416,7 @@ export default function Settings() {
               {/* AI MODEL + TONE — at the very top */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label htmlFor="ai-model" className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Modèle IA</label>
+                  <label htmlFor="ai-model" className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">AI Model</label>
                   <div id="ai-model-dropdown" className="relative">
                     <button
                       onClick={() => setAiModelDropdownOpen(!aiModelDropdownOpen)}
@@ -439,9 +439,9 @@ export default function Settings() {
                     {aiModelDropdownOpen && (
                       <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
                         {(availableModels.length > 0 ? availableModels : [
-                          { value: 'gpt-4o-mini', label: 'GPT-4o-mini (Rapide & économique)', color: 'orange', available: false },
-                          { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (Plus rapide)', color: 'blue', available: false },
-                          { value: 'gpt-4', label: 'GPT-4 (Meilleure qualité)', color: 'green', available: false },
+                          { value: 'gpt-4o-mini', label: 'GPT-4o-mini (Fast & affordable)', color: 'orange', available: false },
+                          { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (Faster)', color: 'blue', available: false },
+                          { value: 'gpt-4', label: 'GPT-4 (Best quality)', color: 'green', available: false },
                         ]).map((model) => (
                           <button
                             key={model.value}
@@ -481,7 +481,7 @@ export default function Settings() {
                   </div>
                 </div>
                 <div>
-                  <label htmlFor="ai-tone" className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Ton des messages</label>
+                  <label htmlFor="ai-tone" className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Message Tone</label>
                   <div id="tone-dropdown" className="relative">
                     <button
                       onClick={() => setToneDropdownOpen(!toneDropdownOpen)}
@@ -493,9 +493,9 @@ export default function Settings() {
                         aiSettings.tone === 'formal' ? 'bg-purple-500' : 'bg-orange-500'
                       }`}></span>
                       <span className="truncate">{
-                        aiSettings.tone === 'professional' ? 'Professionnel' :
-                        aiSettings.tone === 'friendly' ? 'Amical' :
-                        aiSettings.tone === 'formal' ? 'Formel' : 'Décontracté'
+                        aiSettings.tone === 'professional' ? 'Professional' :
+                        aiSettings.tone === 'friendly' ? 'Friendly' :
+                        aiSettings.tone === 'formal' ? 'Formal' : 'Casual'
                       }</span>
                     </button>
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
@@ -506,10 +506,10 @@ export default function Settings() {
                     {toneDropdownOpen && (
                       <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
                         {[
-                          { value: 'professional', label: 'Professionnel', color: 'bg-blue-500' },
-                          { value: 'friendly', label: 'Amical', color: 'bg-green-500' },
-                          { value: 'formal', label: 'Formel', color: 'bg-purple-500' },
-                          { value: 'casual', label: 'Décontracté', color: 'bg-orange-500' }
+                          { value: 'professional', label: 'Professional', color: 'bg-blue-500' },
+                          { value: 'friendly', label: 'Friendly', color: 'bg-green-500' },
+                          { value: 'formal', label: 'Formal', color: 'bg-purple-500' },
+                          { value: 'casual', label: 'Casual', color: 'bg-orange-500' }
                         ].map((tone) => (
                           <button
                             key={tone.value}
@@ -531,7 +531,7 @@ export default function Settings() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl">
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Délai min entre actions: <span className="text-blue-600 font-bold">{automation.minDelayBetweenActions}s</span>
+                    Min delay between actions: <span className="text-blue-600 font-bold">{automation.minDelayBetweenActions}s</span>
                   </label>
                   <Slider
                     value={[automation.minDelayBetweenActions]}
@@ -543,7 +543,7 @@ export default function Settings() {
                 </div>
                 <div className="p-4 bg-gray-50/50 border border-gray-100 rounded-xl">
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Délai max entre actions: <span className="text-blue-600 font-bold">{automation.maxDelayBetweenActions}s</span>
+                    Max delay between actions: <span className="text-blue-600 font-bold">{automation.maxDelayBetweenActions}s</span>
                   </label>
                   <Slider
                     value={[automation.maxDelayBetweenActions]}
@@ -559,10 +559,10 @@ export default function Settings() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                  <label htmlFor="auto-start" className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Heure de début</label>
+                  <label htmlFor="auto-start" className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Start time</label>
                   <input
                     id="auto-start"
-                    aria-label="Heure de début"
+                    aria-label="Start time"
                     type="text"
                     placeholder="09:00"
                     pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
@@ -573,10 +573,10 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="auto-end" className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Heure de fin</label>
+                  <label htmlFor="auto-end" className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">End time</label>
                   <input
                     id="auto-end"
-                    aria-label="Heure de fin"
+                    aria-label="End time"
                     type="text"
                     placeholder="18:00"
                     pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
@@ -587,9 +587,9 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="auto-timezone" className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Fuseau horaire</label>
+                  <label htmlFor="auto-timezone" className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Timezone</label>
                   <Dropdown
-                    ariaLabel="Fuseau horaire"
+                    ariaLabel="Timezone"
                     value={automation.timezone}
                     onChange={(v) => setAutomation({ ...automation, timezone: v })}
                     options={[
@@ -602,16 +602,16 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Jours de prospection</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">Prospecting days</label>
                   <div className="flex gap-1 flex-wrap">
                     {[
-                      { fr: "Lun", en: "Mon" },
-                      { fr: "Mar", en: "Tue" },
-                      { fr: "Mer", en: "Wed" },
-                      { fr: "Jeu", en: "Thu" },
-                      { fr: "Ven", en: "Fri" },
-                      { fr: "Sam", en: "Sat" },
-                      { fr: "Dim", en: "Sun" },
+                      { fr: "Mon", en: "Mon" },
+                      { fr: "Tue", en: "Tue" },
+                      { fr: "Wed", en: "Wed" },
+                      { fr: "Thu", en: "Thu" },
+                      { fr: "Fri", en: "Fri" },
+                      { fr: "Sat", en: "Sat" },
+                      { fr: "Sun", en: "Sun" },
                     ].map((day) => {
                       const active = automation.workingDays.includes(day.en);
                       return (
@@ -643,8 +643,8 @@ export default function Settings() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-900">Randomiser les délais</p>
-                    <p className="text-sm text-gray-500">Varier les délais entre actions pour simuler un humain</p>
+                    <p className="font-medium text-gray-900">Randomize delays</p>
+                    <p className="text-sm text-gray-500">Vary delays between actions to simulate a human</p>
                   </div>
                   <Switch
                     checked={automation.randomizeDelays}
@@ -653,8 +653,8 @@ export default function Settings() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-900">Comportement humain simulé</p>
-                    <p className="text-sm text-gray-500">Visite des profils, scroll, temps de lecture variable</p>
+                    <p className="font-medium text-gray-900">Simulated human behavior</p>
+                    <p className="text-sm text-gray-500">Profile visits, scrolling, variable reading time</p>
                   </div>
                   <Switch
                     checked={automation.simulateHumanBehavior}
@@ -663,8 +663,8 @@ export default function Settings() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-900">Réponses automatiques IA</p>
-                    <p className="text-sm text-gray-500">L'IA répond automatiquement aux messages reçus</p>
+                    <p className="font-medium text-gray-900">Automatic AI replies</p>
+                    <p className="text-sm text-gray-500">AI automatically replies to received messages</p>
                   </div>
                   <Switch
                     checked={aiSettings.autoReplyEnabled}
@@ -674,7 +674,7 @@ export default function Settings() {
                 {aiSettings.autoReplyEnabled && (
                   <div className="pl-4 border-l-2 border-blue-200">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Confiance minimum: <span className="text-blue-600 font-bold">{aiSettings.autoReplyConfidence}%</span>
+                      Minimum confidence: <span className="text-blue-600 font-bold">{aiSettings.autoReplyConfidence}%</span>
                     </label>
                     <Slider
                       value={[aiSettings.autoReplyConfidence]}
@@ -687,8 +687,8 @@ export default function Settings() {
                 )}
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-900">Détection automatique de la langue</p>
-                    <p className="text-sm text-gray-500">Adapter la langue selon le profil du prospect</p>
+                    <p className="font-medium text-gray-900">Automatic language detection</p>
+                    <p className="text-sm text-gray-500">Adapt language based on the prospect's profile</p>
                   </div>
                   <Switch
                     checked={aiSettings.autoDetectLanguage}
@@ -711,13 +711,13 @@ export default function Settings() {
               <CardTitle className="flex items-center gap-3">
                 <Bell className="w-7 h-7 text-blue-500" />
                 <div className="flex-1">
-                  <span className="text-lg font-bold text-gray-900">Alertes dans l'extension</span>
-                  <CardDescription className="mt-0.5">Choisissez quels événements déclenchent une notification dans le popup</CardDescription>
+                  <span className="text-lg font-bold text-gray-900">Extension alerts</span>
+                  <CardDescription className="mt-0.5">Choose which events trigger a notification in the popup</CardDescription>
                 </div>
                 {notifSaving && (
                   <span className="flex items-center gap-1.5 text-xs text-blue-600 font-medium animate-pulse">
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    Enregistrement...
+                    Saving...
                   </span>
                 )}
                 {notifSaved && !notifSaving && (
@@ -727,7 +727,7 @@ export default function Settings() {
                     className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium"
                   >
                     <CheckCircle className="w-3.5 h-3.5" />
-                    Enregistré
+                    Saved
                   </motion.span>
                 )}
               </CardTitle>
@@ -753,32 +753,32 @@ export default function Settings() {
                 {[
                   {
                     key: "emailNewReply",
-                    label: "Nouvelle réponse",
-                    desc: "Être alerté quand un prospect répond",
+                    label: "New reply",
+                    desc: "Get notified when a prospect replies",
                     icon: MessageSquare,
                     iconBg: "bg-blue-50",
                     iconColor: "text-blue-600",
                   },
                   {
                     key: "emailNewConversion",
-                    label: "Nouvelle conversion",
-                    desc: "Alerte immédiate pour chaque conversion",
+                    label: "New conversion",
+                    desc: "Immediate alert for each conversion",
                     icon: TrendingUp,
                     iconBg: "bg-emerald-50",
                     iconColor: "text-emerald-600",
                   },
                   {
                     key: "emailLimitWarning",
-                    label: "Alerte limites",
-                    desc: "Avertissement quand vous approchez des limites LinkedIn",
+                    label: "Limit alert",
+                    desc: "Warning when you approach LinkedIn limits",
                     icon: AlertTriangle,
                     iconBg: "bg-amber-50",
                     iconColor: "text-amber-600",
                   },
                   {
                     key: "emailDailySummary",
-                    label: "Résumé quotidien",
-                    desc: "Récapitulatif des actions du jour dans le popup",
+                    label: "Daily summary",
+                    desc: "Summary of the day's actions in the popup",
                     icon: BarChart3,
                     iconBg: "bg-indigo-50",
                     iconColor: "text-indigo-600",
@@ -822,8 +822,8 @@ export default function Settings() {
                 <div className="flex items-center gap-3">
                   <Palette className="w-7 h-7 text-blue-500" />
                   <div>
-                    <span className="text-lg font-bold text-gray-900">Personnalisation visuelle</span>
-                    <CardDescription className="mt-0.5">Choisissez l'apparence qui vous convient le mieux</CardDescription>
+                    <span className="text-lg font-bold text-gray-900">Visual customization</span>
+                    <CardDescription className="mt-0.5">Choose the appearance that suits you best</CardDescription>
                   </div>
                 </div>
                 <Button 
@@ -838,7 +838,7 @@ export default function Settings() {
                   })}
                 >
                   <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-                  Réinitialiser les préférences
+                  Reset preferences
                 </Button>
               </div>
             </CardHeader>
@@ -847,14 +847,14 @@ export default function Settings() {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
                   <Monitor className="w-4 h-4 text-blue-500" />
-                  Thème de l'interface
+                  Interface theme
                 </label>
                 <div className="grid grid-cols-3 gap-4">
                   {[
                     { 
                       value: "light", 
-                      label: "Clair", 
-                      desc: "Interface lumineuse et épurée",
+                      label: "Light", 
+                      desc: "Bright and clean interface",
                       icon: Sun,
                       preview: "bg-white",
                       accent: "bg-blue-500",
@@ -862,8 +862,8 @@ export default function Settings() {
                     },
                     { 
                       value: "dark", 
-                      label: "Sombre", 
-                      desc: "Mode nuit, plus doux pour les yeux",
+                      label: "Dark", 
+                      desc: "Night mode, easier on the eyes",
                       icon: Moon,
                       preview: "bg-gray-900",
                       accent: "bg-purple-500",
@@ -871,8 +871,8 @@ export default function Settings() {
                     },
                     { 
                       value: "auto", 
-                      label: "Automatique", 
-                      desc: "S'adapte à l'heure du jour",
+                      label: "Auto", 
+                      desc: "Adapts to the time of day",
                       icon: Monitor,
                       preview: "bg-linear-to-br from-white to-gray-900",
                       accent: "bg-gradient-to-r from-blue-500 to-purple-500",
@@ -940,12 +940,12 @@ export default function Settings() {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
                   <Globe className="w-4 h-4 text-blue-500" />
-                  Langue et Date
+                  Language and Date
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Language Selection */}
                 <div className="space-y-2">
-                  <label className="block text-xs font-medium text-gray-500">Langue</label>
+                  <label className="block text-xs font-medium text-gray-500">Language</label>
                   <div className="flex gap-2">
                     {[
                       { value: "fr", label: "FR", desc: "Français" },
@@ -971,7 +971,7 @@ export default function Settings() {
 
                 {/* Date Format */}
                 <div className="space-y-2">
-                  <label className="block text-xs font-medium text-gray-500">Format de date</label>
+                  <label className="block text-xs font-medium text-gray-500">Date format</label>
                   <div className="flex gap-2">
                     {[
                       { value: "DD/MM/YYYY", label: "31/12/2024", badge: "EU" },
@@ -997,7 +997,7 @@ export default function Settings() {
 
                 {/* Time Format */}
                 <div className="space-y-2">
-                  <label className="block text-xs font-medium text-gray-500">Format d'heure</label>
+                  <label className="block text-xs font-medium text-gray-500">Time format</label>
                   <div className="flex gap-2">
                     {["24h", "12h"].map((format) => (
                       <button

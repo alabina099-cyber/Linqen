@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     const sql = `
       WITH days AS (
         SELECT generate_series(
-          DATE_TRUNC('day', NOW() - INTERVAL '${range} days'),
+          DATE_TRUNC('day', NOW() - INTERVAL '1 day' * $1),
           DATE_TRUNC('day', NOW()),
           INTERVAL '1 day'
         )::date AS day
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       ORDER BY d.day ASC
     `;
 
-    const r = await pool.query(sql);
+    const r = await pool.query(sql, [range]);
     const rows = r.rows;
 
     const history = rows.map((row, i) => ({

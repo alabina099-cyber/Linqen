@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
         COUNT(*) FILTER (WHERE status = 'converted') AS converted,
         ROUND(AVG(score)::numeric, 0) AS avg_score
       FROM prospects
-      WHERE created_at > NOW() - INTERVAL '${range} days'
+      WHERE created_at > NOW() - INTERVAL '1 day' * $1
       GROUP BY location
       ORDER BY total DESC
       LIMIT 25
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
         ROUND(AVG(score)::numeric, 0) AS avg_score,
         COUNT(*) FILTER (WHERE status = 'converted') AS converted
       FROM prospects
-      WHERE created_at > NOW() - INTERVAL '${range} days'
+      WHERE created_at > NOW() - INTERVAL '1 day' * $1
       GROUP BY industry
       ORDER BY total DESC
       LIMIT 12
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
         COUNT(*) AS count,
         COUNT(*) FILTER (WHERE status = 'converted') AS converted
       FROM prospects
-      WHERE created_at > NOW() - INTERVAL '${range} days'
+      WHERE created_at > NOW() - INTERVAL '1 day' * $1
       GROUP BY 1
       ORDER BY 1
     `;
@@ -66,16 +66,16 @@ export async function GET(req: NextRequest) {
           SELECT COUNT(*) FROM messages m WHERE m.prospect_id = p.id
         ), 0) AS engagement
       FROM prospects p
-      WHERE p.created_at > NOW() - INTERVAL '${range} days'
+      WHERE p.created_at > NOW() - INTERVAL '1 day' * $1
       ORDER BY p.score DESC
       LIMIT 200
     `;
 
     const [geoR, tmR, scoreR, icpR] = await Promise.all([
-      pool.query(geoSql),
-      pool.query(treemapSql),
-      pool.query(scoreSql),
-      pool.query(icpSql),
+      pool.query(geoSql, [range]),
+      pool.query(treemapSql, [range]),
+      pool.query(scoreSql, [range]),
+      pool.query(icpSql, [range]),
     ]);
 
     return NextResponse.json({

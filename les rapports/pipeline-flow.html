@@ -1,198 +1,422 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Pipeline DevSecOps - LinkedIn Agent</title>
+<title>DevSecOps CI/CD Pipeline — LinkedIn Agent</title>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body {
-    font-family:'Segoe UI', Arial, sans-serif;
-    background:#ffffff;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    min-height:100vh;
-    padding:20px;
-  }
-  .wrap { width:1180px; }
-  h2 { text-align:center; font-size:18px; color:#1a1a2e; margin-bottom:30px; font-weight:700; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:'Segoe UI', Arial, sans-serif;
+  background:#f0f2f5;
+  padding:30px 20px;
+  display:flex;
+  justify-content:center;
+}
+.page { display:flex; gap:20px; max-width:1160px; width:100%; align-items:flex-start; }
+
+/* ── MAIN PIPELINE ── */
+.pipeline { flex:1; display:flex; flex-direction:column; gap:0; }
+
+/* trigger bar */
+.trigger-bar {
+  background:#1a1a2e;
+  color:#fff;
+  border-radius:10px 10px 0 0;
+  padding:13px 20px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  font-size:13px;
+  font-weight:700;
+}
+.trigger-bar .pill {
+  background:rgba(255,255,255,0.15);
+  border-radius:20px;
+  padding:3px 12px;
+  font-size:11px;
+  font-weight:600;
+}
+.trigger-bar .t-label {
+  background:#e65100;
+  color:#fff;
+  border-radius:6px;
+  padding:3px 10px;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.5px;
+}
+
+/* arrow connector */
+.connector {
+  display:flex;
+  justify-content:center;
+  padding:8px 0;
+  color:#b0b8c1;
+  font-size:20px;
+}
+
+/* section card */
+.card {
+  border-radius:12px;
+  border:1.5px solid #e2e6ea;
+  overflow:hidden;
+  background:#fff;
+}
+.card-header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px 18px;
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:.6px;
+  text-transform:uppercase;
+}
+.card-body { padding:14px 16px; display:flex; flex-direction:column; gap:8px; }
+
+/* CI */
+.card.ci .card-header { background:#eaf5ea; color:#2e7d32; border-bottom:1.5px solid #c8e6c9; }
+.card.ci .badge-parallel { background:#c8e6c9; color:#1b5e20; font-size:10px; font-weight:700; padding:2px 9px; border-radius:20px; }
+
+/* Tests */
+.card.tests .card-header { background:#e3f2fd; color:#0277bd; border-bottom:1.5px solid #b3d9f7; }
+
+/* Security */
+.card.security .card-header { background:#fff3e0; color:#c84b00; border-bottom:1.5px solid #ffcc80; }
+
+/* Deploy */
+.card.deploy .card-header { background:#f3e5f5; color:#6a1b9a; border-bottom:1.5px solid #ce93d8; }
+
+/* Performance */
+.card.perf .card-header { background:#fce4ec; color:#b71c1c; border-bottom:1.5px solid #f48fb1; }
+
+/* production bar */
+.prod-bar {
+  background:#1a1a2e;
+  color:#fff;
+  border-radius:0 0 10px 10px;
+  padding:12px 20px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:12px;
+  font-weight:600;
+}
+.prod-bar .p-label { background:#00897b; border-radius:6px; padding:3px 10px; font-size:11px; font-weight:700; }
+.prod-bar .p-tag { background:rgba(255,255,255,0.15); border-radius:20px; padding:3px 10px; font-size:11px; }
+
+/* row items inside cards */
+.item-row {
+  display:flex;
+  align-items:center;
+  background:#f8f9fa;
+  border-radius:8px;
+  padding:10px 14px;
+  gap:10px;
+}
+.item-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.dot-ci       { background:#2e7d32; }
+.dot-test     { background:#0277bd; }
+.dot-security { background:#e65100; }
+.dot-deploy   { background:#6a1b9a; }
+.dot-perf     { background:#b71c1c; }
+
+.item-content { flex:1; }
+.item-title { font-size:12px; font-weight:700; color:#263238; }
+.item-sub   { font-size:10.5px; color:#78909c; margin-top:2px; }
+.item-tag {
+  font-size:10px; font-weight:700; padding:3px 10px;
+  border-radius:20px; white-space:nowrap;
+}
+.tag-ci       { background:#e8f5e9; color:#2e7d32; }
+.tag-test     { background:#e3f2fd; color:#0277bd; }
+.tag-security { background:#fff3e0; color:#e65100; }
+.tag-deploy   { background:#f3e5f5; color:#6a1b9a; }
+.tag-perf     { background:#fce4ec; color:#b71c1c; }
+
+/* CI 3-columns */
+.ci-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+.ci-box {
+  background:#f8f9fa; border-radius:8px; padding:12px 10px;
+  border:1px solid #e8f5e9; text-align:center;
+}
+.ci-box .cb-title { font-size:11.5px; font-weight:700; color:#2e7d32; margin-bottom:4px; }
+.ci-box .cb-sub   { font-size:10px; color:#78909c; line-height:1.5; }
+.ci-box .cb-file  {
+  display:inline-block; margin-top:6px;
+  background:#c8e6c9; color:#1b5e20;
+  font-size:9.5px; font-weight:700; padding:2px 8px; border-radius:10px;
+}
+
+/* ── SIDEBAR ── */
+.sidebar { width:230px; display:flex; flex-direction:column; gap:16px; padding-top:58px; }
+.side-card {
+  background:#fff;
+  border-radius:12px;
+  border:1.5px solid #e2e6ea;
+  overflow:hidden;
+}
+.side-header {
+  padding:10px 14px;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.6px;
+  text-transform:uppercase;
+}
+.side-header.dep { background:#eef2ff; color:#3949ab; border-bottom:1.5px solid #c5cae9; }
+.side-header.bak { background:#fce4ec; color:#880e4f; border-bottom:1.5px solid #f48fb1; }
+.side-body { padding:12px 14px; }
+.side-item { font-size:11px; color:#546e7a; padding:3px 0; display:flex; align-items:baseline; gap:6px; }
+.side-item::before { content:'–'; color:#b0bec5; flex-shrink:0; }
+.side-badge {
+  display:block; margin-top:10px;
+  text-align:center; font-size:10px; font-weight:700;
+  padding:4px 0; border-radius:20px;
+}
+.badge-dep { background:#e8eaf6; color:#3949ab; }
+.badge-bak { background:#fce4ec; color:#880e4f; }
+
+/* section number badge */
+.num-badge {
+  width:24px; height:24px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:800; color:#fff; flex-shrink:0;
+}
+.num-ci       { background:#2e7d32; }
+.num-test     { background:#0277bd; }
+.num-security { background:#e65100; }
+.num-deploy   { background:#6a1b9a; }
+.num-perf     { background:#b71c1c; }
 </style>
 </head>
 <body>
-<div class="wrap">
-<h2>Pipeline DevSecOps CI/CD — LinkedIn Agent</h2>
-<svg viewBox="0 0 1180 360" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif">
-  <defs>
-    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-      <path d="M0,0 L6,3 L0,6 Z" fill="#b0b8c1"/>
-    </marker>
-  </defs>
+<div class="page">
 
-  <!-- ============ CONNECTING LINES ============ -->
-  <!-- main horizontal line through nodes -->
-  <g stroke="#b0b8c1" stroke-width="2" fill="none">
-    <!-- Push -> Lint -->
-    <line x1="95"  y1="180" x2="150" y2="180" marker-end="url(#arrow)"/>
-    <!-- Lint -> Build -->
-    <line x1="230" y1="180" x2="285" y2="180" marker-end="url(#arrow)"/>
-    <!-- Build -> branch fork point -->
-    <line x1="365" y1="180" x2="410" y2="180"/>
-    <!-- fork to 3 scans -->
-    <path d="M410,180 C440,180 440,80 470,80" marker-end="url(#arrow)"/>
-    <path d="M410,180 L470,180" marker-end="url(#arrow)"/>
-    <path d="M410,180 C440,180 440,280 470,280" marker-end="url(#arrow)"/>
-    <!-- merge from 3 scans -->
-    <path d="M550,80  C580,80  580,180 610,180"/>
-    <path d="M550,180 L610,180"/>
-    <path d="M550,280 C580,280 580,180 610,180"/>
-    <!-- merge -> Gitleaks -->
-    <line x1="610" y1="180" x2="635" y2="180" marker-end="url(#arrow)"/>
-    <!-- Gitleaks -> GHCR -->
-    <line x1="715" y1="180" x2="770" y2="180" marker-end="url(#arrow)"/>
-    <!-- GHCR -> Coolify -->
-    <line x1="850" y1="180" x2="905" y2="180" marker-end="url(#arrow)"/>
-    <!-- Coolify -> Health -->
-    <line x1="985" y1="180" x2="1040" y2="180" marker-end="url(#arrow)"/>
-    <!-- Coolify -> Success (up) -->
-    <path d="M945,140 C945,90 1090,110 1095,70" marker-end="url(#arrow)"/>
-  </g>
+  <!-- ═══ MAIN PIPELINE ═══ -->
+  <div class="pipeline">
 
-  <!-- ============ NODES ============ -->
-  <!-- 1. Code Push -->
-  <g>
-    <circle cx="55" cy="180" r="34" fill="#e3f0ff" stroke="#1565c0" stroke-width="2.5"/>
-    <text x="55" y="186" font-size="24" text-anchor="middle">📝</text>
-    <text x="55" y="240" font-size="11.5" font-weight="700" text-anchor="middle" fill="#37474f">Code Push</text>
-    <text x="55" y="255" font-size="9.5" text-anchor="middle" fill="#90a4ae">branch: main</text>
-  </g>
+    <!-- TRIGGER -->
+    <div class="trigger-bar">
+      <span class="t-label">TRIGGER</span>
+      git push → branch main
+      <span style="flex:1"></span>
+      <span class="pill">GitHub Actions</span>
+      <span class="pill">on: push</span>
+    </div>
 
-  <!-- 2. Lint + TypeCheck -->
-  <g>
-    <rect x="150" y="150" width="80" height="60" rx="12" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2.5"/>
-    <text x="190" y="178" font-size="20" text-anchor="middle">🔍</text>
-    <text x="190" y="200" font-size="10" font-weight="700" text-anchor="middle" fill="#2e7d32">Lint + TS</text>
-    <text x="190" y="240" font-size="11.5" font-weight="700" text-anchor="middle" fill="#37474f">ESLint + tsc</text>
-    <text x="190" y="255" font-size="9.5" text-anchor="middle" fill="#90a4ae">ci.yml</text>
-  </g>
+    <div class="connector">↓</div>
 
-  <!-- 3. Build -->
-  <g>
-    <rect x="285" y="150" width="80" height="60" rx="12" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2.5"/>
-    <text x="325" y="178" font-size="20" text-anchor="middle">🏗️</text>
-    <text x="325" y="200" font-size="10" font-weight="700" text-anchor="middle" fill="#2e7d32">Build</text>
-    <text x="325" y="240" font-size="11.5" font-weight="700" text-anchor="middle" fill="#37474f">Next.js Build</text>
-    <text x="325" y="255" font-size="9.5" text-anchor="middle" fill="#90a4ae">npm run build</text>
-  </g>
+    <!-- 01 · CI -->
+    <div class="card ci">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="num-badge num-ci">01</span>
+          Continuous Integration (CI)
+        </div>
+        <span class="badge-parallel">PARALLEL EXECUTION</span>
+      </div>
+      <div class="card-body">
+        <div style="font-size:10.5px;color:#78909c;text-align:center;margin-bottom:4px;">All three pipelines run simultaneously</div>
+        <div class="ci-grid">
+          <div class="ci-box">
+            <div class="cb-title">Frontend CI</div>
+            <div class="cb-sub">ESLint · TypeScript<br>Unit Tests (28) · Next.js Build</div>
+            <span class="cb-file">ci.yml</span>
+          </div>
+          <div class="ci-box">
+            <div class="cb-title">Worker CI</div>
+            <div class="cb-sub">TypeScript Build<br>Queue service validation</div>
+            <span class="cb-file">worker-ci.yml</span>
+          </div>
+          <div class="ci-box">
+            <div class="cb-title">Extension CI</div>
+            <div class="cb-sub">MV3 Manifest · JS Syntax<br>Zip Package (v3.3.0)</div>
+            <span class="cb-file">chrome-extension-ci.yml</span>
+          </div>
+        </div>
+        <div style="font-size:10px;color:#2e7d32;font-style:italic;text-align:center;margin-top:4px;">
+          Build is blocked until lint + typecheck + unit tests all pass (quality gate)
+        </div>
+      </div>
+    </div>
 
-  <!-- 4a. SCA Scan (top) -->
-  <g>
-    <rect x="470" y="52" width="80" height="56" rx="12" fill="#fff3e0" stroke="#e65100" stroke-width="2.5"/>
-    <text x="510" y="78" font-size="18" text-anchor="middle">📦</text>
-    <text x="510" y="98" font-size="10" font-weight="700" text-anchor="middle" fill="#e65100">NPM Audit</text>
-    <text x="510" y="40" font-size="10" font-weight="700" text-anchor="middle" fill="#90a4ae">SCA Scan</text>
-  </g>
+    <div class="connector">↓</div>
 
-  <!-- 4b. SAST Scan (middle) -->
-  <g>
-    <rect x="470" y="152" width="80" height="56" rx="12" fill="#fff3e0" stroke="#e65100" stroke-width="2.5"/>
-    <text x="510" y="178" font-size="18" text-anchor="middle">🔬</text>
-    <text x="510" y="198" font-size="10" font-weight="700" text-anchor="middle" fill="#e65100">Semgrep</text>
-    <text x="510" y="228" font-size="10" font-weight="700" text-anchor="middle" fill="#90a4ae">SAST Scan</text>
-  </g>
+    <!-- 02 · TESTS -->
+    <div class="card tests">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="num-badge num-test">02</span>
+          Automated Testing
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="item-row">
+          <div class="item-dot dot-test"></div>
+          <div class="item-content">
+            <div class="item-title">Unit Tests — Vitest + Istanbul Coverage</div>
+            <div class="item-sub">28 tests · Prospect scoring + anti-XSS/CORS validators · 100% statement, branch & function coverage</div>
+          </div>
+          <span class="item-tag tag-test">28/28 ✓ · 100%</span>
+        </div>
+        <div class="item-row">
+          <div class="item-dot dot-test"></div>
+          <div class="item-content">
+            <div class="item-title">E2E Tests — Playwright (Chromium)</div>
+            <div class="item-sub">9 tests: login UI · /api/health · security headers · CORS · rate limiting · XSS rejection · HTML report artifact</div>
+          </div>
+          <span class="item-tag tag-test">9/9 ✓</span>
+        </div>
+      </div>
+    </div>
 
-  <!-- 4c. Container Scan (bottom) -->
-  <g>
-    <rect x="470" y="252" width="80" height="56" rx="12" fill="#fff3e0" stroke="#e65100" stroke-width="2.5"/>
-    <text x="510" y="278" font-size="18" text-anchor="middle">🐳</text>
-    <text x="510" y="298" font-size="10" font-weight="700" text-anchor="middle" fill="#e65100">Trivy FS</text>
-    <text x="510" y="328" font-size="10" font-weight="700" text-anchor="middle" fill="#90a4ae">Filesystem Scan</text>
-  </g>
+    <div class="connector">↓</div>
 
-  <!-- 5. Gitleaks (Quality/Secret gate) -->
-  <g>
-    <rect x="635" y="150" width="80" height="60" rx="12" fill="#fff3e0" stroke="#e65100" stroke-width="2.5"/>
-    <text x="675" y="178" font-size="20" text-anchor="middle">🔑</text>
-    <text x="675" y="200" font-size="10" font-weight="700" text-anchor="middle" fill="#e65100">Gitleaks</text>
-    <text x="675" y="240" font-size="11.5" font-weight="700" text-anchor="middle" fill="#37474f">Secrets Scan</text>
-    <text x="675" y="255" font-size="9.5" text-anchor="middle" fill="#90a4ae">security.yml</text>
-  </g>
+    <!-- 03 · SECURITY -->
+    <div class="card security">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="num-badge num-security">03</span>
+          Security Audit — DevSecOps (5 layers)
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="item-row">
+          <div class="item-dot dot-security"></div>
+          <div class="item-content">
+            <div class="item-title">NPM Vulnerabilities Audit</div>
+            <div class="item-sub">npm audit · CVE detection in production deps (--omit=dev) · runs on every commit + weekly schedule</div>
+          </div>
+          <span class="item-tag tag-security">npm audit</span>
+        </div>
+        <div class="item-row">
+          <div class="item-dot dot-security"></div>
+          <div class="item-content">
+            <div class="item-title">Static Analysis — Trivy FS + Semgrep</div>
+            <div class="item-sub">Trivy: vuln + secrets + misconfig · Semgrep: JS · TS · React · Node.js · OWASP Top 10</div>
+          </div>
+          <span class="item-tag tag-security">SAST</span>
+        </div>
+        <div class="item-row">
+          <div class="item-dot dot-security"></div>
+          <div class="item-content">
+            <div class="item-title">Detect Leaked Secrets — Gitleaks v8.21.2</div>
+            <div class="item-sub">Working tree scan · API keys & tokens · SARIF report uploaded as artifact</div>
+          </div>
+          <span class="item-tag tag-security">gitleaks</span>
+        </div>
+      </div>
+    </div>
 
-  <!-- 6. Build & Push GHCR -->
-  <g>
-    <rect x="770" y="150" width="80" height="60" rx="12" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="2.5"/>
-    <text x="810" y="178" font-size="20" text-anchor="middle">📦</text>
-    <text x="810" y="200" font-size="9.5" font-weight="700" text-anchor="middle" fill="#6a1b9a">Push GHCR</text>
-    <text x="810" y="240" font-size="11" font-weight="700" text-anchor="middle" fill="#37474f">Docker Image</text>
-    <text x="810" y="255" font-size="9.5" text-anchor="middle" fill="#90a4ae">ghcr.io</text>
-  </g>
+    <div class="connector">↓</div>
 
-  <!-- 7. Deploy Coolify -->
-  <g>
-    <circle cx="945" cy="180" r="34" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="2.5"/>
-    <text x="945" y="186" font-size="22" text-anchor="middle">🚀</text>
-    <text x="945" y="240" font-size="11.5" font-weight="700" text-anchor="middle" fill="#37474f">Deploy Coolify</text>
-    <text x="945" y="255" font-size="9.5" text-anchor="middle" fill="#90a4ae">Webhook</text>
-  </g>
+    <!-- 04 · CD -->
+    <div class="card deploy">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="num-badge num-deploy">04</span>
+          Continuous Deployment (CD)
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="item-row">
+          <div class="item-dot dot-deploy"></div>
+          <div class="item-content">
+            <div class="item-title">Build &amp; Push Docker Image → GHCR</div>
+            <div class="item-sub">4-stage Dockerfile · node:22-alpine · non-root UID 1001 · GHA cache · Tags: sha + latest + main</div>
+          </div>
+          <span class="item-tag tag-deploy">GHCR</span>
+        </div>
+        <div class="item-row">
+          <div class="item-dot dot-deploy"></div>
+          <div class="item-content">
+            <div class="item-title">Trivy Image Scan — CVE Audit on Published Image</div>
+            <div class="item-sub">HIGH + CRITICAL severity · ignore-unfixed · SARIF uploaded to GitHub Security tab</div>
+          </div>
+          <span class="item-tag tag-deploy">Trivy Image</span>
+        </div>
+        <div class="item-row">
+          <div class="item-dot dot-deploy"></div>
+          <div class="item-content">
+            <div class="item-title">Deploy to Coolify — webhook POST</div>
+            <div class="item-sub">Triggered only after green build + Trivy scan · Zero downtime · HTTPS · Self-hosted PaaS</div>
+          </div>
+          <span class="item-tag tag-deploy">CD</span>
+        </div>
+      </div>
+    </div>
 
-  <!-- 8. Health Check -->
-  <g>
-    <circle cx="1075" cy="180" r="34" fill="#e0f7fa" stroke="#00695c" stroke-width="2.5"/>
-    <text x="1075" y="186" font-size="22" text-anchor="middle">❤️</text>
-    <text x="1075" y="240" font-size="11.5" font-weight="700" text-anchor="middle" fill="#37474f">Health Check</text>
-    <text x="1075" y="255" font-size="9.5" text-anchor="middle" fill="#90a4ae">/api/health</text>
-  </g>
+    <div class="connector">↓</div>
 
-  <!-- Success -->
-  <g>
-    <circle cx="1110" cy="55" r="26" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2.5"/>
-    <text x="1110" y="63" font-size="22" text-anchor="middle">✅</text>
-    <text x="1110" y="20" font-size="11" font-weight="700" text-anchor="middle" fill="#2e7d32">Success</text>
-  </g>
+    <!-- 05 · PERFORMANCE -->
+    <div class="card perf">
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="num-badge num-perf">05</span>
+          Performance &amp; Quality Audit
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="item-row">
+          <div class="item-dot dot-perf"></div>
+          <div class="item-content">
+            <div class="item-title">Lighthouse CI (Google) — Automated Web Audit</div>
+            <div class="item-sub">Performance ≥70 · Accessibility ≥85 · SEO ≥80 · Best Practices ≥85 · public LHCI report</div>
+          </div>
+          <span class="item-tag tag-perf">lighthouse</span>
+        </div>
+      </div>
+    </div>
 
-</svg>
+    <div class="connector">↓</div>
 
-<!-- second row : scheduled automation -->
-<svg viewBox="0 0 1180 130" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif" style="margin-top:10px;">
-  <text x="20" y="20" font-size="11" font-weight="800" fill="#90a4ae" letter-spacing="1">SCHEDULED AUTOMATION (GITHUB CRON + DEPENDABOT)</text>
-  <g stroke="#b0b8c1" stroke-width="2" fill="none">
-    <line x1="175" y1="75" x2="230" y2="75" marker-end="url(#arrow)"/>
-    <line x1="310" y1="75" x2="365" y2="75" marker-end="url(#arrow)"/>
-    <line x1="600" y1="75" x2="655" y2="75" marker-end="url(#arrow)"/>
-    <line x1="735" y1="75" x2="790" y2="75" marker-end="url(#arrow)"/>
-  </g>
-  <!-- Backup chain -->
-  <g>
-    <rect x="95" y="50" width="80" height="50" rx="12" fill="#e0f7fa" stroke="#00695c" stroke-width="2.5"/>
-    <text x="135" y="72" font-size="16" text-anchor="middle">⏰</text>
-    <text x="135" y="90" font-size="9.5" font-weight="700" text-anchor="middle" fill="#00695c">CRON 2h UTC</text>
-  </g>
-  <g>
-    <rect x="230" y="50" width="80" height="50" rx="12" fill="#e0f7fa" stroke="#00695c" stroke-width="2.5"/>
-    <text x="270" y="72" font-size="16" text-anchor="middle">💾</text>
-    <text x="270" y="90" font-size="9.5" font-weight="700" text-anchor="middle" fill="#00695c">pg_dump</text>
-  </g>
-  <g>
-    <rect x="365" y="50" width="95" height="50" rx="12" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2.5"/>
-    <text x="412" y="72" font-size="16" text-anchor="middle">🗂️</text>
-    <text x="412" y="90" font-size="9" font-weight="700" text-anchor="middle" fill="#2e7d32">Artifacts 30d</text>
-  </g>
-  <!-- Dependabot chain -->
-  <g>
-    <rect x="520" y="50" width="80" height="50" rx="12" fill="#e0f7fa" stroke="#00695c" stroke-width="2.5"/>
-    <text x="560" y="72" font-size="16" text-anchor="middle">📅</text>
-    <text x="560" y="90" font-size="9.5" font-weight="700" text-anchor="middle" fill="#00695c">Weekly Monday</text>
-  </g>
-  <g>
-    <rect x="655" y="50" width="80" height="50" rx="12" fill="#e0f7fa" stroke="#00695c" stroke-width="2.5"/>
-    <text x="695" y="70" font-size="16" text-anchor="middle">🤖</text>
-    <text x="695" y="88" font-size="8.5" font-weight="700" text-anchor="middle" fill="#00695c">npm+actions+docker</text>
-  </g>
-  <g>
-    <rect x="790" y="50" width="90" height="50" rx="12" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2.5"/>
-    <text x="835" y="72" font-size="16" text-anchor="middle">🔀</text>
-    <text x="835" y="90" font-size="9" font-weight="700" text-anchor="middle" fill="#2e7d32">Grouped PRs</text>
-  </g>
-</svg>
+    <!-- PRODUCTION -->
+    <div class="prod-bar">
+      <span class="p-label">PRODUCTION</span>
+      Coolify — VPS Server
+      <span style="flex:1"></span>
+      <span class="p-tag">Live</span>
+      <span class="p-tag">HTTPS</span>
+      <span class="p-tag">Docker</span>
+      <span class="p-tag">Auto-deploy</span>
+      <span class="p-tag">/api/health</span>
+    </div>
+
+  </div><!-- end pipeline -->
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <div class="sidebar">
+
+    <div style="font-size:10.5px;font-weight:800;color:#90a4ae;letter-spacing:.8px;text-transform:uppercase;">Automations</div>
+
+    <!-- Dependabot -->
+    <div class="side-card">
+      <div class="side-header dep">Dependabot</div>
+      <div class="side-body">
+        <div class="side-item">NPM — Frontend</div>
+        <div class="side-item">GitHub Actions</div>
+        <div class="side-item">Docker Images</div>
+        <div class="side-item">Every Monday 6:00 AM</div>
+        <div class="side-item">Groups: langchain, radix-ui, next-react</div>
+        <span class="side-badge badge-dep">3 ecosystems monitored</span>
+      </div>
+    </div>
+
+    <!-- Database Backup -->
+    <div class="side-card">
+      <div class="side-header bak">Database Backup</div>
+      <div class="side-body">
+        <div class="side-item">PostgreSQL dump</div>
+        <div class="side-item">Daily at 2:00 AM UTC</div>
+        <div class="side-item">GitHub Artifacts storage</div>
+        <div class="side-item">30-day retention</div>
+        <div class="side-item">Manual trigger available</div>
+        <span class="side-badge badge-bak">Scheduled — Automated</span>
+      </div>
+    </div>
+
+  </div><!-- end sidebar -->
+
 </div>
 </body>
 </html>

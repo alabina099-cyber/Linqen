@@ -196,7 +196,7 @@ export default function UsersManagement() {
       <div className="flex items-center justify-center h-[60vh]">
         <div className="text-center">
           <Shield className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-500">Accès réservé aux administrateurs</p>
+          <p className="text-slate-500">Admin access only</p>
         </div>
       </div>
     );
@@ -211,32 +211,32 @@ export default function UsersManagement() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto pb-20">
+    <div className="space-y-6 w-full pb-20">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <Users className="w-5 h-5 text-white" />
-            </div>
-            Gestion de l&apos;équipe
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+            <Shield className="w-8 h-8 text-indigo-600" />
+            Team Management
           </h1>
           <p className="text-slate-500 text-sm mt-1">
-            Créez et gérez jusqu&apos;à {maxUsers} utilisateurs secondaires.
+            Create and manage up to {maxUsers} team members.
           </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-sm text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg">
             <span className="font-semibold text-slate-700">{userCount}</span> / {maxUsers}
           </div>
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => setShowCreate(true)}
             disabled={userCount >= maxUsers}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm shadow-md hover:shadow-lg transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="w-4 h-4" />
-            Ajouter
-          </button>
+            Add
+          </motion.button>
         </div>
       </div>
 
@@ -246,7 +246,7 @@ export default function UsersManagement() {
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
         <input
           type="text"
-          placeholder="Rechercher par nom ou email..."
+          placeholder="Search by name or email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
@@ -259,10 +259,10 @@ export default function UsersManagement() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/50">
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-4">Utilisateur</th>
+                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-4">User</th>
                 <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-4">Email</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-4">Rôle</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-4">Statut</th>
+                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-4">Role</th>
+                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-4">Status</th>
                 <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-4">Actions</th>
               </tr>
             </thead>
@@ -270,7 +270,7 @@ export default function UsersManagement() {
               {members.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="text-center py-12 text-slate-400 text-sm">
-                    {search ? "Aucun résultat" : "Aucun membre — cliquez sur Ajouter"}
+                    {search ? "No results" : "No members — click Add"}
                   </td>
                 </tr>
               ) : (
@@ -297,7 +297,7 @@ export default function UsersManagement() {
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200">
                         <Shield className="w-3 h-3" />
-                        Membre
+                        Member
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -308,11 +308,11 @@ export default function UsersManagement() {
                             ? "bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100"
                             : "bg-amber-50 text-amber-700 border border-amber-100 hover:bg-amber-100"
                         }`}
-                        title={member.is_active ? "Cliquer pour désactiver" : "Cliquer pour activer"}
+                        title={member.is_active ? "Click to deactivate" : "Click to activate"}
                       >
                         {member.is_active
-                          ? <><CheckCircle2 className="w-3 h-3" />Actif</>
-                          : <><XCircle className="w-3 h-3" />Inactif</>}
+                          ? <><CheckCircle2 className="w-3 h-3" />Active</>
+                          : <><XCircle className="w-3 h-3" />Inactive</>}
                       </button>
                     </td>
                     <td className="px-6 py-4">
@@ -320,14 +320,14 @@ export default function UsersManagement() {
                         <button
                           onClick={() => setShowEdit(member)}
                           className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                          title="Modifier"
+                          title="Edit"
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => setDeleteTarget(member)}
                           className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                          title="Supprimer"
+                          title="Delete"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -359,43 +359,43 @@ export default function UsersManagement() {
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                     <UserPlus className="w-5 h-5 text-indigo-500" />
-                    Nouvel utilisateur
+                    New user
                   </h3>
-                  <button onClick={() => setShowCreate(false)} title="Fermer" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                  <button onClick={() => setShowCreate(false)} title="Close" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
                 <form onSubmit={handleCreate} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Nom complet <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Full name <span className="text-red-500">*</span></label>
                     <input type="text" required value={createForm.name}
                       onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
                       className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
-                      placeholder="Jean Dupont" />
+                      placeholder="John Doe" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Email <span className="text-red-500">*</span></label>
                     <input type="email" required value={createForm.email}
                       onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
                       className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
-                      placeholder="jean@exemple.com" />
+                      placeholder="john@example.com" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Entreprise (optionnel)</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Company (optional)</label>
                     <input type="text" value={createForm.company}
                       onChange={(e) => setCreateForm({ ...createForm, company: e.target.value })}
                       className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
-                      placeholder="Mon Entreprise" />
+                      placeholder="My Company" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Mot de passe <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Password <span className="text-red-500">*</span></label>
                     <div className="relative">
                       <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input type={createForm.showPassword ? "text" : "password"} required minLength={6}
                         value={createForm.password}
                         onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
                         className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
-                        placeholder="Min. 6 caractères" />
+                        placeholder="Min. 6 characters" />
                       <button type="button" onClick={() => setCreateForm({ ...createForm, showPassword: !createForm.showPassword })}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                         {createForm.showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -405,11 +405,11 @@ export default function UsersManagement() {
                   <div className="flex gap-3 pt-1">
                     <button type="button" onClick={() => setShowCreate(false)}
                       className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors">
-                      Annuler
+                      Cancel
                     </button>
                     <button type="submit" disabled={saving}
                       className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-sm font-semibold shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2">
-                      {saving ? <><RefreshCw className="w-4 h-4 animate-spin" />Création...</> : <><Save className="w-4 h-4" />Créer</>}
+                      {saving ? <><RefreshCw className="w-4 h-4 animate-spin" />Creating...</> : <><Save className="w-4 h-4" />Create</>}
                     </button>
                   </div>
                 </form>
@@ -437,15 +437,15 @@ export default function UsersManagement() {
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                     <Edit3 className="w-5 h-5 text-blue-500" />
-                    Modifier {showEdit.name}
+                    Edit {showEdit.name}
                   </h3>
-                  <button onClick={() => setShowEdit(null)} title="Fermer" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                  <button onClick={() => setShowEdit(null)} title="Close" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
                 <form onSubmit={handleEdit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Nom complet <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Full name <span className="text-red-500">*</span></label>
                     <input type="text" required value={editForm.name}
                       onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                       className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all" />
@@ -457,21 +457,21 @@ export default function UsersManagement() {
                       className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Entreprise</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Company</label>
                     <input type="text" value={editForm.company}
                       onChange={(e) => setEditForm({ ...editForm, company: e.target.value })}
                       className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
-                      placeholder="Mon Entreprise" />
+                      placeholder="My Company" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Nouveau mot de passe <span className="text-slate-400 font-normal">(laisser vide = inchangé)</span></label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">New password <span className="text-slate-400 font-normal">(leave blank = unchanged)</span></label>
                     <div className="relative">
                       <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input type={editForm.showPassword ? "text" : "password"}
                         value={editForm.password}
                         onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
                         className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
-                        placeholder="Laisser vide pour ne pas changer" />
+                        placeholder="Leave blank to not change" />
                       <button type="button" onClick={() => setEditForm({ ...editForm, showPassword: !editForm.showPassword })}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                         {editForm.showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -481,11 +481,11 @@ export default function UsersManagement() {
                   <div className="flex gap-3 pt-1">
                     <button type="button" onClick={() => setShowEdit(null)}
                       className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors">
-                      Annuler
+                      Cancel
                     </button>
                     <button type="submit" disabled={saving}
                       className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2">
-                      {saving ? <><RefreshCw className="w-4 h-4 animate-spin" />Enregistrement...</> : <><Save className="w-4 h-4" />Enregistrer</>}
+                      {saving ? <><RefreshCw className="w-4 h-4 animate-spin" />Saving...</> : <><Save className="w-4 h-4" />Save</>}
                     </button>
                   </div>
                 </form>
@@ -515,9 +515,9 @@ export default function UsersManagement() {
                     <AlertCircle className="w-6 h-6 text-red-600" strokeWidth={2.5} />
                   </div>
                   <div className="flex-1 pt-1">
-                    <h3 className="text-lg font-bold text-slate-900 leading-tight">Supprimer cet utilisateur ?</h3>
+                    <h3 className="text-lg font-bold text-slate-900 leading-tight">Delete this user?</h3>
                     <p className="mt-1.5 text-sm text-slate-500 leading-relaxed">
-                      Cette action est irréversible. L&apos;utilisateur perdra tout accès au compte.
+                      This action is irreversible. The user will lose all access to the account.
                     </p>
                   </div>
                 </div>
@@ -538,7 +538,7 @@ export default function UsersManagement() {
                     disabled={deleting}
                     className="flex-1 px-4 py-2.5 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl transition-all text-sm disabled:opacity-50"
                   >
-                    Annuler
+                    Cancel
                   </button>
                   <button
                     onClick={handleDelete}
@@ -546,8 +546,8 @@ export default function UsersManagement() {
                     className="flex-1 px-4 py-2.5 bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white font-semibold rounded-xl transition-all text-sm shadow-md shadow-red-500/30 hover:shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {deleting
-                      ? <><RefreshCw className="w-4 h-4 animate-spin" />Suppression...</>
-                      : <><Trash2 className="w-4 h-4" />Supprimer</>}
+                      ? <><RefreshCw className="w-4 h-4 animate-spin" />Deleting...</>
+                      : <><Trash2 className="w-4 h-4" />Delete</>}
                   </button>
                 </div>
               </div>

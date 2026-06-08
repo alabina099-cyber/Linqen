@@ -10,20 +10,20 @@ export async function GET(req: NextRequest) {
     const sql = `
       WITH current_period AS (
         SELECT
-          (SELECT COUNT(*) FROM prospects WHERE created_at > NOW() - INTERVAL '${range} days') AS prospects,
-          (SELECT COUNT(*) FROM messages WHERE created_at > NOW() - INTERVAL '${range} days') AS messages_sent,
-          (SELECT COUNT(*) FROM messages WHERE status = 'replied' AND created_at > NOW() - INTERVAL '${range} days') AS replies,
-          (SELECT COUNT(*) FROM prospects WHERE status = 'converted' AND updated_at > NOW() - INTERVAL '${range} days') AS conversions,
-          (SELECT COUNT(*) FROM agent_tool_steps WHERE created_at > NOW() - INTERVAL '${range} days') AS agent_actions,
-          (SELECT COALESCE(AVG(score), 0)::int FROM prospects WHERE created_at > NOW() - INTERVAL '${range} days') AS avg_score
+          (SELECT COUNT(*) FROM prospects WHERE created_at > NOW() - INTERVAL '1 day' * $1) AS prospects,
+          (SELECT COUNT(*) FROM messages WHERE created_at > NOW() - INTERVAL '1 day' * $1) AS messages_sent,
+          (SELECT COUNT(*) FROM messages WHERE status = 'replied' AND created_at > NOW() - INTERVAL '1 day' * $1) AS replies,
+          (SELECT COUNT(*) FROM prospects WHERE status = 'converted' AND updated_at > NOW() - INTERVAL '1 day' * $1) AS conversions,
+          (SELECT COUNT(*) FROM agent_tool_steps WHERE created_at > NOW() - INTERVAL '1 day' * $1) AS agent_actions,
+          (SELECT COALESCE(AVG(score), 0)::int FROM prospects WHERE created_at > NOW() - INTERVAL '1 day' * $1) AS avg_score
       ),
       prev_period AS (
         SELECT
-          (SELECT COUNT(*) FROM prospects WHERE created_at > NOW() - INTERVAL '${range * 2} days' AND created_at <= NOW() - INTERVAL '${range} days') AS prospects,
-          (SELECT COUNT(*) FROM messages WHERE created_at > NOW() - INTERVAL '${range * 2} days' AND created_at <= NOW() - INTERVAL '${range} days') AS messages_sent,
-          (SELECT COUNT(*) FROM messages WHERE status = 'replied' AND created_at > NOW() - INTERVAL '${range * 2} days' AND created_at <= NOW() - INTERVAL '${range} days') AS replies,
-          (SELECT COUNT(*) FROM prospects WHERE status = 'converted' AND updated_at > NOW() - INTERVAL '${range * 2} days' AND updated_at <= NOW() - INTERVAL '${range} days') AS conversions,
-          (SELECT COUNT(*) FROM agent_tool_steps WHERE created_at > NOW() - INTERVAL '${range * 2} days' AND created_at <= NOW() - INTERVAL '${range} days') AS agent_actions
+          (SELECT COUNT(*) FROM prospects WHERE created_at > NOW() - INTERVAL '1 day' * $2 AND created_at <= NOW() - INTERVAL '1 day' * $1) AS prospects,
+          (SELECT COUNT(*) FROM messages WHERE created_at > NOW() - INTERVAL '1 day' * $2 AND created_at <= NOW() - INTERVAL '1 day' * $1) AS messages_sent,
+          (SELECT COUNT(*) FROM messages WHERE status = 'replied' AND created_at > NOW() - INTERVAL '1 day' * $2 AND created_at <= NOW() - INTERVAL '1 day' * $1) AS replies,
+          (SELECT COUNT(*) FROM prospects WHERE status = 'converted' AND updated_at > NOW() - INTERVAL '1 day' * $2 AND updated_at <= NOW() - INTERVAL '1 day' * $1) AS conversions,
+          (SELECT COUNT(*) FROM agent_tool_steps WHERE created_at > NOW() - INTERVAL '1 day' * $2 AND created_at <= NOW() - INTERVAL '1 day' * $1) AS agent_actions
       )
       SELECT
         c.prospects, c.messages_sent, c.replies, c.conversions, c.agent_actions, c.avg_score,
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
       FROM current_period c, prev_period p
     `;
 
-    const r = await pool.query(sql);
+    const r = await pool.query(sql, [range, range * 2]);
     const row = r.rows[0];
 
     const pct = (cur: number, prev: number) => {

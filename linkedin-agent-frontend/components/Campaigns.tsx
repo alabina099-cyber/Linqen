@@ -57,51 +57,51 @@ const initialCampaigns: Campaign[] = [
     name: "CTOs Tech Paris",
     status: "active",
     target: "CTO, VP Engineering",
-    template: "Premier contact",
+    template: "First contact",
     startDate: "01 Mar 2026",
     contacted: 142,
     replied: 28,
     converted: 4,
     connectionsSent: 0,
     connectionsAccepted: 0,
-    description: "Ciblage des décideurs techniques",
-    industry: "Technologie",
+    description: "Targeting technical decision-makers",
+    industry: "Technology",
     location: "Île-de-France",
-    companySize: "50-500 employés",
+    companySize: "50-500 employees",
   },
   {
     id: 2,
-    name: "Fondateurs SaaS B2B",
+    name: "SaaS B2B Founders",
     status: "active",
     target: "Founder, CEO",
-    template: "Message de suivi",
-    startDate: "20 Fév 2026",
+    template: "Follow-up message",
+    startDate: "20 Feb 2026",
     contacted: 89,
     replied: 18,
     converted: 2,
     connectionsSent: 0,
     connectionsAccepted: 0,
-    description: "Prospection fondateurs de startups",
+    description: "Startup founders prospecting",
     industry: "SaaS",
     location: "France",
-    companySize: "10-100 employés",
+    companySize: "10-100 employees",
   },
   {
     id: 3,
-    name: "Directeurs Marketing",
+    name: "Marketing Directors",
     status: "paused",
     target: "CMO, Marketing Director",
-    template: "Premier contact",
-    startDate: "10 Fév 2026",
+    template: "First contact",
+    startDate: "10 Feb 2026",
     contacted: 56,
     replied: 9,
     converted: 1,
     connectionsSent: 0,
     connectionsAccepted: 0,
-    description: "Campagne pour professionnels marketing",
+    description: "Campaign for marketing professionals",
     industry: "Marketing",
     location: "France",
-    companySize: "50+ employés",
+    companySize: "50+ employees",
   },
   {
     id: 4,
@@ -115,32 +115,32 @@ const initialCampaigns: Campaign[] = [
     converted: 0,
     connectionsSent: 0,
     connectionsAccepted: 0,
-    description: "Scale-ups ayant levé des fonds",
+    description: "Scale-ups that raised funding",
     industry: "Startup",
     location: "Europe",
-    companySize: "50-200 employés",
+    companySize: "50-200 employees",
   },
 ];
 
 const statusConfig = {
   active: { label: "Active", color: "text-green-700", bgColor: "bg-green-100", borderColor: "border-green-200", icon: Play },
-  paused: { label: "En pause", color: "text-red-700", bgColor: "bg-red-100", borderColor: "border-red-200", icon: Pause },
-  draft: { label: "Brouillon", color: "text-slate-700", bgColor: "bg-slate-100", borderColor: "border-slate-200", icon: Edit3 },
-  completed: { label: "Terminée", color: "text-blue-700", bgColor: "bg-blue-100", borderColor: "border-blue-200", icon: CheckCircle },
+  paused: { label: "Paused", color: "text-red-700", bgColor: "bg-red-100", borderColor: "border-red-200", icon: Pause },
+  draft: { label: "Draft", color: "text-slate-700", bgColor: "bg-slate-100", borderColor: "border-slate-200", icon: Edit3 },
+  completed: { label: "Completed", color: "text-blue-700", bgColor: "bg-blue-100", borderColor: "border-blue-200", icon: CheckCircle },
 };
 
 const templates = [
-  { name: "Premier contact", icon: Send, desc: "Message d'introduction", color: "bg-blue-500" },
-  { name: "Message de suivi", icon: Clock, desc: "Relance après connexion", color: "bg-purple-500" },
-  { name: "Partage de lien", icon: LinkIcon, desc: "Contenu pertinent", color: "bg-cyan-500" },
-  { name: "Relance finale", icon: Bell, desc: "Dernière tentative", color: "bg-orange-500" },
-  { name: "Invitation événement", icon: Calendar, desc: "Webinar/event", color: "bg-pink-500" },
-  { name: "Démonstration", icon: Eye, desc: "Démo produit", color: "bg-green-500" },
+  { name: "First contact", icon: Send, desc: "Introduction message", color: "bg-blue-500" },
+  { name: "Follow-up message", icon: Clock, desc: "Re-engagement after connection", color: "bg-purple-500" },
+  { name: "Link sharing", icon: LinkIcon, desc: "Relevant content", color: "bg-cyan-500" },
+  { name: "Final follow-up", icon: Bell, desc: "Last attempt", color: "bg-orange-500" },
+  { name: "Event invitation", icon: Calendar, desc: "Webinar/event", color: "bg-pink-500" },
+  { name: "Demo", icon: Eye, desc: "Product demo", color: "bg-green-500" },
 ];
 
-const industries = ["Toutes industries", "Technologie / SaaS", "Finance", "Marketing", "Consulting", "E-commerce", "Santé", "Éducation"];
-const locations = ["France entière", "Île-de-France", "Lyon", "Marseille", "Bordeaux", "Lille", "Nantes", "Europe"];
-const companySizes = ["Toutes tailles", "Startup (1-10)", "PME (11-50)", "Entreprise (51-200)", "Grande entreprise (200+)"];
+const industries = ["All industries", "Technology / SaaS", "Finance", "Marketing", "Consulting", "E-commerce", "Healthcare", "Education"];
+const locations = ["All France", "Île-de-France", "Lyon", "Marseille", "Bordeaux", "Lille", "Nantes", "Europe"];
+const companySizes = ["All sizes", "Startup (1-10)", "SMB (11-50)", "Enterprise (51-200)", "Large enterprise (200+)"];
 
 interface CampaignForm {
   name: string;
@@ -159,25 +159,25 @@ interface CampaignForm {
 
 const emptyForm: CampaignForm = {
   name: "", description: "", target: "", template: "",
-  industry: "Toutes industries", location: "France entière", companySize: "Toutes tailles",
+  industry: "All industries", location: "All France", companySize: "All sizes",
   dailyLimit: 20, followUpDays: 3, objective: "", seniority: [],
   campaignType: "",
 };
 
 const seniorityOptions = [
   { id: "c-level", label: "C-Level", icon: Crown },
-  { id: "vp", label: "VP / Directeur", icon: Star },
+  { id: "vp", label: "VP / Director", icon: Star },
   { id: "manager", label: "Manager", icon: Award },
   { id: "senior", label: "Senior", icon: Flame },
   { id: "junior", label: "Junior", icon: Compass },
 ];
 
 const statusOptions = [
-  { value: "all", label: "Tous les statuts", color: "bg-purple-500" },
-  { value: "active", label: "Actives", color: "bg-green-500" },
-  { value: "paused", label: "En pause", color: "bg-red-500" },
-  { value: "draft", label: "Brouillons", color: "bg-slate-400" },
-  { value: "completed", label: "Terminées", color: "bg-blue-500" },
+  { value: "all", label: "All statuses", color: "bg-purple-500" },
+  { value: "active", label: "Active", color: "bg-green-500" },
+  { value: "paused", label: "Paused", color: "bg-red-500" },
+  { value: "draft", label: "Drafts", color: "bg-slate-400" },
+  { value: "completed", label: "Completed", color: "bg-blue-500" },
 ];
 
 export default function Campaigns() {
@@ -221,14 +221,14 @@ export default function Campaigns() {
       const response = await fetch('/api/campaigns');
       const data = await response.json();
       if (data.success) {
-        // Mapper les données API au format Campaign
+        // Map API data to Campaign format
         const mappedCampaigns: Campaign[] = data.campaigns.map((c: Record<string, string | number | undefined>) => ({
           id: c.id,
           name: c.name,
           status: c.status,
-          target: c.target_role || c.target || "Non défini",
-          template: c.template || "Premier contact",
-          startDate: new Date(c.created_at || '').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
+          target: c.target_role || c.target || "Not defined",
+          template: c.template || "First contact",
+          startDate: new Date(c.created_at || '').toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }),
           contacted: c.contacted || 0,
           replied: c.replied || 0,
           converted: c.converted || 0,
@@ -271,16 +271,16 @@ export default function Campaigns() {
         setCampaigns((prev) => prev.map((c) => c.id === id ? { ...c, status: newStatus as Campaign['status'] } : c));
         if (selected?.id === id) setSelected({ ...selected, status: newStatus as Campaign['status'] });
 
-        // Si la campagne passe à "active", lancer l'exécution automatique
+        // If campaign becomes active, launch automatic execution
         if (newStatus === "active") {
           await executeCampaign(id);
-          // Approuver automatiquement l'action créée
+          // Auto-approve created action
           try {
             await fetch('/api/linkedin-actions/auto-approve', { method: 'POST' });
           } catch (error) {
             console.error('Error auto-approving action:', error);
           }
-          // Vérifier et planifier les relances automatiques
+          // Check and schedule automatic follow-ups
           try {
             await fetch(`/api/campaigns/${id}/check-followups`, { method: 'POST' });
           } catch (error) {
@@ -338,7 +338,7 @@ export default function Campaigns() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: `${campaign.name} (copie)`,
+          name: `${campaign.name} (copy)`,
           status: 'draft',
           target: campaign.target,
           template: campaign.template,
@@ -359,9 +359,9 @@ export default function Campaigns() {
           id: c.id,
           name: c.name,
           status: c.status,
-          target: c.target_role || c.target || "Non défini",
-          template: c.template || "Premier contact",
-          startDate: new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
+          target: c.target_role || c.target || "Not defined",
+          template: c.template || "First contact",
+          startDate: new Date(c.created_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }),
           contacted: 0, replied: 0, converted: 0,
           connectionsSent: 0, connectionsAccepted: 0,
           description: c.description,
@@ -421,9 +421,9 @@ export default function Campaigns() {
                 id: c.id,
                 name: c.name,
                 status: c.status,
-                target: c.target_role || c.target || 'Non défini',
-                template: c.template || 'Premier contact',
-                startDate: new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
+                target: c.target_role || c.target || 'Not defined',
+                template: c.template || 'First contact',
+                startDate: new Date(c.created_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }),
                 contacted: c.contacted || 0,
                 replied: c.replied || 0,
                 converted: c.converted || 0,
@@ -452,9 +452,9 @@ export default function Campaigns() {
             target: form.target || '',
             template: form.template || '',
             description: form.description,
-            industry: form.industry === 'Toutes industries' ? '' : form.industry,
-            location: form.location === 'France entière' ? '' : form.location,
-            company_size: form.companySize === 'Toutes tailles' ? '' : form.companySize,
+            industry: form.industry === 'All industries' ? '' : form.industry,
+            location: form.location === 'All France' ? '' : form.location,
+            company_size: form.companySize === 'All sizes' ? '' : form.companySize,
             objective: form.objective || '',
             seniority: form.seniority.length > 0 ? form.seniority.join(',') : '',
             campaign_type: form.campaignType || 'messages',
@@ -469,9 +469,9 @@ export default function Campaigns() {
             id: c.id,
             name: c.name,
             status: c.status,
-            target: c.target_role || c.target || "À définir",
-            template: c.template || "Premier contact",
-            startDate: new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }),
+            target: c.target_role || c.target || "To be defined",
+            template: c.template || "First contact",
+            startDate: new Date(c.created_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }),
             contacted: 0, replied: 0, converted: 0,
             connectionsSent: 0, connectionsAccepted: 0,
             description: c.description,
@@ -505,9 +505,9 @@ export default function Campaigns() {
       description: campaign.description || '',
       target: campaign.target || '',
       template: campaign.template || '',
-      industry: campaign.industry || 'Toutes industries',
-      location: campaign.location || 'France entière',
-      companySize: campaign.companySize || 'Toutes tailles',
+      industry: campaign.industry || 'All industries',
+      location: campaign.location || 'All France',
+      companySize: campaign.companySize || 'All sizes',
       dailyLimit: campaign.dailyLimit || 20,
       followUpDays: campaign.followUpDays || 3,
       objective: campaign.objective || '',
@@ -542,16 +542,16 @@ export default function Campaigns() {
   const totalConnectionsSent = campaigns.reduce((s, c) => s + c.connectionsSent, 0);
   const totalConnectionsAccepted = campaigns.reduce((s, c) => s + c.connectionsAccepted, 0);
   const stats = [
-    { label: "Campagnes actives", value: campaigns.filter((c) => c.status === "active").length, icon: Radio, color: "from-green-500 to-emerald-600", bgColor: "bg-green-50", textColor: "text-green-600" },
-    { label: "Connexions envoyées", value: totalConnectionsSent, icon: UserPlus, color: "from-gray-500 to-gray-600", bgColor: "bg-gray-50", textColor: "text-gray-600" },
-    { label: "Connexions acceptées", value: totalConnectionsAccepted, icon: UserCircle, color: "from-amber-500 to-orange-600", bgColor: "bg-amber-50", textColor: "text-amber-600" },
-    { label: "Total contactés", value: campaigns.reduce((s, c) => s + c.contacted, 0), icon: Users, color: "from-blue-500 to-indigo-600", bgColor: "bg-blue-50", textColor: "text-blue-600" },
-    { label: "Total réponses", value: campaigns.reduce((s, c) => s + c.replied, 0), icon: MessageSquare, color: "from-purple-500 to-violet-600", bgColor: "bg-purple-50", textColor: "text-purple-600" },
+    { label: "Active campaigns", value: campaigns.filter((c) => c.status === "active").length, icon: Radio, color: "from-green-500 to-emerald-600", bgColor: "bg-green-50", textColor: "text-green-600" },
+    { label: "Connections sent", value: totalConnectionsSent, icon: UserPlus, color: "from-gray-500 to-gray-600", bgColor: "bg-gray-50", textColor: "text-gray-600" },
+    { label: "Connections accepted", value: totalConnectionsAccepted, icon: UserCircle, color: "from-amber-500 to-orange-600", bgColor: "bg-amber-50", textColor: "text-amber-600" },
+    { label: "Total contacted", value: campaigns.reduce((s, c) => s + c.contacted, 0), icon: Users, color: "from-blue-500 to-indigo-600", bgColor: "bg-blue-50", textColor: "text-blue-600" },
+    { label: "Total replies", value: campaigns.reduce((s, c) => s + c.replied, 0), icon: MessageSquare, color: "from-purple-500 to-violet-600", bgColor: "bg-purple-50", textColor: "text-purple-600" },
   ];
 
   const funnelData = [
-    { label: "Contactés", value: campaigns.reduce((s, c) => s + c.contacted, 0), color: "bg-blue-500" },
-    { label: "Réponses", value: campaigns.reduce((s, c) => s + c.replied, 0), color: "bg-purple-500" },
+    { label: "Contacted", value: campaigns.reduce((s, c) => s + c.contacted, 0), color: "bg-blue-500" },
+    { label: "Replies", value: campaigns.reduce((s, c) => s + c.replied, 0), color: "bg-purple-500" },
     { label: "Conversions", value: campaigns.reduce((s, c) => s + c.converted, 0), color: "bg-green-500" },
   ];
   const maxFunnelValue = Math.max(...funnelData.map(d => d.value)) || 1;
@@ -563,9 +563,9 @@ export default function Campaigns() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
             <Target className="w-8 h-8 text-blue-600" />
-            Campagnes
+            Campaigns
           </h1>
-          <p className="text-gray-600 mt-1">Gérez vos campagnes de prospection</p>
+          <p className="text-gray-600 mt-1">Manage your prospecting campaigns</p>
         </div>
         <div className="flex items-center gap-3">
           <motion.button
@@ -575,7 +575,7 @@ export default function Campaigns() {
             className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm shadow-md hover:shadow-lg transition-shadow"
           >
             <Plus className="w-4 h-4" />
-            Nouvelle
+            New
           </motion.button>
         </div>
       </div>
@@ -609,7 +609,7 @@ export default function Campaigns() {
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input type="text" placeholder="Rechercher..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
             <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-md transition-colors ${viewMode === "list" ? "bg-white shadow-sm text-blue-600" : "text-gray-500"}`}><List className="w-4 h-4" /></button>
@@ -624,7 +624,7 @@ export default function Campaigns() {
               className="flex items-center gap-3 pl-4 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:border-blue-400 hover:shadow-md transition-all duration-300 w-56"
             >
               <span className={`w-2.5 h-2.5 rounded-full ${statusOptions.find(s => s.value === filterStatus)?.color} shadow-sm`}></span>
-              <span>{filterStatus === 'all' ? 'Tous les statuts' : statusOptions.find(s => s.value === filterStatus)?.label}</span>
+              <span>{filterStatus === 'all' ? 'All statuses' : statusOptions.find(s => s.value === filterStatus)?.label}</span>
               <span className={`ml-auto px-2.5 py-0.5 rounded-lg text-xs font-bold shadow-sm transition-all duration-300 ${
                 filterStatus === 'all' 
                   ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
@@ -722,24 +722,24 @@ export default function Campaigns() {
                               <div className="flex items-center gap-1">
                                 <Badge className={`${statusConfig[campaign.status].bgColor} ${statusConfig[campaign.status].color} border-0 text-xs px-2 py-0.5`}>{statusConfig[campaign.status].label}</Badge>
                                 <div className="flex gap-0.5">
-                                  <button onClick={(e) => { e.stopPropagation(); duplicateCampaign(campaign); }} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Dupliquer"><Copy className="w-3.5 h-3.5" /></button>
+                                  <button onClick={(e) => { e.stopPropagation(); duplicateCampaign(campaign); }} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Duplicate"><Copy className="w-3.5 h-3.5" /></button>
                                   {(campaign.status === "active" || campaign.status === "paused") && (
-                                    <button onClick={(e) => { e.stopPropagation(); toggleStatus(campaign.id); }} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title={campaign.status === "active" ? "Mettre en pause" : "Reprendre"}>{campaign.status === "active" ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}</button>
+                                    <button onClick={(e) => { e.stopPropagation(); toggleStatus(campaign.id); }} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title={campaign.status === "active" ? "Pause" : "Resume"}>{campaign.status === "active" ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}</button>
                                   )}
                                   {campaign.status === "draft" && (
-                                    <button onClick={(e) => { e.stopPropagation(); toggleStatus(campaign.id); }} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors" title="Lancer"><Play className="w-3.5 h-3.5" /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); toggleStatus(campaign.id); }} className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors" title="Launch"><Play className="w-3.5 h-3.5" /></button>
                                   )}
-                                  <button onClick={(e) => { e.stopPropagation(); deleteCampaign(campaign.id, campaign.name); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Supprimer"><Trash2 className="w-3.5 h-3.5" /></button>
+                                  <button onClick={(e) => { e.stopPropagation(); deleteCampaign(campaign.id, campaign.name); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
                                 </div>
                               </div>
                             </div>
                             <div className={`grid ${campaign.campaignType === 'connections_only' ? 'grid-cols-2' : 'grid-cols-3'} gap-2 mb-2`}>
                               {(campaign.campaignType === 'connections_only' ? [
-                                { label: "Envoyés", value: campaign.connectionsSent, color: "text-blue-600", bg: "bg-blue-50" },
-                                { label: "Acceptés", value: `${campaign.connectionsAccepted} (${rate(campaign.connectionsAccepted, campaign.connectionsSent)})`, color: "text-green-600", bg: "bg-green-50" },
+                                { label: "Sent", value: campaign.connectionsSent, color: "text-blue-600", bg: "bg-blue-50" },
+                                { label: "Accepted", value: `${campaign.connectionsAccepted} (${rate(campaign.connectionsAccepted, campaign.connectionsSent)})`, color: "text-green-600", bg: "bg-green-50" },
                               ] : [
-                                { label: "Contactés", value: campaign.contacted, color: "text-blue-600", bg: "bg-blue-50" },
-                                { label: "Réponses", value: `${campaign.replied} (${rate(campaign.replied, campaign.contacted)})`, color: "text-purple-600", bg: "bg-purple-50" },
+                                { label: "Contacted", value: campaign.contacted, color: "text-blue-600", bg: "bg-blue-50" },
+                                { label: "Replies", value: `${campaign.replied} (${rate(campaign.replied, campaign.contacted)})`, color: "text-purple-600", bg: "bg-purple-50" },
                                 { label: "Conversions", value: `${campaign.converted} (${rate(campaign.converted, campaign.contacted)})`, color: "text-green-600", bg: "bg-green-50" },
                               ]).map((m) => (
                                 <div key={m.label} className={`${m.bg} rounded-lg p-1.5 text-center`}>
@@ -766,7 +766,7 @@ export default function Campaigns() {
               {filteredCampaigns.length === 0 && (
                 <div className="text-center py-12">
                   <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4"><Search className="w-10 h-10 text-gray-400" /></div>
-                  <p className="text-gray-500">Aucune campagne trouvée</p>
+                  <p className="text-gray-500">No campaigns found</p>
                 </div>
               )}
             </div>
@@ -787,10 +787,10 @@ export default function Campaigns() {
                       <p className="text-xs text-gray-500 mb-2">{campaign.target}</p>
                       <div className="grid grid-cols-2 gap-1 text-xs">
                         {campaign.campaignType === 'connections_only' ? (<>
-                          <div className="bg-blue-50 rounded p-1.5 text-center"><p className="font-bold text-blue-600">{campaign.connectionsSent}</p><p className="text-xs text-gray-500">Envoyés</p></div>
-                          <div className="bg-green-50 rounded p-1.5 text-center"><p className="font-bold text-green-600">{campaign.connectionsAccepted}</p><p className="text-xs text-gray-500">Acceptés</p></div>
+                          <div className="bg-blue-50 rounded p-1.5 text-center"><p className="font-bold text-blue-600">{campaign.connectionsSent}</p><p className="text-xs text-gray-500">Sent</p></div>
+                          <div className="bg-green-50 rounded p-1.5 text-center"><p className="font-bold text-green-600">{campaign.connectionsAccepted}</p><p className="text-xs text-gray-500">Accepted</p></div>
                         </>) : (<>
-                          <div className="bg-blue-50 rounded p-1.5 text-center"><p className="font-bold text-blue-600">{campaign.contacted}</p><p className="text-xs text-gray-500">Contactés</p></div>
+                          <div className="bg-blue-50 rounded p-1.5 text-center"><p className="font-bold text-blue-600">{campaign.contacted}</p><p className="text-xs text-gray-500">Contacted</p></div>
                           <div className="bg-green-50 rounded p-1.5 text-center"><p className="font-bold text-green-600">{campaign.converted}</p><p className="text-xs text-gray-500">Conversions</p></div>
                         </>)}
                       </div>
@@ -801,7 +801,7 @@ export default function Campaigns() {
               {filteredCampaigns.length === 0 && (
                 <div className="col-span-2 text-center py-12">
                   <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4"><Search className="w-10 h-10 text-gray-400" /></div>
-                  <p className="text-gray-500">Aucune campagne trouvée</p>
+                  <p className="text-gray-500">No campaigns found</p>
                 </div>
               )}
             </div>
@@ -848,28 +848,28 @@ export default function Campaigns() {
 
                       {/* Ciblage */}
                       <div>
-                        <h4 className="text-[10px] font-semibold text-gray-500 uppercase mb-1 flex items-center gap-1"><Target className="w-3 h-3" />Ciblage</h4>
+                        <h4 className="text-[10px] font-semibold text-gray-500 uppercase mb-1 flex items-center gap-1"><Target className="w-3 h-3" />Targeting</h4>
                         <div className="bg-white border border-gray-100 rounded-lg p-2 space-y-1.5">
                           <div className="flex items-center gap-2 text-xs">
                             <div className="w-5 h-5 rounded bg-blue-50 flex items-center justify-center shrink-0"><UserCircle className="w-3 h-3 text-blue-500" /></div>
-                            <div className="min-w-0"><p className="text-[9px] text-gray-400 uppercase">Profil</p><p className="font-medium text-gray-800 truncate">{selected.target || 'Non défini'}</p></div>
+                            <div className="min-w-0"><p className="text-[9px] text-gray-400 uppercase">Profile</p><p className="font-medium text-gray-800 truncate">{selected.target || 'Not defined'}</p></div>
                           </div>
                           {selected.industry && (
                             <div className="flex items-center gap-2 text-xs">
                               <div className="w-5 h-5 rounded bg-purple-50 flex items-center justify-center shrink-0"><Building2 className="w-3 h-3 text-purple-500" /></div>
-                              <div className="min-w-0"><p className="text-[9px] text-gray-400 uppercase">Industrie</p><p className="font-medium text-gray-800 truncate">{selected.industry}</p></div>
+                              <div className="min-w-0"><p className="text-[9px] text-gray-400 uppercase">Industry</p><p className="font-medium text-gray-800 truncate">{selected.industry}</p></div>
                             </div>
                           )}
                           {selected.location && (
                             <div className="flex items-center gap-2 text-xs">
                               <div className="w-5 h-5 rounded bg-green-50 flex items-center justify-center shrink-0"><MapPin className="w-3 h-3 text-green-500" /></div>
-                              <div className="min-w-0"><p className="text-[9px] text-gray-400 uppercase">Localisation</p><p className="font-medium text-gray-800 truncate">{selected.location}</p></div>
+                              <div className="min-w-0"><p className="text-[9px] text-gray-400 uppercase">Location</p><p className="font-medium text-gray-800 truncate">{selected.location}</p></div>
                             </div>
                           )}
                           {selected.companySize && (
                             <div className="flex items-center gap-2 text-xs">
                               <div className="w-5 h-5 rounded bg-orange-50 flex items-center justify-center shrink-0"><Users className="w-3 h-3 text-orange-500" /></div>
-                              <div className="min-w-0"><p className="text-[9px] text-gray-400 uppercase">Taille</p><p className="font-medium text-gray-800 truncate">{selected.companySize}</p></div>
+                              <div className="min-w-0"><p className="text-[9px] text-gray-400 uppercase">Size</p><p className="font-medium text-gray-800 truncate">{selected.companySize}</p></div>
                             </div>
                           )}
                         </div>
@@ -881,7 +881,7 @@ export default function Campaigns() {
                       {/* Objectif */}
                       {selected.objective && (
                         <div>
-                          <h4 className="text-[10px] font-semibold text-gray-500 uppercase mb-1 flex items-center gap-1"><Compass className="w-3 h-3" />Objectif</h4>
+                          <h4 className="text-[10px] font-semibold text-gray-500 uppercase mb-1 flex items-center gap-1"><Compass className="w-3 h-3" />Objective</h4>
                           <div className="bg-indigo-50 rounded-md px-2 py-1 flex items-center gap-1.5">
                             <Star className="w-3 h-3 text-indigo-500" />
                             <span className="text-xs font-medium text-indigo-700 truncate">{selected.objective}</span>
@@ -892,7 +892,7 @@ export default function Campaigns() {
                       {/* Niveau hiérarchique */}
                       {selected.seniority && selected.seniority.length > 0 && selected.seniority[0] !== '' && (
                         <div>
-                          <h4 className="text-[10px] font-semibold text-gray-500 uppercase mb-1 flex items-center gap-1"><Crown className="w-3 h-3" />Niveau</h4>
+                          <h4 className="text-[10px] font-semibold text-gray-500 uppercase mb-1 flex items-center gap-1"><Crown className="w-3 h-3" />Level</h4>
                           <div className="flex flex-wrap gap-1">
                             {selected.seniority.map((s) => (
                               <Badge key={s} variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] px-1.5 py-0">{s}</Badge>
@@ -914,15 +914,15 @@ export default function Campaigns() {
 
                       {/* Paramètres */}
                       <div>
-                        <h4 className="text-[10px] font-semibold text-gray-500 uppercase mb-1 flex items-center gap-1"><Settings className="w-3 h-3" />Paramètres</h4>
+                        <h4 className="text-[10px] font-semibold text-gray-500 uppercase mb-1 flex items-center gap-1"><Settings className="w-3 h-3" />Settings</h4>
                         <div className="grid grid-cols-2 gap-1.5">
                           <div className="bg-gray-50 rounded-lg p-1.5 text-center">
-                            <p className="text-[9px] text-gray-400 uppercase">Limite/jour</p>
+                            <p className="text-[9px] text-gray-400 uppercase">Limit/day</p>
                             <p className="text-base font-bold text-gray-800">{selected.dailyLimit || 20}</p>
                           </div>
                           <div className="bg-gray-50 rounded-lg p-1.5 text-center">
-                            <p className="text-[9px] text-gray-400 uppercase">Relance</p>
-                            <p className="text-base font-bold text-gray-800">{selected.followUpDays || 3}<span className="text-xs font-normal text-gray-400">j</span></p>
+                            <p className="text-[9px] text-gray-400 uppercase">Follow-up</p>
+                            <p className="text-base font-bold text-gray-800">{selected.followUpDays || 3}<span className="text-xs font-normal text-gray-400">d</span></p>
                           </div>
                         </div>
                       </div>
@@ -931,22 +931,22 @@ export default function Campaigns() {
 
                   {/* Statistiques - Full width below columns */}
                   <div className="pt-2">
-                    <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2 flex items-center gap-2"><BarChart3 className="w-4 h-4" />Statistiques</h4>
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2 flex items-center gap-2"><BarChart3 className="w-4 h-4" />Statistics</h4>
                     {selected.campaignType === 'connections_only' ? (<>
                       {/* Stats pour campagne connexions */}
                       <div className="flex gap-3 mb-3">
                         <div className="flex-1 bg-blue-50 rounded-lg py-3 px-2 text-center">
                           <p className="text-xl font-bold text-blue-600 leading-tight">{selected.connectionsSent}</p>
-                          <p className="text-xs text-gray-500">Envoyés</p>
+                          <p className="text-xs text-gray-500">Sent</p>
                         </div>
                         <div className="flex-1 bg-green-50 rounded-lg py-3 px-2 text-center">
                           <p className="text-xl font-bold text-green-600 leading-tight">{selected.connectionsAccepted}</p>
-                          <p className="text-xs text-gray-500">Acceptés</p>
+                          <p className="text-xs text-gray-500">Accepted</p>
                         </div>
                       </div>
                       <div className="space-y-2">
                         <div className="flex items-center gap-3">
-                          <span className="text-xs text-gray-500 w-24 shrink-0">Taux d&apos;acceptation</span>
+                          <span className="text-xs text-gray-500 w-24 shrink-0">Acceptance rate</span>
                           <div className="flex-1 bg-gray-100 rounded-full h-2.5"><div className="h-2.5 rounded-full bg-green-500 transition-all duration-500" style={{ width: rate(selected.connectionsAccepted, selected.connectionsSent) }} /></div>
                           <span className="text-xs font-bold w-10 text-right">{rate(selected.connectionsAccepted, selected.connectionsSent)}</span>
                         </div>
@@ -956,11 +956,11 @@ export default function Campaigns() {
                       <div className="flex gap-3 mb-3">
                         <div className="flex-1 bg-blue-50 rounded-lg py-3 px-2 text-center">
                           <p className="text-xl font-bold text-blue-600 leading-tight">{selected.contacted}</p>
-                          <p className="text-xs text-gray-500">Contactés</p>
+                          <p className="text-xs text-gray-500">Contacted</p>
                         </div>
                         <div className="flex-1 bg-purple-50 rounded-lg py-3 px-2 text-center">
                           <p className="text-xl font-bold text-purple-600 leading-tight">{selected.replied}</p>
-                          <p className="text-xs text-gray-500">Réponses</p>
+                          <p className="text-xs text-gray-500">Replies</p>
                         </div>
                         <div className="flex-1 bg-green-50 rounded-lg py-3 px-2 text-center">
                           <p className="text-xl font-bold text-green-600 leading-tight">{selected.converted}</p>
@@ -969,7 +969,7 @@ export default function Campaigns() {
                       </div>
                       <div className="space-y-2">
                         {[
-                          { label: "Taux de réponse", value: rate(selected.replied, selected.contacted), color: "bg-purple-500" },
+                          { label: "Reply rate", value: rate(selected.replied, selected.contacted), color: "bg-purple-500" },
                           { label: "Conversion", value: rate(selected.converted, selected.contacted), color: "bg-green-500" },
                         ].map((m) => (
                           <div key={m.label} className="flex items-center gap-3">
@@ -984,9 +984,9 @@ export default function Campaigns() {
 
                   {/* Actions */}
                   <div className="grid grid-cols-3 gap-2 pt-3 border-t border-gray-100">
-                    <Button variant="outline" size="sm" className="text-xs" onClick={() => duplicateCampaign(selected)}><Copy className="w-3.5 h-3.5 mr-1" />Dupliquer</Button>
-                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs" onClick={() => openEditModal(selected)}><Edit3 className="w-3.5 h-3.5 mr-1" />Modifier</Button>
-                    <Button variant="outline" size="sm" className="text-xs text-red-500 border-red-200 hover:bg-red-50" onClick={() => deleteCampaign(selected.id, selected.name)}><Trash2 className="w-3.5 h-3.5 mr-1" />Supprimer</Button>
+                    <Button variant="outline" size="sm" className="text-xs" onClick={() => duplicateCampaign(selected)}><Copy className="w-3.5 h-3.5 mr-1" />Duplicate</Button>
+                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs" onClick={() => openEditModal(selected)}><Edit3 className="w-3.5 h-3.5 mr-1" />Edit</Button>
+                    <Button variant="outline" size="sm" className="text-xs text-red-500 border-red-200 hover:bg-red-50" onClick={() => deleteCampaign(selected.id, selected.name)}><Trash2 className="w-3.5 h-3.5 mr-1" />Delete</Button>
                   </div>
                 </CardContent>
               </Card>
@@ -1008,8 +1008,8 @@ export default function Campaigns() {
                     <Target className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900">{editingCampaign ? 'Modifier la campagne' : 'Nouvelle campagne'}</h2>
-                    <p className="text-sm text-gray-500">{editingCampaign ? 'Modifiez les paramètres de votre campagne' : 'Configurez votre prospection en 4 étapes'}</p>
+                    <h2 className="text-lg font-bold text-gray-900">{editingCampaign ? 'Edit campaign' : 'New campaign'}</h2>
+                    <p className="text-sm text-gray-500">{editingCampaign ? 'Update your campaign settings' : 'Configure your prospecting in 4 steps'}</p>
                   </div>
                 </div>
                 <button onClick={closeModal} className="w-9 h-9 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg flex items-center justify-center transition-colors"><X className="w-5 h-5" /></button>
@@ -1018,10 +1018,10 @@ export default function Campaigns() {
               <div className="flex items-center justify-center gap-2">
                 {[
                   { step: 0, label: "Type" },
-                  { step: 1, label: "Général" },
-                  { step: 2, label: "Ciblage" },
+                  { step: 1, label: "General" },
+                  { step: 2, label: "Targeting" },
                   { step: 3, label: "Template" },
-                  { step: 4, label: "Paramètres" },
+                  { step: 4, label: "Settings" },
                 ].filter(s => {
                   if (s.step === 0) return true; // Toujours afficher l'étape Type
                   if (s.step === 3) return form.campaignType && form.campaignType !== 'connections_only'; // Template seulement si type défini et pas connections_only
@@ -1050,14 +1050,14 @@ export default function Campaigns() {
                 {currentStep === 0 && (
                   <motion.div key="step0" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
                     <div className="text-center mb-6">
-                      <h3 className="text-xl font-bold text-gray-900">Type de campagne</h3>
-                      <p className="text-gray-500">Choisissez comment vous souhaitez contacter vos prospects</p>
+                      <h3 className="text-xl font-bold text-gray-900">Campaign type</h3>
+                      <p className="text-gray-500">Choose how you want to contact your prospects</p>
                     </div>
                     <div className="grid grid-cols-1 gap-4 max-w-md mx-auto">
                       {[
-                        { icon: MessageSquare, label: "Messages", desc: "Envoyer des messages directs", value: "messages", color: "bg-blue-500" },
-                        { icon: Users, label: "Connexions", desc: "Envoyer des demandes de connexion", value: "connections_only", color: "bg-purple-500" },
-                        { icon: Send, label: "ConnexionsMessages", desc: "Connexions puis messages après acceptation", value: "messages_and_connections", color: "bg-green-500" },
+                        { icon: MessageSquare, label: "Messages", desc: "Send direct messages", value: "messages", color: "bg-blue-500" },
+                        { icon: Users, label: "Connections", desc: "Send connection requests", value: "connections_only", color: "bg-purple-500" },
+                        { icon: Send, label: "Connections + Messages", desc: "Connections then messages after acceptance", value: "messages_and_connections", color: "bg-green-500" },
                       ].map((type) => (
                         <button key={type.label} onClick={() => setForm({ ...form, campaignType: type.value })} className={`p-4 border-2 rounded-xl text-left transition-all ${form.campaignType === type.value ? "border-blue-500 bg-blue-50 shadow-lg shadow-blue-500/20" : "border-gray-200 hover:border-gray-300 hover:shadow-md"}`}>
                           <div className="flex items-center gap-4">
@@ -1076,28 +1076,28 @@ export default function Campaigns() {
                 {currentStep === 1 && (
                   <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
                     <div className="text-center mb-6">
-                      <h3 className="text-xl font-bold text-gray-900">Informations générales</h3>
-                      <p className="text-gray-500">Donnez un nom et une description à votre campagne</p>
+                      <h3 className="text-xl font-bold text-gray-900">General information</h3>
+                      <p className="text-gray-500">Give your campaign a name and description</p>
                     </div>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Nom de la campagne <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Campaign name <span className="text-red-500">*</span></label>
                         <div className="relative">
                           <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: CEOs SaaS Paris" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Description (optionnel)</label>
-                        <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Décrivez l'objectif..." rows={3} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Description (optional)</label>
+                        <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Describe the objective..." rows={3} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Objectif</label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Objective</label>
                         <div className="grid grid-cols-2 gap-3">
                           {[
-                            { icon: Users, label: "Générer des leads", desc: "Qualification" },
-                            { icon: Mail, label: "Démos produit", desc: "Présentations" },
-                            { icon: Globe, label: "Étendre le réseau", desc: "Connexions" },
-                            { icon: TrendingUp, label: "Croissance", desc: "Acquisition" },
+                            { icon: Users, label: "Generate leads", desc: "Qualification" },
+                            { icon: Mail, label: "Product demos", desc: "Presentations" },
+                            { icon: Globe, label: "Expand network", desc: "Connections" },
+                            { icon: TrendingUp, label: "Growth", desc: "Acquisition" },
                           ].map((obj) => (
                             <button key={obj.label} onClick={() => setForm({ ...form, objective: obj.label })} className={`p-3 border-2 rounded-xl text-left transition-all ${form.objective === obj.label ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"}`}>
                               <div className="flex items-center gap-3">
@@ -1118,21 +1118,21 @@ export default function Campaigns() {
                 {currentStep === 2 && (
                   <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
                     <div className="text-center mb-6">
-                      <h3 className="text-xl font-bold text-gray-900">Ciblage</h3>
-                      <p className="text-gray-500">Définissez votre audience cible</p>
+                      <h3 className="text-xl font-bold text-gray-900">Targeting</h3>
+                      <p className="text-gray-500">Define your target audience</p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Profils cibles</label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Target profiles</label>
                         <div className="relative">
                           <Target className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                           <input value={form.target} onChange={(e) => setForm({ ...form, target: e.target.value })} placeholder="Ex: CEO, CTO, Founder" className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Industrie</label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Industry</label>
                         <Dropdown
-                          ariaLabel="Industrie"
+                          ariaLabel="Industry"
                           leftIcon={Building2}
                           value={form.industry}
                           onChange={(v) => setForm({ ...form, industry: v })}
@@ -1140,9 +1140,9 @@ export default function Campaigns() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Localisation</label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Location</label>
                         <Dropdown
-                          ariaLabel="Localisation"
+                          ariaLabel="Location"
                           leftIcon={MapPin}
                           value={form.location}
                           onChange={(v) => setForm({ ...form, location: v })}
@@ -1150,9 +1150,9 @@ export default function Campaigns() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Taille d&apos;entreprise</label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Company size</label>
                         <Dropdown
-                          ariaLabel="Taille d'entreprise"
+                          ariaLabel="Company size"
                           leftIcon={Users}
                           value={form.companySize}
                           onChange={(v) => setForm({ ...form, companySize: v })}
@@ -1161,7 +1161,7 @@ export default function Campaigns() {
                       </div>
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-3">Niveau hiérarchique</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-3">Seniority level</label>
                       <div className="flex flex-wrap gap-2">
                         {seniorityOptions.map((seniority) => {
                           const isSelected = form.seniority.includes(seniority.id);
@@ -1180,8 +1180,8 @@ export default function Campaigns() {
                 {currentStep === 3 && (
                   <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
                     <div className="text-center mb-6">
-                      <h3 className="text-xl font-bold text-gray-900">Template de message</h3>
-                      <p className="text-gray-500">Choisissez votre approche de prospection</p>
+                      <h3 className="text-xl font-bold text-gray-900">Message template</h3>
+                      <p className="text-gray-500">Choose your prospecting approach</p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       {templates.map((template) => {
@@ -1206,26 +1206,26 @@ export default function Campaigns() {
                 {currentStep === 4 && (
                   <motion.div key="step4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
                     <div className="text-center mb-6">
-                      <h3 className="text-xl font-bold text-gray-900">Paramètres avancés</h3>
-                      <p className="text-gray-500">Configurez la cadence de votre campagne</p>
+                      <h3 className="text-xl font-bold text-gray-900">Advanced settings</h3>
+                      <p className="text-gray-500">Configure your campaign cadence</p>
                     </div>
                     <div className="grid grid-cols-2 gap-6">
                       <div className="bg-gray-50 rounded-2xl p-5">
-                        <label className="block text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><Activity className="w-4 h-4 text-blue-500" />Limite quotidienne</label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><Activity className="w-4 h-4 text-blue-500" />Daily limit</label>
                         <div className="flex items-center justify-center">
                           <div className="relative">
                             <span className="w-24 text-center text-3xl font-bold text-gray-900 border-b-2 border-gray-300 py-2 inline-block">{form.dailyLimit}</span>
-                            <span className="absolute right-0 bottom-3 text-sm text-gray-400">/jour</span>
+                            <span className="absolute right-0 bottom-3 text-sm text-gray-400">/day</span>
                           </div>
                         </div>
                         <input type="range" min="5" max="20" value={form.dailyLimit} onChange={(e) => setForm({ ...form, dailyLimit: parseInt(e.target.value) })} className="w-full mt-4 accent-blue-600" />
                       </div>
                       <div className="bg-gray-50 rounded-2xl p-5">
-                        <label className="block text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><Clock className="w-4 h-4 text-blue-500" />Délai de relance</label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><Clock className="w-4 h-4 text-blue-500" />Follow-up delay</label>
                         <div className="flex items-center justify-center">
                           <div className="relative">
                             <span className="w-24 text-center text-3xl font-bold text-gray-900 border-b-2 border-gray-300 py-2 inline-block">{form.followUpDays}</span>
-                            <span className="absolute right-0 bottom-3 text-sm text-gray-400">jours</span>
+                            <span className="absolute right-0 bottom-3 text-sm text-gray-400">days</span>
                           </div>
                         </div>
                         <input type="range" min="1" max="14" value={form.followUpDays} onChange={(e) => setForm({ ...form, followUpDays: parseInt(e.target.value) })} className="w-full mt-4 accent-blue-600" />
@@ -1237,11 +1237,11 @@ export default function Campaigns() {
 
               {/* Boutons de navigation */}
               <div className="flex justify-between pt-6 mt-6 border-t border-gray-100">
-                <button onClick={prevStep} disabled={currentStep === 0} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-colors ${currentStep === 0 ? "text-gray-300 cursor-not-allowed" : "text-gray-600 hover:bg-gray-100"}`}><ChevronLeft className="w-5 h-5" />Précédent</button>
+                <button onClick={prevStep} disabled={currentStep === 0} className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-colors ${currentStep === 0 ? "text-gray-300 cursor-not-allowed" : "text-gray-600 hover:bg-gray-100"}`}><ChevronLeft className="w-5 h-5" />Previous</button>
                 {currentStep < (form.campaignType === 'connections_only' ? 3 : 4) ? (
-                  <button onClick={nextStep} disabled={currentStep === 0 && !form.campaignType || (currentStep === 1 && !form.name.trim())} className={`flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/30 transition-all ${((currentStep === 0 && !form.campaignType) || (currentStep === 1 && !form.name.trim())) ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700 hover:shadow-xl"}`}>Suivant<ChevronRight className="w-5 h-5" /></button>
+                  <button onClick={nextStep} disabled={currentStep === 0 && !form.campaignType || (currentStep === 1 && !form.name.trim())} className={`flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/30 transition-all ${((currentStep === 0 && !form.campaignType) || (currentStep === 1 && !form.name.trim())) ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700 hover:shadow-xl"}`}>Next<ChevronRight className="w-5 h-5" /></button>
                 ) : (
-                  <button onClick={createCampaign} className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold shadow-lg shadow-purple-500/30 hover:shadow-xl transition-all">{editingCampaign ? 'Enregistrer' : 'Créer la campagne'}</button>
+                  <button onClick={createCampaign} className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold shadow-lg shadow-purple-500/30 hover:shadow-xl transition-all">{editingCampaign ? 'Save' : 'Create campaign'}</button>
                 )}
               </div>
             </div>
@@ -1273,7 +1273,7 @@ export default function Campaigns() {
                   <Trash2 className="w-4 h-4 text-red-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-sm text-gray-900">Supprimer la campagne</h3>
+                  <h3 className="font-semibold text-sm text-gray-900">Delete campaign</h3>
                   <p className="text-xs text-gray-500">{deleteConfirm.campaignName}</p>
                 </div>
               </div>
@@ -1286,9 +1286,9 @@ export default function Campaigns() {
                   <Trash2 className="w-6 h-6 text-gray-400" />
                 </div>
                 <p className="text-sm font-medium text-gray-900">
-                  Supprimer définitivement cette campagne ?
+                  Permanently delete this campaign?
                 </p>
-                <p className="text-xs text-gray-400 mt-1">Cette action est irréversible</p>
+                <p className="text-xs text-gray-400 mt-1">This action is irreversible</p>
               </div>
             </div>
 
@@ -1299,7 +1299,7 @@ export default function Campaigns() {
                 disabled={deleting}
                 className="flex-1 py-2 text-xs text-gray-600 hover:text-gray-900 font-medium transition-colors disabled:opacity-50"
               >
-                Annuler
+                Cancel
               </button>
               <button
                 onClick={handleDeleteCampaign}
@@ -1309,12 +1309,12 @@ export default function Campaigns() {
                 {deleting ? (
                   <>
                     <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Suppression...
+                    Deleting...
                   </>
                 ) : (
                   <>
                     <Trash2 className="w-3 h-3" />
-                    Supprimer
+                    Delete
                   </>
                 )}
               </button>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LinkedIn Agent</title>
+  <title>Linqen</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -27,7 +27,10 @@
     body {
       width: 380px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: var(--bg);
+      background:
+        radial-gradient(ellipse at top left, rgba(96,165,250,0.45) 0%, transparent 55%),
+        radial-gradient(ellipse at bottom right, rgba(129,140,248,0.45) 0%, transparent 55%),
+        #ffffff;
       color: var(--text);
       font-size: 13px;
       -webkit-font-smoothing: antialiased;
@@ -36,21 +39,9 @@
     /* ============ HEADER ============ */
     .header {
       position: relative;
-      background: linear-gradient(135deg, #3b82f6 0%, #6366f1 50%, #8b5cf6 100%);
-      color: white;
-      padding: 18px 20px;
-      overflow: hidden;
-    }
-    .header::before {
-      content: "";
-      position: absolute;
-      top: -40%;
-      right: -20%;
-      width: 200px;
-      height: 200px;
-      background: radial-gradient(circle, rgba(255,255,255,0.15), transparent 70%);
-      border-radius: 50%;
-      pointer-events: none;
+      background: transparent;
+      color: #0f172a;
+      padding: 18px 20px 14px;
     }
     .header-main {
       display: flex;
@@ -59,27 +50,37 @@
       position: relative;
     }
     .header-icon {
-      width: 42px;
-      height: 42px;
-      background: rgba(255,255,255,0.2);
-      -webkit-backdrop-filter: blur(12px);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255,255,255,0.25);
+      width: 46px;
+      height: 46px;
       border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 22px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      overflow: hidden;
+      background: rgba(255,255,255,0.85);
+      box-shadow: 0 4px 14px rgba(59,130,246,0.15);
+      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(8px);
+      flex-shrink: 0;
+    }
+    .header-icon img {
+      width: 38px;
+      height: 38px;
+      object-fit: contain;
     }
     .header-text h1 {
       font-size: 17px;
       font-weight: 700;
       letter-spacing: -0.2px;
+      background: linear-gradient(90deg, #1d4ed8, #4338ca);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
     }
     .header-text p {
       font-size: 11px;
-      opacity: 0.9;
+      color: #64748b;
       margin-top: 1px;
     }
     .header-badge {
@@ -101,9 +102,8 @@
     .status-row {
       display: flex;
       gap: 8px;
-      padding: 12px 16px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
+      padding: 0 16px 12px;
+      background: transparent;
     }
     .pill {
       flex: 1;
@@ -111,9 +111,10 @@
       align-items: center;
       gap: 7px;
       padding: 8px 10px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
+      background: #ffffff;
+      border: 1px solid #e0e7ff;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(59,130,246,0.06);
       font-size: 11px;
       font-weight: 500;
       color: var(--text-soft);
@@ -121,18 +122,24 @@
       min-width: 0;
     }
     .pill-dot {
-      width: 7px;
-      height: 7px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       flex-shrink: 0;
-      background: var(--text-muted);
-      box-shadow: 0 0 0 2px currentColor;
-      opacity: 0.3;
+      background: #cbd5e1;
     }
-    .pill-dot.ok { background: var(--success); }
+    .pill-dot.ok  { background: var(--success); }
     .pill-dot.err { background: var(--danger); }
     .pill-dot.warn { background: var(--warning); animation: pulse 1.4s ease-in-out infinite; }
-    .pill-dot.blue { background: #0a66c2; }
+    .pill-dot.blue {
+      background: #0a66c2;
+      animation: ping 2s ease-in-out infinite;
+    }
+    @keyframes ping {
+      0%   { box-shadow: 0 0 0 0 rgba(10,102,194,0.45); }
+      70%  { box-shadow: 0 0 0 5px rgba(10,102,194,0); }
+      100% { box-shadow: 0 0 0 0 rgba(10,102,194,0); }
+    }
     .pill-label {
       font-size: 9px;
       text-transform: uppercase;
@@ -178,6 +185,10 @@
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.5; transform: scale(0.85); }
     }
+
+    /* ============ HIDE SCROLLBARS ============ */
+    * { scrollbar-width: none; -ms-overflow-style: none; }
+    *::-webkit-scrollbar { display: none; }
 
     /* ============ SECTIONS ============ */
     .content {
@@ -401,8 +412,9 @@
     /* ============ ACTIONS LIST ============ */
     .actions-list {
       background: var(--surface);
-      border: 1px solid var(--border);
+      border: 1px solid #e0e7ff;
       border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(59,130,246,0.06);
       overflow: hidden;
       max-height: 180px;
       overflow-y: auto;
@@ -538,6 +550,95 @@
     /* ============ SECTION HIDE HELPER ============ */
     .section.disabled { display: none; }
 
+    /* ============ DISCONNECTED VIEW ============ */
+    body.disconnected .header,
+    body.disconnected .status-row,
+    body.disconnected .content { display: none; }
+
+    #disconnectedView { display: none; }
+    body.disconnected #disconnectedView {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      width: 100%;
+      min-height: 460px;
+      padding: 40px 24px;
+      overflow: hidden;
+    }
+    /* blue corner glows like the login page */
+    #disconnectedView::before,
+    #disconnectedView::after {
+      content: "";
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      filter: blur(60px);
+      opacity: 0.5;
+      pointer-events: none;
+    }
+    #disconnectedView::before {
+      top: -70px;
+      left: -70px;
+      background: radial-gradient(circle, #60a5fa 0%, transparent 70%);
+    }
+    #disconnectedView::after {
+      bottom: -70px;
+      right: -70px;
+      background: radial-gradient(circle, #818cf8 0%, transparent 70%);
+    }
+    .dc-logo {
+      position: relative;
+      width: 84px;
+      height: 84px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.7);
+      box-shadow: 0 8px 28px rgba(59,130,246,0.18);
+      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(8px);
+    }
+    .dc-logo img {
+      width: 60px;
+      height: 60px;
+      object-fit: contain;
+    }
+    .dc-phrase {
+      position: relative;
+      margin-top: 22px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.1px;
+      background: linear-gradient(90deg, #1d4ed8, #4338ca);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
+    }
+    .dc-connect {
+      position: relative;
+      margin-top: 16px;
+      padding: 9px 20px;
+      border: none;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: white;
+      cursor: pointer;
+      background: linear-gradient(135deg, #3b82f6, #6366f1);
+      box-shadow: 0 4px 12px rgba(59,130,246,0.3);
+      transition: all 0.15s;
+    }
+    .dc-connect:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(59,130,246,0.4);
+    }
+    .dc-connect:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
     /* ============ LOADING SKELETON ============ */
     .skeleton {
       background: linear-gradient(90deg, #e2e8f0 0%, #f1f5f9 50%, #e2e8f0 100%);
@@ -551,39 +652,31 @@
     }
   </style>
 </head>
-<body>
+<body class="disconnected">
   <!-- ============ HEADER ============ -->
   <div class="header">
     <div class="header-main">
-      <div class="header-icon">🤖</div>
+      <div class="header-icon"><img src="icons/logo.png" alt="Linqen" /></div>
       <div class="header-text">
-        <h1>LinkedIn Agent</h1>
-        <p>Prospection automatique</p>
+        <h1>Linqen Agent</h1>
+        <p>Automatic prospecting</p>
       </div>
     </div>
-    <div class="header-badge" id="headerBadge">v1.0</div>
   </div>
 
   <!-- ============ STATUS PILLS ============ -->
   <div class="status-row">
-    <div class="pill" id="serverPill">
-      <div class="pill-dot" id="statusDot"></div>
-      <div class="pill-col">
-        <span class="pill-label">Serveur</span>
-        <span class="pill-value" id="statusText">…</span>
-      </div>
-    </div>
+    
     <div class="pill" id="linkedinPill">
       <div class="pill-dot" id="liAccountDot"></div>
       <div class="pill-col">
         <span class="pill-label">LinkedIn</span>
-        <span class="pill-value" id="liAccountText">Non connecté</span>
+        <span class="pill-value" id="liAccountText">Not connected</span>
       </div>
-      <button class="pill-action" id="liAccountBtn">Connecter</button>
+      <button class="pill-action" id="liAccountBtn">Connect</button>
     </div>
   </div>
 
-  <!-- Hidden element to keep popup.js happy (old processingText) -->
   <span id="processingText" style="display:none;"></span>
 
   <!-- ============ CONTENT ============ -->
@@ -593,10 +686,9 @@
     <div class="section" id="alertsSection">
       <div class="section-header">
         <div class="section-title">
-          <span class="section-icon">🔔</span>
-          <span>Alertes</span>
+          <span>Alerts</span>
         </div>
-        <span class="section-badge live" id="alertsBadge">En direct</span>
+        <span class="section-badge live" id="alertsBadge">Live</span>
       </div>
       <div class="alert-stack">
         <!-- Reply alert (emailNewReply) -->
@@ -604,22 +696,10 @@
           <div class="alert-icon">💬</div>
           <div class="alert-body">
             <div class="alert-title">
-              Nouvelles réponses
+              New replies
               <span class="alert-count" id="alertReplyCount">0</span>
             </div>
-            <div class="alert-detail" id="alertReplyDetail">Aucune réponse récente</div>
-          </div>
-        </div>
-
-        <!-- Conversion alert (emailNewConversion) -->
-        <div class="alert-card conversion hidden" id="alertConversion">
-          <div class="alert-icon">🎯</div>
-          <div class="alert-body">
-            <div class="alert-title">
-              Conversions
-              <span class="alert-count" id="alertConversionCount">0</span>
-            </div>
-            <div class="alert-detail" id="alertConversionDetail">Aucune conversion aujourd'hui</div>
+            <div class="alert-detail" id="alertReplyDetail">No recent replies</div>
           </div>
         </div>
 
@@ -627,7 +707,7 @@
         <div class="alert-card limit hidden" id="alertLimit">
           <div class="alert-icon">⚠️</div>
           <div class="alert-body">
-            <div class="alert-title" id="alertLimitTitle">Approche de la limite</div>
+            <div class="alert-title" id="alertLimitTitle">Approaching limit</div>
             <div class="alert-detail" id="alertLimitText">—</div>
             <div class="alert-bar">
               <div class="alert-bar-fill" id="alertLimitBar" style="width: 0%"></div>
@@ -639,50 +719,9 @@
         <div class="alert-card empty hidden" id="alertEmpty">
           <div class="alert-icon">🔕</div>
           <div class="alert-body">
-            <div class="alert-title">Aucune alerte</div>
-            <div class="alert-detail">Activez-les dans les paramètres</div>
+            <div class="alert-title">No alerts</div>
+            <div class="alert-detail">Enable them in settings</div>
           </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ============ DAILY SUMMARY SECTION (emailDailySummary) ============ -->
-    <div class="section" id="summarySection">
-      <div class="section-header">
-        <div class="section-title">
-          <span class="section-icon">📊</span>
-          <span>Résumé du jour</span>
-        </div>
-        <span class="section-badge" id="summaryDate">Aujourd'hui</span>
-      </div>
-      <div class="summary-grid">
-        <div class="mini-card pending">
-          <div class="mini-head">
-            <span class="mini-emoji">⏳</span>
-          </div>
-          <div class="mini-value" id="pendingCount">0</div>
-          <div class="mini-label">En attente</div>
-        </div>
-        <div class="mini-card completed">
-          <div class="mini-head">
-            <span class="mini-emoji">✅</span>
-          </div>
-          <div class="mini-value" id="completedCount">0</div>
-          <div class="mini-label">Terminées</div>
-        </div>
-        <div class="mini-card failed">
-          <div class="mini-head">
-            <span class="mini-emoji">⚠️</span>
-          </div>
-          <div class="mini-value" id="failedCount">0</div>
-          <div class="mini-label">Échouées</div>
-        </div>
-        <div class="mini-card total">
-          <div class="mini-head">
-            <span class="mini-emoji">🚀</span>
-          </div>
-          <div class="mini-value" id="totalCount">0</div>
-          <div class="mini-label">Total jour</div>
         </div>
       </div>
     </div>
@@ -691,28 +730,24 @@
     <div class="section">
       <div class="section-header">
         <div class="section-title">
-          <span class="section-icon">⚡</span>
-          <span>Actions récentes</span>
+          <span>Recent actions</span>
         </div>
         <span class="section-badge" id="actionsBadge">0</span>
       </div>
       <div class="actions-list" id="actionsList">
         <div class="empty-state">
           <div class="empty-state-icon">🌙</div>
-          <div>Aucune action en attente</div>
+          <div>No pending actions</div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ============ FOOTER ============ -->
-  <div class="footer-actions">
-    <button class="btn btn-secondary" id="refreshBtn">
-      <span>↻</span> Actualiser
-    </button>
-    <button class="btn btn-primary" id="openDashboardBtn">
-      <span>⚡</span> Dashboard
-    </button>
+  <!-- ============ DISCONNECTED VIEW ============ -->
+  <div id="disconnectedView">
+    <div class="dc-logo"><img src="icons/logo.png" alt="Linqen" /></div>
+    <div class="dc-phrase">Connect Your Linkedin Account</div>
+    <button class="dc-connect" id="dcConnectBtn">Connect</button>
   </div>
 
   <script src="popup.js"></script>

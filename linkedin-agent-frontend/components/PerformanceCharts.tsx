@@ -124,11 +124,11 @@ export default function PerformanceCharts() {
 
               <div>
                 <CardTitle className="text-lg">
-                  Croissance sur 30 jours
+                  30-day growth
                 </CardTitle>
 
                 <p className="text-xs text-gray-500">
-                  Leads intéressés vs invitations envoyées
+                  Interested leads vs invitations sent
                 </p>
               </div>
 
@@ -189,7 +189,7 @@ export default function PerformanceCharts() {
                 strokeWidth={3}
                 fillOpacity={1}
                 fill="url(#colorQualified)"
-                name="Leads Intéressés"
+                name="Interested Leads"
               />
 
               <Area
@@ -199,7 +199,7 @@ export default function PerformanceCharts() {
                 strokeWidth={3}
                 fillOpacity={1}
                 fill="url(#colorSent)"
-                name="Invitations Envoyées"
+                name="Invitations Sent"
               />
 
             </AreaChart>
@@ -223,11 +223,11 @@ export default function PerformanceCharts() {
 
               <div>
                 <CardTitle className="text-lg">
-                  Funnel de Conversion
+                  Conversion Funnel
                 </CardTitle>
 
                 <p className="text-xs text-gray-500">
-                  Parcours prospect → client
+                  Prospect → client journey
                 </p>
               </div>
 

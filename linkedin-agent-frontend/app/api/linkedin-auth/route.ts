@@ -127,12 +127,14 @@ export async function POST(req: NextRequest) {
       if (currentAdmin.rows.length > 0) {
         await pool.query(
           `UPDATE users SET
+             name = COALESCE($1, name),
+             email = COALESCE($2, email),
              linkedin_connected = true,
-             linkedin_email = $1,
+             linkedin_email = $3,
              is_active = true,
              updated_at = NOW()
-           WHERE id = $2`,
-          [email || null, currentAdmin.rows[0].id]
+           WHERE id = $4`,
+          [name || null, email || null, email || null, currentAdmin.rows[0].id]
         );
       } else {
         // 4. Aucun admin. Si un utilisateur a déjà cet email, on le promeut ; sinon on crée le 1er admin.

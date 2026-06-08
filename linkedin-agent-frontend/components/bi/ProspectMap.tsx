@@ -100,13 +100,13 @@ export default function ProspectMap({ range }: { range: BIRange }) {
             <div>
               <CardTitle className="text-lg">Prospect Intelligence Map</CardTitle>
               <p className="text-xs text-gray-500 mt-0.5">
-                Géographie • industries • score ICP • quadrant champion/cold
+                Geography • industries • ICP score • champion/cold quadrant
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Badge className="bg-emerald-100 text-emerald-700 border-0">
-              {totalProspects} prospects analysés
+              {totalProspects} prospects analyzed
             </Badge>
             <button
               onClick={() => downloadCSV(`prospects_geo_${range}j.csv`, geo)}
@@ -126,7 +126,7 @@ export default function ProspectMap({ range }: { range: BIRange }) {
           <div>
             <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
               <MapPin className="w-4 h-4 text-emerald-500" />
-              Top localisations (densité × conversion)
+              Top locations (density × conversion)
             </h4>
             <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-100 p-4 space-y-2 max-h-[320px] overflow-y-auto">
               {geo.length > 0 ? geo.slice(0, 12).map((g, i) => {
@@ -164,7 +164,7 @@ export default function ProspectMap({ range }: { range: BIRange }) {
                   </motion.div>
                 );
               }) : (
-                <div className="text-center text-sm text-gray-400 py-8">Aucune donnée géographique</div>
+                <div className="text-center text-sm text-gray-400 py-8">No geographic data</div>
               )}
             </div>
           </div>
@@ -173,7 +173,7 @@ export default function ProspectMap({ range }: { range: BIRange }) {
           <div>
             <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
               <LayoutGrid className="w-4 h-4 text-blue-500" />
-              Répartition par industrie
+              Distribution by industry
             </h4>
             <div style={{ height: 320 }} className="bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-100 p-2">
               {industries.length > 0 ? (
@@ -195,8 +195,8 @@ export default function ProspectMap({ range }: { range: BIRange }) {
                           <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-3 text-xs">
                             <div className="font-semibold text-sm mb-1">{d.name}</div>
                             <div>Prospects: <b>{d.size}</b></div>
-                            <div>Score moyen: <b>{d.avgScore}/100</b></div>
-                            <div>Convertis: <b>{d.converted}</b></div>
+                            <div>Avg score: <b>{d.avgScore}/100</b></div>
+                            <div>Converted: <b>{d.converted}</b></div>
                           </div>
                         );
                       }}
@@ -205,7 +205,7 @@ export default function ProspectMap({ range }: { range: BIRange }) {
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center text-sm text-gray-400">
-                  Aucune donnée d&apos;industrie
+                  No industry data
                 </div>
               )}
             </div>
@@ -218,7 +218,7 @@ export default function ProspectMap({ range }: { range: BIRange }) {
           <div className="xl:col-span-2">
             <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
               <BarChartHorizontal className="w-4 h-4 text-indigo-500" />
-              Distribution des scores ICP
+              ICP score distribution
             </h4>
             <div style={{ height: 280 }} className="bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-100 p-3">
               {scoreDist.length > 0 ? (
@@ -240,7 +240,7 @@ export default function ProspectMap({ range }: { range: BIRange }) {
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center text-sm text-gray-400">
-                  Pas de scores
+                  No scores
                 </div>
               )}
             </div>
@@ -251,7 +251,7 @@ export default function ProspectMap({ range }: { range: BIRange }) {
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                 <Target className="w-4 h-4 text-rose-500" />
-                Quadrant ICP fit (score × engagement)
+                ICP fit quadrant (score × engagement)
               </h4>
               <div className="flex gap-1.5">
                 <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px]">
@@ -319,7 +319,7 @@ export default function ProspectMap({ range }: { range: BIRange }) {
                             <div className="text-gray-500 mb-1">{d.company}</div>
                             <div>Score: <b>{d.score}/100</b></div>
                             <div>Engagement: <b>{d.engagement}</b></div>
-                            <div>Statut: <b>{d.status}</b></div>
+                            <div>Status: <b>{d.status}</b></div>
                           </div>
                         );
                       }}
@@ -333,7 +333,7 @@ export default function ProspectMap({ range }: { range: BIRange }) {
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center text-sm text-gray-400">
-                  Aucun prospect
+                  No prospect
                 </div>
               )}
             </div>

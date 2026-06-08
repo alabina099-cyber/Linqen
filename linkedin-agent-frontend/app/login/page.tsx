@@ -70,7 +70,7 @@ export default function LoginPage() {
     if (result.success) {
       window.location.href = "/";
     } else {
-      setError(result.error || "Erreur de connexion");
+      setError(result.error || "Login error");
     }
 
     setLoading(false);
@@ -78,7 +78,7 @@ export default function LoginPage() {
 
   const handleLinkedInCookie = async () => {
     if (!cookieValue.trim() || !cookieName.trim()) {
-      setError("Cookie et nom requis.");
+      setError("Cookie and name are required.");
       return;
     }
     setError("");
@@ -99,10 +99,10 @@ export default function LoginPage() {
         await refreshUser();
         window.location.href = "/";
       } else {
-        setError(data.error || "Erreur lors de la connexion.");
+        setError(data.error || "Connection error.");
       }
     } catch {
-      setError("Erreur réseau.");
+      setError("Network error.");
     } finally {
       setLinkedinChecking(false);
     }
@@ -117,10 +117,10 @@ export default function LoginPage() {
         setCookieValue(result.cookie);
         setShowCookie(false);
       } else {
-        const msg = result.error || "Impossible de récupérer le cookie.";
+        const msg = result.error || "Unable to fetch the cookie.";
         setError(
           msg.includes("n'a pas répondu")
-            ? "Extension Chrome non détectée. Installez/activez l'extension puis rechargez."
+            ? "Chrome extension not detected. Install/enable the extension then reload."
             : msg
         );
       }
@@ -131,7 +131,7 @@ export default function LoginPage() {
 
   const copyInstructions = () => {
     navigator.clipboard.writeText(
-      "1. Ouvrez linkedin.com dans Chrome\n2. F12 → Application → Cookies → linkedin.com\n3. Trouvez le cookie li_at et copiez sa valeur"
+      "1. Open linkedin.com in Chrome\n2. F12 → Application → Cookies → linkedin.com\n3. Find the li_at cookie and copy its value"
     );
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -150,16 +150,13 @@ export default function LoginPage() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-10"
         >
-          <div className="inline-flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-700 to-indigo-700 bg-clip-text text-transparent">
-              Qlinqen
+          <div className="inline-flex items-center mb-3">
+            <span className="text-2xl font-bold bg-gradient-to-r from-blue-700 to-indigo-700 bg-clip-text text-transparent tracking-wide">
+              LINQEN
             </span>
           </div>
           <p className="text-slate-500 text-sm">
-            Automatisez votre prospection LinkedIn intelligemment
+            Automate your LinkedIn prospecting intelligently
           </p>
         </motion.div>
 
@@ -184,15 +181,15 @@ export default function LoginPage() {
                   <Shield className="w-7 h-7 text-white" />
                 </div>
                 <h3 className="text-xl font-semibold text-slate-800 mb-2">
-                  Je suis Admin
+                  I am an Admin
                 </h3>
                 <p className="text-slate-500 text-sm leading-relaxed mb-4">
-                  Connectez votre compte LinkedIn pour accéder au dashboard, gérer
-                  votre équipe et superviser les campagnes.
+                  Connect your LinkedIn account to access the dashboard, manage
+                  your team and oversee campaigns.
                 </p>
                 <div className="flex items-center gap-2 text-blue-600 text-sm font-medium">
                   <Linkedin className="w-4 h-4" />
-                  <span>Connexion via LinkedIn</span>
+                  <span>Log in via LinkedIn</span>
                 </div>
               </button>
 
@@ -208,15 +205,15 @@ export default function LoginPage() {
                   <Users className="w-7 h-7 text-white" />
                 </div>
                 <h3 className="text-xl font-semibold text-slate-800 mb-2">
-                  Je suis un membre de l&apos;équipe
+                  I am a team member
                 </h3>
                 <p className="text-slate-500 text-sm leading-relaxed mb-4">
-                  Connectez-vous avec vos identifiants pour aider à la prospection
-                  et gérer les prospects assignés.
+                  Log in with your credentials to help with prospecting
+                  and manage assigned prospects.
                 </p>
                 <div className="flex items-center gap-2 text-indigo-600 text-sm font-medium">
                   <Mail className="w-4 h-4" />
-                  <span>Connexion par identifiants</span>
+                  <span>Log in with credentials</span>
                 </div>
               </button>
             </motion.div>
@@ -234,15 +231,15 @@ export default function LoginPage() {
                 onClick={() => { setMode("choose"); setError(""); }}
                 className="text-slate-400 hover:text-slate-600 text-sm mb-6 flex items-center gap-1 transition-colors"
               >
-                ← Retour
+                ← Back
               </button>
 
               <div className="text-center mb-6">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#0A66C2] to-indigo-600 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-blue-500/20">
                   <Linkedin className="w-7 h-7 text-white" />
                 </div>
-                <h2 className="text-2xl font-bold text-slate-800 mb-1">Connexion Admin</h2>
-                <p className="text-slate-500 text-sm">Collez votre cookie LinkedIn pour vous identifier.</p>
+                <h2 className="text-2xl font-bold text-slate-800 mb-1">Admin Login</h2>
+                <p className="text-slate-500 text-sm">Paste your LinkedIn cookie to authenticate.</p>
               </div>
 
               {error && (
@@ -255,18 +252,18 @@ export default function LoginPage() {
               {/* Instructions */}
               <div className="mb-5 bg-amber-50 border border-amber-100 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-amber-800">Comment obtenir votre cookie li_at</span>
+                  <span className="text-xs font-semibold text-amber-800">How to get your li_at cookie</span>
                   <button onClick={copyInstructions} className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800">
                     {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                    {copied ? "Copié !" : "Copier"}
+                    {copied ? "Copied!" : "Copy"}
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { n: "1", t: "Ouvrez linkedin.com" },
+                    { n: "1", t: "Open linkedin.com" },
                     { n: "2", t: "F12 → Application" },
                     { n: "3", t: "Cookies → linkedin.com" },
-                    { n: "4", t: "Copiez li_at" },
+                    { n: "4", t: "Copy li_at" },
                   ].map((s) => (
                     <div key={s.n} className="flex items-center gap-1.5 px-2 py-1 bg-white rounded-lg border border-amber-100">
                       <span className="w-4 h-4 bg-amber-200 text-amber-800 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0">{s.n}</span>
@@ -288,7 +285,7 @@ export default function LoginPage() {
                       className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50 transition-colors"
                     >
                       {linkedinChecking ? <Loader2 className="w-3 h-3 animate-spin" /> : <Puzzle className="w-3 h-3" />}
-                      Récupérer via extension
+                      Fetch via extension
                     </button>
                   </div>
                   <div className="relative">
@@ -297,7 +294,7 @@ export default function LoginPage() {
                       type={showCookie ? "text" : "password"}
                       value={cookieValue}
                       onChange={(e) => setCookieValue(e.target.value)}
-                      placeholder="AQEDATxxxxxx... ou cliquez Récupérer via extension"
+                      placeholder="AQEDATxxxxxx... or click Fetch via extension"
                       className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
                     />
                     <button type="button" onClick={() => setShowCookie(!showCookie)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
@@ -308,22 +305,22 @@ export default function LoginPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Nom complet <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Full name <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       value={cookieName}
                       onChange={(e) => setCookieName(e.target.value)}
-                      placeholder="Prénom Nom"
+                      placeholder="First Last"
                       className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Email (optionnel)</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Email (optional)</label>
                     <input
                       type="email"
                       value={cookieEmail}
                       onChange={(e) => setCookieEmail(e.target.value)}
-                      placeholder="email@exemple.com"
+                      placeholder="email@example.com"
                       className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
                     />
                   </div>
@@ -345,13 +342,13 @@ export default function LoginPage() {
                     className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#0A66C2] to-indigo-600 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {linkedinChecking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Linkedin className="w-4 h-4" />}
-                    {linkedinChecking ? "Connexion..." : "Se connecter"}
+                    {linkedinChecking ? "Connecting..." : "Log in"}
                   </button>
                 </div>
               </div>
 
               <p className="text-center text-xs text-slate-400 mt-4">
-                En vous connectant, vous devenez automatiquement l&apos;administrateur de ce compte.
+                By connecting, you automatically become the administrator of this account.
               </p>
             </motion.div>
           )}
@@ -368,7 +365,7 @@ export default function LoginPage() {
                 onClick={() => setMode("choose")}
                 className="text-slate-400 hover:text-slate-600 text-sm mb-6 flex items-center gap-1 transition-colors"
               >
-                ← Retour
+                ← Back
               </button>
 
               <div className="text-center mb-8">
@@ -376,10 +373,10 @@ export default function LoginPage() {
                   <Users className="w-8 h-8 text-white" />
                 </div>
                 <h2 className="text-2xl font-bold text-slate-800 mb-1">
-                  Connexion membre
+                  Member Login
                 </h2>
                 <p className="text-slate-500 text-sm">
-                  Utilisez les identifiants fournis par votre admin.
+                  Use the credentials provided by your admin.
                 </p>
               </div>
 
@@ -403,14 +400,14 @@ export default function LoginPage() {
                       onChange={(e) => setEmail(e.target.value)}
                       required
                       className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
-                      placeholder="votre@email.com"
+                      placeholder="your@email.com"
                     />
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    Mot de passe
+                    Password
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -445,7 +442,7 @@ export default function LoginPage() {
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <>
-                      Se connecter
+                      Log in
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
@@ -453,7 +450,7 @@ export default function LoginPage() {
               </form>
 
               <p className="text-center text-xs text-slate-400 mt-4">
-                Vous aidez à la prospection du compte LinkedIn de votre admin.
+                You help with the LinkedIn prospecting of your admin's account.
               </p>
             </motion.div>
           )}

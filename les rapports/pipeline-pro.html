@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DevSecOps CI/CD Pipeline — LinkedIn Agent</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  background: #f4f6f8;
+  padding: 32px 24px;
+}
+
+/* ── PAGE WRAPPER ── */
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── HEADER BAR ── */
+.header {
+  background: #1e2a3a;
+  color: #fff;
+  border-radius: 10px 10px 0 0;
+  padding: 16px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-left { display: flex; flex-direction: column; gap: 3px; }
+.header-title { font-size: 15px; font-weight: 800; letter-spacing: .3px; }
+.header-sub   { font-size: 11px; color: #90a4ae; font-weight: 500; }
+.header-right { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.h-pill {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #cfd8dc;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 3px 11px;
+  border-radius: 20px;
+}
+.h-pill.active { background: #2e7d32; border-color: #43a047; color: #fff; }
+
+/* ── MAIN LAYOUT ── */
+.body-layout {
+  display: flex;
+  gap: 0;
+  background: #fff;
+  border: 1px solid #e0e4ea;
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+}
+
+/* ── LEFT: PIPELINE ── */
+.pipeline {
+  flex: 1;
+  border-right: 1px solid #e8ecf0;
+  padding: 0;
+}
+
+/* ── STAGE ── */
+.stage {
+  border-bottom: 1px solid #edf0f3;
+}
+.stage:last-child { border-bottom: none; }
+
+.stage-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 22px 10px;
+  border-bottom: 1px solid #edf0f3;
+}
+.stage-num {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; color: #fff;
+  flex-shrink: 0;
+}
+.n-ci       { background: #2e7d32; }
+.n-test     { background: #1565c0; }
+.n-security { background: #bf360c; }
+.n-deploy   { background: #4527a0; }
+.n-perf     { background: #00695c; }
+
+.stage-title {
+  font-size: 12.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  flex: 1;
+}
+.s-ci       .stage-title { color: #2e7d32; }
+.s-test     .stage-title { color: #1565c0; }
+.s-security .stage-title { color: #bf360c; }
+.s-deploy   .stage-title { color: #4527a0; }
+.s-perf     .stage-title { color: #00695c; }
+
+.stage-meta {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.meta-ci       { background: #e8f5e9; color: #2e7d32; }
+.meta-test     { background: #e3f2fd; color: #1565c0; }
+.meta-security { background: #fbe9e7; color: #bf360c; }
+.meta-deploy   { background: #ede7f6; color: #4527a0; }
+.meta-perf     { background: #e0f2f1; color: #00695c; }
+
+.stage-body { padding: 12px 22px 14px; }
+
+/* CI 3-col grid */
+.ci-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.ci-card {
+  border: 1px solid #e8f5e9;
+  border-radius: 8px;
+  padding: 11px 13px;
+  background: #f9fdf9;
+}
+.ci-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2e7d32;
+  margin-bottom: 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #e8f5e9;
+}
+.ci-detail {
+  font-size: 11px;
+  color: #455a64;
+  line-height: 1.6;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.ci-detail::before { content: '›'; color: #66bb6a; font-weight: 700; flex-shrink: 0; }
+.ci-file {
+  display: inline-block;
+  margin-top: 7px;
+  background: #c8e6c9;
+  color: #1b5e20;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-family: 'Consolas', monospace;
+}
+.quality-note {
+  background: #f1f8e9;
+  border-left: 3px solid #66bb6a;
+  padding: 6px 12px;
+  font-size: 10.5px;
+  color: #33691e;
+  border-radius: 0 6px 6px 0;
+  font-weight: 500;
+}
+
+/* Generic item rows */
+.item-list { display: flex; flex-direction: column; gap: 8px; }
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #f8f9fb;
+  border-radius: 7px;
+  padding: 10px 14px;
+  border: 1px solid #edf0f3;
+}
+.item-marker {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+.m-test     { background: #1565c0; }
+.m-security { background: #bf360c; }
+.m-deploy   { background: #4527a0; }
+.m-perf     { background: #00695c; }
+
+.item-body { flex: 1; }
+.item-title { font-size: 12px; font-weight: 700; color: #263238; margin-bottom: 3px; }
+.item-details { display: flex; flex-direction: column; gap: 2px; }
+.item-detail {
+  font-size: 10.5px;
+  color: #546e7a;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  line-height: 1.5;
+}
+.item-detail::before { content: '–'; color: #90a4ae; flex-shrink: 0; }
+
+.item-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+.b-test     { background: #e3f2fd; color: #1565c0; }
+.b-security { background: #fbe9e7; color: #bf360c; }
+.b-deploy   { background: #ede7f6; color: #4527a0; }
+.b-perf     { background: #e0f2f1; color: #00695c; }
+.b-green    { background: #e8f5e9; color: #2e7d32; }
+
+/* Security 5-layer list */
+.sec-layer {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 14px;
+  background: #fff8f6;
+  border-radius: 7px;
+  border: 1px solid #ffccbc;
+}
+.sec-layer-num {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #bf360c;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.sec-layer-body { flex: 1; }
+.sec-layer-title { font-size: 11.5px; font-weight: 700; color: #bf360c; margin-bottom: 2px; }
+.sec-layer-detail { font-size: 10.5px; color: #5d4037; line-height: 1.5; }
+.sec-layer-tag {
+  font-size: 9.5px; font-weight: 700;
+  background: #fbe9e7; color: #bf360c;
+  padding: 2px 8px; border-radius: 10px;
+  white-space: nowrap; align-self: flex-start; margin-top: 1px;
+}
+
+/* connector arrow */
+.arrow-down {
+  text-align: center;
+  padding: 6px 0;
+  color: #546e7a;
+  font-size: 22px;
+  font-weight: 900;
+  background: #edf0f3;
+  border-top: 2px solid #cfd8dc;
+  border-bottom: 2px solid #cfd8dc;
+  font-family: monospace;
+  letter-spacing: 2px;
+}
+
+/* ── RIGHT: SIDEBAR ── */
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  padding: 20px 18px;
+  background: #fafbfc;
+  border-left: 1px solid #e8ecf0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-radius: 0 0 10px 0;
+}
+
+.sidebar-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #90a4ae;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e8ecf0;
+}
+
+.side-block { display: flex; flex-direction: column; gap: 6px; }
+.side-block-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  padding: 6px 10px;
+  border-radius: 6px 6px 0 0;
+}
+.t-dep { background: #e8eaf6; color: #283593; }
+.t-bak { background: #fce4ec; color: #880e4f; }
+.t-mon { background: #e0f2f1; color: #00695c; }
+
+.side-items {
+  border: 1px solid #e8ecf0;
+  border-radius: 0 0 7px 7px;
+  overflow: hidden;
+}
+.side-item {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 6px 11px;
+  font-size: 10.5px;
+  color: #455a64;
+  border-bottom: 1px solid #f0f2f4;
+  line-height: 1.4;
+}
+.side-item:last-child { border-bottom: none; }
+.side-item-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.d-dep { background: #3949ab; }
+.d-bak { background: #ad1457; }
+.d-mon { background: #00897b; }
+.side-item-val { font-weight: 600; color: #263238; }
+
+.side-badge {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 5px;
+  border-radius: 6px;
+  margin-top: 2px;
+}
+.sb-dep { background: #e8eaf6; color: #283593; }
+.sb-bak { background: #fce4ec; color: #880e4f; }
+.sb-mon { background: #e0f2f1; color: #00695c; }
+
+/* ── FOOTER ── */
+.footer {
+  background: #1e2a3a;
+  color: #fff;
+  border-radius: 0 0 10px 10px;
+  padding: 12px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.footer-left { display: flex; align-items: center; gap: 10px; }
+.f-label { background: #00897b; color: #fff; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 5px; }
+.footer-tags { display: flex; gap: 7px; }
+.f-tag {
+  background: rgba(255,255,255,0.12);
+  color: #cfd8dc;
+  font-size: 10.5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div class="header-title">DevSecOps CI/CD Pipeline — LinkedIn Agent</div>
+      <div class="header-sub">Trigger: git push → branch main &nbsp;|&nbsp; GitHub Actions &nbsp;|&nbsp; 8 Workflows</div>
+    </div>
+    <div class="header-right">
+      <span class="h-pill active">CI / CD</span>
+      <span class="h-pill active">Testing</span>
+      <span class="h-pill active">DevSecOps</span>
+      <span class="h-pill active">Performance</span>
+      <span class="h-pill active">Backup</span>
+    </div>
+  </div>
+
+  <div class="body-layout">
+
+    <!-- ══ PIPELINE ══ -->
+    <div class="pipeline">
+
+      <!-- 01 · CI -->
+      <div class="stage s-ci">
+        <div class="stage-header">
+          <span class="stage-num n-ci">01</span>
+          <span class="stage-title">Continuous Integration (CI)</span>
+          <span class="stage-meta meta-ci">3 parallel pipelines — on every push</span>
+        </div>
+        <div class="stage-body">
+          <div class="ci-grid">
+            <div class="ci-card">
+              <div class="ci-card-title">Frontend CI</div>
+              <div class="ci-detail">ESLint — JS/TS code style enforcement</div>
+              <div class="ci-detail">TypeScript strict mode (<code>tsc --noEmit</code>)</div>
+              <div class="ci-detail">Vitest — 28 unit tests (100% coverage)</div>
+              <div class="ci-detail">Next.js production build validation</div>
+              <div class="ci-detail">Jobs chained: lint → types → tests → build</div>
+              <div><span class="ci-file">ci.yml</span></div>
+            </div>
+            <div class="ci-card">
+              <div class="ci-card-title">Worker CI</div>
+              <div class="ci-detail">TypeScript strict compilation (tsc)</div>
+              <div class="ci-detail">ESLint validation on worker service</div>
+              <div class="ci-detail">Independent from frontend pipeline</div>
+              <div class="ci-detail">LinkedIn queue service integrity check</div>
+              <div><span class="ci-file">worker-ci.yml</span></div>
+            </div>
+            <div class="ci-card">
+              <div class="ci-card-title">Chrome Extension CI</div>
+              <div class="ci-detail">Manifest V3 compliance enforced</div>
+              <div class="ci-detail">JSON schema validation on manifest.json</div>
+              <div class="ci-detail">JS syntax check — 5 scripts (node --check)</div>
+              <div class="ci-detail">All referenced files existence verified</div>
+              <div class="ci-detail">Zip artifact packaged → v3.3.0 (30d retention)</div>
+              <div><span class="ci-file">chrome-extension-ci.yml</span></div>
+            </div>
+          </div>
+          <div class="quality-note">
+            Quality Gate: the Next.js build job will NOT run unless lint, typecheck and unit tests all pass — deployment is physically impossible without full CI validation.
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-down">↓</div>
+
+      <!-- 02 · TESTS -->
+      <div class="stage s-test">
+        <div class="stage-header">
+          <span class="stage-num n-test">02</span>
+          <span class="stage-title">Automated Testing</span>
+          <span class="stage-meta meta-test">37 tests total — HTML reports as artifacts</span>
+        </div>
+        <div class="stage-body">
+          <div class="item-list">
+            <div class="item">
+              <div class="item-marker m-test"></div>
+              <div class="item-body">
+                <div class="item-title">Unit Tests — Vitest + Istanbul Coverage</div>
+                <div class="item-details">
+                  <div class="item-detail">28 tests across 2 test suites: <strong>prospectScore.test.ts</strong> (10 tests) + <strong>validators.test.ts</strong> (18 tests)</div>
+                  <div class="item-detail">Covers: prospect scoring algorithm, anti-XSS sanitization, LinkedIn URL validation, CORS whitelist, URL normalization</div>
+                  <div class="item-detail">Coverage: 100% statements · 100% branches · 100% functions · 100% lines (Istanbul)</div>
+                  <div class="item-detail">HTML coverage report uploaded as CI artifact — 7-day retention</div>
+                </div>
+              </div>
+              <span class="item-badge b-green">28/28 · 100%</span>
+            </div>
+            <div class="item">
+              <div class="item-marker m-test"></div>
+              <div class="item-body">
+                <div class="item-title">E2E Tests — Playwright (Chromium)</div>
+                <div class="item-details">
+                  <div class="item-detail">9 tests: login page render · authentication flow · /api/health response structure</div>
+                  <div class="item-detail">Security headers validation: X-Content-Type-Options · X-Frame-Options · X-XSS-Protection</div>
+                  <div class="item-detail">CORS enforcement · rate limiting behavior · XSS payload rejection (/api/search)</div>
+                  <div class="item-detail">Full HTML report + trace artifacts uploaded on failure (always)</div>
+                </div>
+              </div>
+              <span class="item-badge b-test">9/9 · E2E</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-down">↓</div>
+
+      <!-- 03 · SECURITY -->
+      <div class="stage s-security">
+        <div class="stage-header">
+          <span class="stage-num n-security">03</span>
+          <span class="stage-title">Security Audit — DevSecOps</span>
+          <span class="stage-meta meta-security">5 independent layers — shift-left approach</span>
+        </div>
+        <div class="stage-body">
+          <div class="item-list">
+            <div class="sec-layer">
+              <div class="sec-layer-num">1</div>
+              <div class="sec-layer-body">
+                <div class="sec-layer-title">SCA — npm audit (Dependency Vulnerabilities)</div>
+                <div class="sec-layer-detail">Production deps audit (<code>--omit=dev</code>) + full critical scan · HIGH &amp; CRITICAL CVEs detected · Runs on every push + weekly schedule (cron) · Non-blocking audit mode with full report</div>
+              </div>
+              <div class="sec-layer-tag">SCA</div>
+            </div>
+            <div class="sec-layer">
+              <div class="sec-layer-num">2</div>
+              <div class="sec-layer-body">
+                <div class="sec-layer-title">SAST — Semgrep (Static Code Analysis)</div>
+                <div class="sec-layer-detail">5 rulesets: <code>p/javascript</code> · <code>p/typescript</code> · <code>p/react</code> · <code>p/nodejs</code> · <code>p/owasp-top-ten</code> · Detects injection, XSS, insecure patterns, hardcoded secrets · Runs on source code on every commit</div>
+              </div>
+              <div class="sec-layer-tag">OWASP Top 10</div>
+            </div>
+            <div class="sec-layer">
+              <div class="sec-layer-num">3</div>
+              <div class="sec-layer-body">
+                <div class="sec-layer-title">Filesystem Scan — Trivy FS (Triple Scan)</div>
+                <div class="sec-layer-detail">Three scanners in one: <strong>vuln</strong> (CVEs in source dependencies) · <strong>secret</strong> (exposed keys/tokens in files) · <strong>misconfig</strong> (Dockerfile/config errors) · SARIF output uploaded to GitHub Security tab</div>
+              </div>
+              <div class="sec-layer-tag">Trivy FS</div>
+            </div>
+            <div class="sec-layer">
+              <div class="sec-layer-num">4</div>
+              <div class="sec-layer-body">
+                <div class="sec-layer-title">Secret Detection — Gitleaks v8.21.2</div>
+                <div class="sec-layer-detail">Full working tree scan for API keys, tokens, passwords · Custom allowlist via <code>.gitleaks.toml</code> (prevents false positives on checksums, GH expressions, lock files) · SARIF report uploaded as artifact · Audit mode — non-blocking</div>
+              </div>
+              <div class="sec-layer-tag">Secrets</div>
+            </div>
+            <div class="sec-layer">
+              <div class="sec-layer-num">5</div>
+              <div class="sec-layer-body">
+                <div class="sec-layer-title">Image Scan — Trivy CVE on Published Docker Image (GHCR)</div>
+                <div class="sec-layer-detail">Scans the actual image published to GHCR (ghcr.io) · Severity: HIGH + CRITICAL · ignore-unfixed flag · SARIF output → GitHub Security tab (Code Scanning) · Runs after every successful Docker push</div>
+              </div>
+              <div class="sec-layer-tag">Image CVE</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-down">↓</div>
+
+      <!-- 04 · CD -->
+      <div class="stage s-deploy">
+        <div class="stage-header">
+          <span class="stage-num n-deploy">04</span>
+          <span class="stage-title">Continuous Deployment (CD)</span>
+          <span class="stage-meta meta-deploy">Deploy only after full CI + Security green</span>
+        </div>
+        <div class="stage-body">
+          <div class="item-list">
+            <div class="item">
+              <div class="item-marker m-deploy"></div>
+              <div class="item-body">
+                <div class="item-title">Docker Image Build → GHCR (GitHub Container Registry)</div>
+                <div class="item-details">
+                  <div class="item-detail">4-stage multi-stage Dockerfile: <strong>base</strong> → <strong>deps</strong> → <strong>builder</strong> → <strong>runner</strong> (production only)</div>
+                  <div class="item-detail">Base image: <code>node:22-alpine</code> — minimal attack surface (~150 MB final image)</div>
+                  <div class="item-detail">Non-root user: UID 1001 — hardened container, no root privileges at runtime</div>
+                  <div class="item-detail">GHA Docker layer cache (<code>cache-from/to: type=gha</code>) — ~65% rebuild time reduction</div>
+                  <div class="item-detail">3 tags per build: <code>latest</code> · <code>main</code> · <code>sha-&lt;commit&gt;</code> — full traceability via sha256 digest</div>
+                </div>
+              </div>
+              <span class="item-badge b-deploy">GHCR</span>
+            </div>
+            <div class="item">
+              <div class="item-marker m-deploy"></div>
+              <div class="item-body">
+                <div class="item-title">Trivy Image Scan — CVE Audit on Published Image</div>
+                <div class="item-details">
+                  <div class="item-detail">Scans the exact image digest pushed to ghcr.io after build</div>
+                  <div class="item-detail">Severity: HIGH + CRITICAL · <code>--ignore-unfixed</code> to reduce noise</div>
+                  <div class="item-detail">Results uploaded as SARIF to GitHub Security → Code Scanning tab (permanent record)</div>
+                </div>
+              </div>
+              <span class="item-badge b-deploy">Trivy Image</span>
+            </div>
+            <div class="item">
+              <div class="item-marker m-deploy"></div>
+              <div class="item-body">
+                <div class="item-title">Auto-Deploy to Coolify — Webhook POST trigger</div>
+                <div class="item-details">
+                  <div class="item-detail">CD job depends on (<code>needs: trivy-scan</code>) — deploy blocked until image scan completes</div>
+                  <div class="item-detail">Coolify pulls the new image tag and redeploys with zero downtime</div>
+                  <div class="item-detail">Self-hosted PaaS on VPS — HTTPS enforced · <code>/api/health</code> monitored post-deploy</div>
+                </div>
+              </div>
+              <span class="item-badge b-deploy">CD</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-down">↓</div>
+
+      <!-- 05 · PERFORMANCE -->
+      <div class="stage s-perf">
+        <div class="stage-header">
+          <span class="stage-num n-perf">05</span>
+          <span class="stage-title">Performance &amp; Quality Audit</span>
+          <span class="stage-meta meta-perf">Automated — Google Lighthouse CI</span>
+        </div>
+        <div class="stage-body">
+          <div class="item-list">
+            <div class="item">
+              <div class="item-marker m-perf"></div>
+              <div class="item-body">
+                <div class="item-title">Lighthouse CI — Automated Web Performance Audit</div>
+                <div class="item-details">
+                  <div class="item-detail">4 quality thresholds enforced: <strong>Performance ≥ 70</strong> · <strong>Accessibility ≥ 85</strong> · <strong>SEO ≥ 80</strong> · <strong>Best Practices ≥ 85</strong></div>
+                  <div class="item-detail">Runs against the built Next.js app on every push — detects regressions before they reach production</div>
+                  <div class="item-detail">Public LHCI report generated — audit results available as artifact</div>
+                  <div class="item-detail">Non-blocking (<code>continue-on-error: true</code>) — reports results without blocking deployment</div>
+                </div>
+              </div>
+              <span class="item-badge b-perf">Lighthouse</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end pipeline -->
+
+    <!-- ══ SIDEBAR ══ -->
+    <div class="sidebar">
+      <div class="sidebar-label">Scheduled Automations</div>
+
+      <!-- Dependabot -->
+      <div class="side-block">
+        <div class="side-block-title t-dep">Dependabot</div>
+        <div class="side-items">
+          <div class="side-item"><div class="side-item-dot d-dep"></div>Ecosystem: <span class="side-item-val">NPM — Frontend</span></div>
+          <div class="side-item"><div class="side-item-dot d-dep"></div>Ecosystem: <span class="side-item-val">GitHub Actions</span></div>
+          <div class="side-item"><div class="side-item-dot d-dep"></div>Ecosystem: <span class="side-item-val">Docker Images</span></div>
+          <div class="side-item"><div class="side-item-dot d-dep"></div>Schedule: <span class="side-item-val">Every Monday 6:00 AM</span></div>
+          <div class="side-item"><div class="side-item-dot d-dep"></div>Groups: <span class="side-item-val">langchain · radix-ui · react · @types</span></div>
+          <div class="side-item"><div class="side-item-dot d-dep"></div>Max open PRs: <span class="side-item-val">5 at a time</span></div>
+        </div>
+        <div class="side-badge sb-dep">3 ecosystems — auto-updated</div>
+      </div>
+
+      <!-- Database Backup -->
+      <div class="side-block">
+        <div class="side-block-title t-bak">Database Backup</div>
+        <div class="side-items">
+          <div class="side-item"><div class="side-item-dot d-bak"></div>Type: <span class="side-item-val">PostgreSQL pg_dump</span></div>
+          <div class="side-item"><div class="side-item-dot d-bak"></div>Schedule: <span class="side-item-val">Daily at 02:00 UTC</span></div>
+          <div class="side-item"><div class="side-item-dot d-bak"></div>Storage: <span class="side-item-val">GitHub Artifacts</span></div>
+          <div class="side-item"><div class="side-item-dot d-bak"></div>Retention: <span class="side-item-val">30 days</span></div>
+          <div class="side-item"><div class="side-item-dot d-bak"></div>Trigger: <span class="side-item-val">CRON + manual dispatch</span></div>
+        </div>
+        <div class="side-badge sb-bak">Automated — Scheduled</div>
+      </div>
+
+      <!-- Monitoring -->
+      <div class="side-block">
+        <div class="side-block-title t-mon">Health Monitoring</div>
+        <div class="side-items">
+          <div class="side-item"><div class="side-item-dot d-mon"></div>Endpoint: <span class="side-item-val">/api/health</span></div>
+          <div class="side-item"><div class="side-item-dot d-mon"></div>Checks: <span class="side-item-val">DB connection status</span></div>
+          <div class="side-item"><div class="side-item-dot d-mon"></div>Checks: <span class="side-item-val">Memory usage (RSS)</span></div>
+          <div class="side-item"><div class="side-item-dot d-mon"></div>Checks: <span class="side-item-val">Process uptime</span></div>
+          <div class="side-item"><div class="side-item-dot d-mon"></div>Tested by: <span class="side-item-val">Playwright E2E suite</span></div>
+        </div>
+        <div class="side-badge sb-mon">Real-time — Automated</div>
+      </div>
+
+    </div>
+
+  </div><!-- end body-layout -->
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="footer-left">
+      <span class="f-label">PRODUCTION</span>
+      Coolify — VPS Server (Self-hosted PaaS)
+    </div>
+    <div class="footer-tags">
+      <span class="f-tag">Live</span>
+      <span class="f-tag">HTTPS</span>
+      <span class="f-tag">Docker</span>
+      <span class="f-tag">Auto-deploy</span>
+      <span class="f-tag">8 Workflows</span>
+      <span class="f-tag">Zero Downtime</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

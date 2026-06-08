@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -24,34 +24,17 @@ interface AgentSummary {
 
 const PIE_COLORS = ["#a855f7", "#6366f1", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#84cc16"];
 
-export default function AgentAnalytics({ range }: { range: BIRange }) {
-  const [tools, setTools] = useState<ToolStat[]>([]);
-  const [approvals, setApprovals] = useState<ApprovalRow[]>([]);
-  const [timeline, setTimeline] = useState<TLPoint[]>([]);
-  const [summary, setSummary] = useState<AgentSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancel = false;
-    queueMicrotask(() => setLoading(true));
-    fetch(`/api/bi/agent?range=${range}`)
-      .then(r => r.json())
-      .then(j => {
-        if (cancel || !j.success) return;
-        setTools(j.tools || []);
-        setApprovals(j.approvalSummary || []);
-        setTimeline(j.timeline || []);
-        setSummary(j.summary || null);
-      })
-      .finally(() => !cancel && setLoading(false));
-    return () => { cancel = true; };
-  }, [range]);
+export default function AgentAnalytics({ data: apiData, loading, range }: { data: any; loading: boolean; range: BIRange }) {
+  const tools = useMemo<ToolStat[]>(() => apiData?.tools ?? [], [apiData]);
+  const approvals = useMemo<ApprovalRow[]>(() => apiData?.approvalSummary ?? [], [apiData]);
+  const timeline = useMemo<TLPoint[]>(() => apiData?.timeline ?? [], [apiData]);
+  const summary = useMemo<AgentSummary | null>(() => apiData?.summary ?? null, [apiData]);
 
   const pieData = tools.map(t => ({ name: t.tool, value: t.total }));
 
   const radialData = summary ? [
     {
-      name: "Taux de succès",
+      name: "Taux de success",
       value: summary.successRate,
       fill: "#10b981",
     },
@@ -68,14 +51,14 @@ export default function AgentAnalytics({ range }: { range: BIRange }) {
             <div>
               <CardTitle className="text-lg">AI Agent Analytics</CardTitle>
               <p className="text-xs text-gray-500 mt-0.5">
-                Tool usage • taux de succès • ROI mesuré
+                Tool usage • success rate • measured ROI
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {summary && (
               <Badge className="bg-purple-100 text-purple-700 border-0">
-                {fmt(summary.totalActions)} actions • {summary.successRate}% succès
+                {fmt(summary.totalActions)} actions • {summary.successRate}% success
               </Badge>
             )}
             <button
@@ -93,10 +76,10 @@ export default function AgentAnalytics({ range }: { range: BIRange }) {
         {/* Top: KPI cards + Success rate dial + tool pie */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           {summary && [
-            { label: "Actions agent", value: fmt(summary.totalActions), icon: BarChart2, color: "text-purple-600", bg: "bg-purple-50" },
+            { label: "Agent actions", value: fmt(summary.totalActions), icon: BarChart2, color: "text-purple-600", bg: "bg-purple-50" },
             { label: "Conversations", value: summary.conversations, icon: Bot, color: "text-indigo-600", bg: "bg-indigo-50" },
-            { label: "Heures éco.", value: `${summary.hoursSaved}h`, icon: Cpu, color: "text-cyan-600", bg: "bg-cyan-50" },
-            { label: "Valeur ROI", value: `${fmt(summary.moneySaved)}€`, icon: ShieldCheck, color: "text-emerald-600", bg: "bg-emerald-50" },
+            { label: "Hours saved", value: `${summary.hoursSaved}h`, icon: Cpu, color: "text-cyan-600", bg: "bg-cyan-50" },
+            { label: "ROI value", value: `${fmt(summary.moneySaved)}€`, icon: ShieldCheck, color: "text-emerald-600", bg: "bg-emerald-50" },
           ].map((c, i) => {
             const Icon = c.icon;
             return (
@@ -122,7 +105,7 @@ export default function AgentAnalytics({ range }: { range: BIRange }) {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Tool usage pie */}
           <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">Outils utilisés par l&apos;agent</h4>
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">Tools used by the agent</h4>
             <div style={{ height: 280 }} className="bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-100 p-3">
               {pieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
@@ -145,7 +128,7 @@ export default function AgentAnalytics({ range }: { range: BIRange }) {
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center text-sm text-gray-400">
-                  Aucune action agent
+                  No agent action
                 </div>
               )}
             </div>
@@ -153,7 +136,7 @@ export default function AgentAnalytics({ range }: { range: BIRange }) {
 
           {/* Success radial */}
           <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">Taux de succès global</h4>
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">Taux de success global</h4>
             <div style={{ height: 280 }} className="bg-gradient-to-br from-emerald-50/50 to-white rounded-xl border border-emerald-100 p-3 flex flex-col items-center justify-center">
               {summary ? (
                 <ResponsiveContainer width="100%" height="80%">
@@ -174,11 +157,11 @@ export default function AgentAnalytics({ range }: { range: BIRange }) {
                   </RadialBarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="text-sm text-gray-400">Pas de données</div>
+                <div className="text-sm text-gray-400">No data</div>
               )}
               {summary && (
                 <div className="text-xs text-gray-500 mt-1">
-                  {summary.totalActions - summary.totalErrors} succès / {summary.totalErrors} erreurs
+                  {summary.totalActions - summary.totalErrors} success / {summary.totalErrors} errors
                 </div>
               )}
             </div>
@@ -186,7 +169,7 @@ export default function AgentAnalytics({ range }: { range: BIRange }) {
 
           {/* Tool detail list */}
           <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">Détail par outil</h4>
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">Detail by tool</h4>
             <div style={{ height: 280 }} className="bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-100 p-3 overflow-y-auto">
               {tools.length > 0 ? (
                 <div className="space-y-2">
@@ -221,7 +204,7 @@ export default function AgentAnalytics({ range }: { range: BIRange }) {
                 </div>
               ) : (
                 <div className="h-full flex items-center justify-center text-sm text-gray-400">
-                  Aucune donnée
+                  No data
                 </div>
               )}
             </div>
@@ -230,7 +213,7 @@ export default function AgentAnalytics({ range }: { range: BIRange }) {
 
         {/* Activity timeline */}
         <div>
-          <h4 className="text-sm font-semibold text-gray-700 mb-2">Activité agent dans le temps</h4>
+          <h4 className="text-sm font-semibold text-gray-700 mb-2">Agent activity over time</h4>
           <div style={{ height: 220 }} className="bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-100 p-3">
             {timeline.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -259,7 +242,7 @@ export default function AgentAnalytics({ range }: { range: BIRange }) {
                     labelFormatter={(v) => new Date(v).toLocaleDateString("fr-FR")}
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Area type="monotone" dataKey="agentActions" stroke="#a855f7" strokeWidth={2} fill="url(#agentArea)" name="Actions agent" />
+                  <Area type="monotone" dataKey="agentActions" stroke="#a855f7" strokeWidth={2} fill="url(#agentArea)" name="Agent actions" />
                   <Area type="monotone" dataKey="messages" stroke="#10b981" strokeWidth={2} fill="url(#msgArea)" name="Messages" />
                 </AreaChart>
               </ResponsiveContainer>
@@ -274,7 +257,7 @@ export default function AgentAnalytics({ range }: { range: BIRange }) {
         {/* Approvals */}
         {approvals.length > 0 && (
           <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">Approbations LinkedIn (auto vs manuel)</h4>
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">LinkedIn approvals (auto vs manual)</h4>
             <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-100 p-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {approvals.map(a => {
@@ -288,14 +271,14 @@ export default function AgentAnalytics({ range }: { range: BIRange }) {
                         </Badge>
                       </div>
                       <div className="h-2 bg-gray-100 rounded-full overflow-hidden flex">
-                        <div className="h-full bg-emerald-400" style={{ width: `${autoRate}%` }} title={`${a.completed} complétées`} />
-                        <div className="h-full bg-amber-400" style={{ width: `${a.total > 0 ? (a.pending / a.total) * 100 : 0}%` }} title={`${a.pending} en attente`} />
-                        <div className="h-full bg-rose-400" style={{ width: `${a.total > 0 ? (a.failed / a.total) * 100 : 0}%` }} title={`${a.failed} échecs`} />
+                        <div className="h-full bg-emerald-400" style={{ width: `${autoRate}%` }} title={`${a.completed} completed`} />
+                        <div className="h-full bg-amber-400" style={{ width: `${a.total > 0 ? (a.pending / a.total) * 100 : 0}%` }} title={`${a.pending} en waiting`} />
+                        <div className="h-full bg-rose-400" style={{ width: `${a.total > 0 ? (a.failed / a.total) * 100 : 0}%` }} title={`${a.failed} failures`} />
                       </div>
                       <div className="flex justify-between text-[10px] text-gray-500 mt-1">
-                        <span>✓ {a.completed} complétées</span>
-                        <span>⏱ {a.pending} attente</span>
-                        <span>✗ {a.failed} échecs</span>
+                        <span>✓ {a.completed} completed</span>
+                        <span>⏱ {a.pending} waiting</span>
+                        <span>✗ {a.failed} failures</span>
                       </div>
                     </div>
                   );

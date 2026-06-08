@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { BrainCircuit, ThumbsUp, ThumbsDown, Lightbulb, Info } from "lucide-react";
-import { BIRange, fmt } from "./biTypes";
+import { BrainCircuit, ThumbsUp, ThumbsDown, Lightbulb, Info, Trash2 } from "lucide-react";
+import { fmt } from "./biTypes";
 
 interface Insight {
   type: "win" | "loss" | "tip" | "info";
@@ -12,31 +12,22 @@ interface Insight {
   metric?: string;
 }
 
-// Génère des insights narratifs à partir de plusieurs endpoints BI
-export default function AIInsights({ range }: { range: BIRange }) {
-  const [kpi, setKpi] = useState<any>(null);
-  const [conv, setConv] = useState<any>(null);
-  const [tpl, setTpl] = useState<any>(null);
-  const [agent, setAgent] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+interface AIInsightsProps {
+  kpiResp: any;
+  convResp: any;
+  tplResp: any;
+  agentResp: any;
+  loading: boolean;
+}
 
-  useEffect(() => {
-    let cancel = false;
-    queueMicrotask(() => setLoading(true));
-    Promise.all([
-      fetch(`/api/bi/kpi?range=${range}`).then(r => r.json()).catch(() => null),
-      fetch(`/api/bi/conversion?range=${range}`).then(r => r.json()).catch(() => null),
-      fetch(`/api/bi/templates?range=${range}`).then(r => r.json()).catch(() => null),
-      fetch(`/api/bi/agent?range=${range}`).then(r => r.json()).catch(() => null),
-    ]).then(([k, c, t, a]) => {
-      if (cancel) return;
-      if (k?.success) setKpi(k.kpis);
-      if (c?.success) setConv(c);
-      if (t?.success) setTpl(t);
-      if (a?.success) setAgent(a);
-    }).finally(() => !cancel && setLoading(false));
-    return () => { cancel = true; };
-  }, [range]);
+// Génère des insights narratifs à partir des données partagées par BIShell
+export default function AIInsights({ kpiResp, convResp, tplResp, agentResp, loading }: AIInsightsProps) {
+  const kpi = useMemo(() => kpiResp?.kpis ?? null, [kpiResp]);
+  const conv = useMemo(() => convResp ?? null, [convResp]);
+  const tpl = useMemo(() => tplResp ?? null, [tplResp]);
+  const agent = useMemo(() => agentResp ?? null, [agentResp]);
+
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
   const insights = useMemo<Insight[]>(() => {
     const out: Insight[] = [];
@@ -46,15 +37,15 @@ export default function AIInsights({ range }: { range: BIRange }) {
     if (kpi.replyRate.value >= 15) {
       out.push({
         type: "win",
-        title: "Excellent taux de réponse",
-        detail: `Votre taux de ${kpi.replyRate.value}% est au-dessus de la moyenne LinkedIn (5-10%). Continuez sur cette lancée.`,
+        title: "Excellent reply rate",
+        detail: `Your rate of ${kpi.replyRate.value}% is above LinkedIn average (5-10%). Keep it up!`,
         metric: `${kpi.replyRate.value}%`,
       });
     } else if (kpi.replyRate.value < 5 && kpi.messages.value > 10) {
       out.push({
         type: "loss",
-        title: "Taux de réponse faible",
-        detail: `À ${kpi.replyRate.value}% seulement. Recommandation: testez de nouveaux templates et personnalisez davantage.`,
+        title: "Low reply rate",
+        detail: `At only ${kpi.replyRate.value}%. Recommendation: test new templates and personalize more.`,
         metric: `${kpi.replyRate.value}%`,
       });
     }
@@ -63,15 +54,15 @@ export default function AIInsights({ range }: { range: BIRange }) {
     if (kpi.prospects.delta > 20) {
       out.push({
         type: "win",
-        title: "Croissance prospects forte",
-        detail: `+${kpi.prospects.delta}% de nouveaux prospects vs période précédente. La machine à leads tourne bien.`,
+        title: "Strong prospect growth",
+        detail: `+${kpi.prospects.delta}% new prospects vs previous period. Lead machine is running well.`,
         metric: `+${kpi.prospects.delta}%`,
       });
     } else if (kpi.prospects.delta < -10) {
       out.push({
         type: "loss",
-        title: "Acquisition en baisse",
-        detail: `${kpi.prospects.delta}% de prospects vs période précédente. Pensez à élargir vos critères de recherche.`,
+        title: "Acquisition declining",
+        detail: `${kpi.prospects.delta}% prospects vs previous period. Consider broadening your search criteria.`,
         metric: `${kpi.prospects.delta}%`,
       });
     }
@@ -88,8 +79,8 @@ export default function AIInsights({ range }: { range: BIRange }) {
       if (worst && worst.conversionFromPrev < 30) {
         out.push({
           type: "tip",
-          title: "Goulot d'étranglement détecté",
-          detail: `L'étape "${worst.stage}" ne convertit qu'à ${worst.conversionFromPrev}%. C'est là que vous perdez le plus de prospects.`,
+          title: "Bottleneck detected",
+          detail: `The step "${worst.stage}" converts at only ${worst.conversionFromPrev}%. That's where you lose the most prospects.`,
           metric: `${worst.conversionFromPrev}%`,
         });
       }
@@ -97,7 +88,7 @@ export default function AIInsights({ range }: { range: BIRange }) {
 
     // Best heatmap slot
     if (tpl?.heatmap?.length) {
-      const DOW = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+      const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
       const best = tpl.heatmap.reduce((b: any, h: any) => {
         if (h.sent < 3) return b;
         return !b || h.rate > b.rate ? h : b;
@@ -105,8 +96,8 @@ export default function AIInsights({ range }: { range: BIRange }) {
       if (best && best.rate > 0) {
         out.push({
           type: "tip",
-          title: "Créneau optimal identifié",
-          detail: `Vos messages envoyés ${DOW[best.dow]} à ${best.hour}h obtiennent ${best.rate}% de réponses. Concentrez vos envois sur ce créneau.`,
+          title: "Optimal slot identified",
+          detail: `Your messages sent on ${DOW[best.dow]} at ${best.hour}h get ${best.rate}% replies. Focus your sends on this slot.`,
           metric: `${DOW[best.dow]} ${best.hour}h`,
         });
       }
@@ -118,8 +109,8 @@ export default function AIInsights({ range }: { range: BIRange }) {
       if (top.score >= 2) {
         out.push({
           type: "tip",
-          title: "Mot gagnant détecté",
-          detail: `Le mot "${top.word}" apparaît ${top.good}× dans vos meilleurs templates. Réutilisez-le.`,
+          title: "Winning word detected",
+          detail: `The word "${top.word}" appears ${top.good}× in your top templates. Use it again.`,
           metric: top.word,
         });
       }
@@ -129,21 +120,23 @@ export default function AIInsights({ range }: { range: BIRange }) {
     if (agent?.summary && agent.summary.totalActions > 20 && agent.summary.successRate < 80) {
       out.push({
         type: "loss",
-        title: "Taux d'échec agent élevé",
-        detail: `Seulement ${agent.summary.successRate}% des actions réussissent. Vérifiez la connexion à l'extension Chrome et les sélecteurs LinkedIn.`,
-        metric: `${100 - agent.summary.successRate}% d'échecs`,
+        title: "High agent failure rate",
+        detail: `Only ${agent.summary.successRate}% of actions succeed. Check the Chrome extension connection and LinkedIn selectors.`,
+        metric: `${100 - agent.summary.successRate}% failures`,
       });
     }
 
     return out.slice(0, 6);
-  }, [kpi, conv, tpl, agent, range]);
+  }, [kpi, conv, tpl, agent]);
+
+  const visibleInsights = insights.filter((ins) => !dismissed.has(ins.title));
 
   if (loading) {
     return (
       <div className="bg-gradient-to-r from-violet-50 via-fuchsia-50 to-pink-50 rounded-2xl border border-violet-100 p-5">
         <div className="flex items-center gap-2 mb-3">
           <BrainCircuit className="w-5 h-5 text-violet-600 animate-pulse" />
-          <h3 className="font-semibold text-violet-900">L&apos;IA analyse vos données...</h3>
+          <h3 className="font-semibold text-violet-900">AI is analyzing your data...</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {[1, 2, 3].map(i => (
@@ -154,7 +147,7 @@ export default function AIInsights({ range }: { range: BIRange }) {
     );
   }
 
-  if (insights.length === 0) {
+  if (visibleInsights.length === 0) {
     return null;
   }
 
@@ -180,25 +173,34 @@ export default function AIInsights({ range }: { range: BIRange }) {
         </div>
         <div>
           <h3 className="font-bold text-gray-900">AI Insights</h3>
-          <p className="text-xs text-gray-500">Narration générée à partir de vos données</p>
+          <p className="text-xs text-gray-500">Narration generated from your data</p>
         </div>
         <span className="ml-auto text-[10px] uppercase tracking-widest font-semibold text-violet-600 bg-violet-100 px-2 py-1 rounded-full">
-          {insights.length} insights
+          {visibleInsights.length} insights
         </span>
       </div>
 
       <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {insights.map((ins, i) => {
+        {visibleInsights.map((ins, i) => {
           const s = styles[ins.type];
           const Icon = s.icon;
           return (
             <motion.div
-              key={i}
+              key={ins.title}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06 }}
-              className={`${s.bg} ${s.border} border rounded-xl p-3 hover:shadow-md transition-shadow`}
+              className={`${s.bg} ${s.border} border rounded-xl p-3 hover:shadow-md transition-shadow relative group`}
             >
+              <button
+                onClick={() => {
+                  setDismissed((prev) => new Set([...prev, ins.title]));
+                }}
+                className="absolute bottom-1.5 right-1.5 p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                title="Dismiss"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
               <div className="flex items-start gap-2">
                 <div className={`shrink-0 w-7 h-7 bg-white rounded-lg flex items-center justify-center ${s.iconColor}`}>
                   <Icon className="w-4 h-4" />

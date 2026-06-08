@@ -108,7 +108,7 @@ export default function StatsCards() {
     { title: "Reply Rate", value: "0%", change: "0%", trend: "up" as const, icon: MessageSquare, color: "purple" },
     { title: "Conversion Rate", value: "0%", change: "0%", trend: "up" as const, icon: MousePointerClick, color: "green" },
     { title: "Conversions", value: "0", change: "0", trend: "up" as const, icon: CheckCircle, color: "orange" },
-    { title: "Prospects Actifs", value: "0", change: "0%", trend: "up" as const, icon: Users, color: "blue" }
+    { title: "Active Prospects", value: "0", change: "0%", trend: "up" as const, icon: Users, color: "blue" }
   ];
 
   // Calculate real stats from database (show 0 when empty)
@@ -116,7 +116,7 @@ export default function StatsCards() {
     { title: "Reply Rate", value: `${stats.campaigns?.response_rate || 0}%`, change: "+0%", trend: "up" as const, icon: MessageSquare, color: "purple" },
     { title: "Conversion Rate", value: `${stats.campaigns?.conversion_rate || 0}%`, change: "+0%", trend: "up" as const, icon: MousePointerClick, color: "green" },
     { title: "Conversions", value: String(stats.campaigns?.total_converted || 0), change: "+0", trend: "up" as const, icon: CheckCircle, color: "orange" },
-    { title: "Prospects Actifs", value: String(stats.prospects?.total || 0), change: "+0%", trend: "up" as const, icon: Users, color: "blue" }
+    { title: "Active Prospects", value: String(stats.prospects?.total || 0), change: "+0%", trend: "up" as const, icon: Users, color: "blue" }
   ] : defaultStats;
 
   if (loading) {

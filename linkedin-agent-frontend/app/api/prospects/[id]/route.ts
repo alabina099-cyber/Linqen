@@ -228,7 +228,21 @@ export async function DELETE(
       return NextResponse.json({ error: access.error }, { status: access.status });
     }
 
-    await query("DELETE FROM messages WHERE prospect_id = $1", [id]);
+    // Cleanup dependent rows. Each is wrapped so a missing aux table can't abort the main delete.
+    const safeCleanup = async (label: string, sql: string) => {
+      try {
+        await query(sql, [id]);
+      } catch (e: any) {
+        const msg = e?.message || String(e);
+        // Ignore "relation does not exist" for legacy DBs without these tables
+        if (!/does not exist/i.test(msg)) {
+          console.error(`prospect delete cleanup '${label}' failed:`, msg);
+        }
+      }
+    };
+    await safeCleanup("messages", "DELETE FROM messages WHERE prospect_id = $1");
+    await safeCleanup("actions_queue", "UPDATE linkedin_actions_queue SET prospect_id = NULL WHERE prospect_id = $1");
+    await safeCleanup("scheduled_followups", "DELETE FROM scheduled_followups WHERE prospect_id = $1");
     const result = await query("DELETE FROM prospects WHERE id = $1 RETURNING id", [id]);
 
     if (result.rows.length === 0) {

@@ -20,7 +20,38 @@ export default function BIShell() {
   const [range, setRange] = useState<BIRange>(30);
   const [now, setNow] = useState<Date | null>(null);
 
+  // Shared data fetched once — passed as props to avoid duplicate requests
+  const [kpiData, setKpiData] = useState<any>(null);
+  const [convData, setConvData] = useState<any>(null);
+  const [tplData, setTplData] = useState<any>(null);
+  const [agentData, setAgentData] = useState<any>(null);
+  const [sharedLoading, setSharedLoading] = useState(true);
+
   useEffect(() => { queueMicrotask(() => setNow(new Date())); }, []);
+
+  useEffect(() => {
+    let cancel = false;
+    setSharedLoading(true);
+    setKpiData(null);
+    setConvData(null);
+    setTplData(null);
+    setAgentData(null);
+
+    Promise.all([
+      fetch(`/api/bi/kpi?range=${range}`).then(r => r.json()).catch(() => null),
+      fetch(`/api/bi/conversion?range=${range}`).then(r => r.json()).catch(() => null),
+      fetch(`/api/bi/templates?range=${range}`).then(r => r.json()).catch(() => null),
+      fetch(`/api/bi/agent?range=${range}`).then(r => r.json()).catch(() => null),
+    ]).then(([kpi, conv, tpl, agent]) => {
+      if (cancel) return;
+      if (kpi?.success) setKpiData(kpi);
+      if (conv?.success) setConvData(conv);
+      if (tpl?.success) setTplData(tpl);
+      if (agent?.success) setAgentData(agent);
+    }).finally(() => { if (!cancel) setSharedLoading(false); });
+
+    return () => { cancel = true; };
+  }, [range]);
 
   const handlePrint = () => window.print();
 
@@ -37,14 +68,13 @@ export default function BIShell() {
           <div className="flex items-center gap-3">
             <LayoutDashboard className="w-8 h-8 text-blue-600 shrink-0" />
             <h1 className="text-3xl font-bold text-gray-900">
-              {t("Tableau de bord", "Dashboard")}
+               Dashboard
             </h1>
           </div>
           <p className="text-base text-gray-500">
-            {t(
-              "Voici votre performance de prospection LinkedIn aujourd'hui",
-              "Here's your LinkedIn prospecting performance today"
-            )}
+            
+              Here's your LinkedIn prospecting performance
+            
           </p>
         </div>
 
@@ -87,26 +117,26 @@ export default function BIShell() {
       </motion.div>
 
       {/* KPI Hero */}
-      <KPIHero range={range} />
+      <KPIHero data={kpiData} loading={sharedLoading} />
 
       {/* AI Insights narration */}
-      <AIInsights range={range} />
+      <AIInsights kpiResp={kpiData} convResp={convData} tplResp={tplData} agentResp={agentData} loading={sharedLoading} />
 
       {/* Module 1: Conversion Intelligence */}
-      <ConversionIntelligence range={range} />
+      <ConversionIntelligence data={convData} loading={sharedLoading} range={range} />
 
       {/* Two-column wide modules */}
       <div className="grid grid-cols-1 gap-5">
         {/* Module 2: Template Lab */}
-        <TemplateLab range={range} />
+        <TemplateLab data={tplData} loading={sharedLoading} range={range} />
 
-        {/* Module 3: Prospect Map */}
+        {/* Module 3: Prospect Map — fetches its own data (geo not shared) */}
         <ProspectMap range={range} />
 
         {/* Module 4: Agent Analytics */}
-        <AgentAnalytics range={range} />
+        <AgentAnalytics data={agentData} loading={sharedLoading} range={range} />
 
-        {/* Module 5: Forecast */}
+        {/* Module 5: Forecast — fetches its own data (not shared) */}
         <Forecast range={range} />
       </div>
 

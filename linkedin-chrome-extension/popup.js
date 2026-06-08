@@ -59,6 +59,14 @@ document.addEventListener("DOMContentLoaded", () => {
     liAccountBtn.addEventListener("click", handleLinkedInConnect);
   }
 
+  const dcConnectBtn = document.getElementById("dcConnectBtn");
+  if (dcConnectBtn) {
+    dcConnectBtn.addEventListener("click", () => {
+      chrome.tabs.create({ url: SERVER_URL + "/login" });
+      window.close();
+    });
+  }
+
   // Auto-refresh
   setInterval(refreshData, 5000);
   setInterval(refreshLinkedInAccount, 15000);
@@ -77,7 +85,7 @@ async function handleLinkedInConnect() {
   const btn = document.getElementById("liAccountBtn");
   const text = document.getElementById("liAccountText");
 
-  if (btn.textContent.trim() === "Gérer") {
+  if (btn.textContent.trim() === "Manage") {
     chrome.tabs.create({ url: SERVER_URL + "/#linkedin-account" });
     return;
   }
@@ -89,8 +97,8 @@ async function handleLinkedInConnect() {
   try {
     if (!chrome.cookies || !chrome.cookies.get) {
       btn.disabled = false;
-      btn.textContent = "Connecter";
-      if (text) text.textContent = "Rechargez l'extension";
+      btn.textContent = "Connect";
+      if (text) text.textContent = "Reload the extension";
       return;
     }
 
@@ -101,13 +109,11 @@ async function handleLinkedInConnect() {
 
     if (!cookie || !cookie.value) {
       btn.disabled = false;
-      btn.textContent = "Connecter";
-      if (text) text.textContent = "Cookie li_at introuvable";
+      btn.textContent = "Connect";
+      if (text) text.textContent = "li_at cookie not found";
       setTimeout(() => {
         if (
-          confirm(
-            "Vous devez vous connecter sur linkedin.com.\n\nOuvrir LinkedIn ?"
-          )
+          confirm("You must be logged in on linkedin.com.\n\nOpen LinkedIn?")
         ) {
           chrome.tabs.create({ url: "https://www.linkedin.com/login" });
         }
@@ -164,17 +170,17 @@ async function handleLinkedInConnect() {
     btn.disabled = false;
 
     if (response.ok && data.success) {
-      btn.textContent = "Connecté ✓";
-      if (text) text.textContent = "Compte LinkedIn connecté !";
+      btn.textContent = "Connected ✓";
+      if (text) text.textContent = "LinkedIn account connected!";
       setTimeout(() => refreshLinkedInAccount(), 1000);
     } else {
-      btn.textContent = "Connecter";
-      if (text) text.textContent = data.error || "Erreur serveur";
+      btn.textContent = "Connect";
+      if (text) text.textContent = data.error || "Server error";
     }
   } catch (err) {
     btn.disabled = false;
-    btn.textContent = "Connecter";
-    if (text) text.textContent = "Erreur: " + (err.message || "échec");
+    btn.textContent = "Connect";
+    if (text) text.textContent = "Error: " + (err.message || "failed");
     console.error("[LinkedIn Agent] Capture error:", err);
   }
 }
@@ -231,15 +237,17 @@ function updateLinkedInAccountBar(data) {
   if (!dot || !text || !btn) return;
 
   if (data.connected) {
+    document.body.classList.remove("disconnected");
     dot.className = "pill-dot blue";
-    const label = data.name || data.email || "Connecté";
+    const label = data.name || data.email || "Connected";
     text.textContent = label;
-    btn.textContent = "Gérer";
+    btn.textContent = "Manage";
     btn.className = "pill-action";
   } else {
+    document.body.classList.add("disconnected");
     dot.className = "pill-dot err";
-    text.textContent = "Non connecté";
-    btn.textContent = "Connecter";
+    text.textContent = "Not connected";
+    btn.textContent = "Connect";
     btn.className = "pill-action";
   }
 }
@@ -291,13 +299,13 @@ function updateStatus(connected, processing) {
 
   if (processing) {
     dot.className = "pill-dot warn";
-    text.textContent = "Actions en cours…";
+    text.textContent = "Actions in progress…";
   } else if (connected) {
     dot.className = "pill-dot ok";
-    text.textContent = "Connecté";
+    text.textContent = "Connected";
   } else {
     dot.className = "pill-dot err";
-    text.textContent = "Déconnecté";
+    text.textContent = "Disconnected";
   }
 }
 
@@ -334,20 +342,21 @@ function updateActionsList(actions) {
     list.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon">🌙</div>
-        <div>Aucune action en attente</div>
+        <div>No pending actions</div>
       </div>`;
     return;
   }
 
   const icons = {
-    search: "🔎",
     visit_profile: "👁",
     send_connection: "🤝",
-    send_message: "💬",
-    search_and_message: "📨"
+    send_message: "💬"
   };
 
+  const allowed = ["visit_profile", "send_connection", "send_message"];
+
   list.innerHTML = actions
+    .filter((action) => allowed.includes(action.action_type))
     .map((action) => {
       const payload =
         typeof action.payload === "string"
@@ -358,7 +367,7 @@ function updateActionsList(actions) {
         payload?.keywords ||
         action.target_url?.split("/in/")[1] ||
         "Action";
-      const type = action.action_type || "search";
+      const type = action.action_type;
       const emoji = icons[type] || "⚡";
       return `
         <div class="action-item">
@@ -377,11 +386,9 @@ function updateActionsList(actions) {
 
 function formatActionType(type) {
   const labels = {
-    search: "Recherche",
-    visit_profile: "Visite",
-    send_connection: "Connexion",
-    send_message: "Message",
-    search_and_message: "Recherche & message"
+    visit_profile: "Visit",
+    send_connection: "Connection",
+    send_message: "Message"
   };
   return labels[type] || type;
 }
@@ -408,9 +415,6 @@ async function refreshAlerts() {
 
 function renderAlerts(notifData, statsData) {
   const replies = parseInt(notifData?.newReplies || 0);
-  const conversionsTotal = parseInt(
-    statsData?.stats?.prospects?.converted || 0
-  );
   const notifications = Array.isArray(notifData?.notifications)
     ? notifData.notifications
     : [];
@@ -431,25 +435,11 @@ function renderAlerts(notifData, statsData) {
     setText("alertReplyCount", replies);
     const detail = recentReplyNames.length
       ? recentReplyNames.join(", ")
-      : `${replies} réponse(s) dans les dernières 24h`;
+      : `${replies} new reply(ies) in the last 24h`;
     setText("alertReplyDetail", detail);
     visibleCount++;
   } else {
     replyEl.classList.add("hidden");
-  }
-
-  // ============ CONVERSION ALERT ============
-  const convEl = document.getElementById("alertConversion");
-  if (currentPrefs.emailNewConversion && conversionsTotal > 0) {
-    convEl.classList.remove("hidden");
-    setText("alertConversionCount", conversionsTotal);
-    setText(
-      "alertConversionDetail",
-      `${conversionsTotal} prospect(s) converti(s) au total`
-    );
-    visibleCount++;
-  } else {
-    convEl.classList.add("hidden");
   }
 
   // Limit alert handled separately by updateLimitAlert()
@@ -466,8 +456,8 @@ function renderAlerts(notifData, statsData) {
       currentPrefs.emailNewConversion ||
       currentPrefs.emailLimitWarning;
     const detail = anyPrefOn
-      ? "Tout est calme — aucun événement récent"
-      : "Activez-les dans les paramètres";
+      ? "All quiet — no recent events"
+      : "Enable them in settings";
     const emptyDetail = emptyEl.querySelector(".alert-detail");
     if (emptyDetail) emptyDetail.textContent = detail;
   } else {
@@ -493,11 +483,11 @@ function updateLimitAlert(todayActions) {
     limitEl.classList.remove("hidden");
     setText(
       "alertLimitTitle",
-      pct >= 100 ? "Limite atteinte" : "Approche de la limite"
+      pct >= 100 ? "Limit reached" : "Approaching limit"
     );
     setText(
       "alertLimitText",
-      `${todayActions}/${limit} actions envoyées (${pct}%)`
+      `${todayActions}/${limit} actions sent (${pct}%)`
     );
     const bar = document.getElementById("alertLimitBar");
     if (bar) bar.style.width = pct + "%";

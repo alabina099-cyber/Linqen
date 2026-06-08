@@ -133,7 +133,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
   const fetchProspects = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      const response = await fetch('/api/prospects?limit=100');
+      const response = await fetch('/api/prospects?limit=1000');
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Failed to fetch prospects:', response.status, errorText);
@@ -180,69 +180,69 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
     const stages: PipelineStage[] = [
       {
         id: "identified",
-        status: "Identifiés",
+        status: "Identified",
         count: prospects.filter((p: Prospect) => p.status === 'identified').length,
         prospects: filtered.filter((p: Prospect) => p.status === 'identified').slice(0, displayLimit),
         gradient: "bg-red-100 border-red-400",
         textColor: "text-red-800",
         iconBg: "bg-red-200",
         icon: Eye,
-        description: "Demande de connexion envoyée"
+        description: "Connection request sent"
       },
       {
         id: "connected",
-        status: "Connectés",
+        status: "Connected",
         count: prospects.filter((p: Prospect) => p.status === 'connected').length,
         prospects: filtered.filter((p: Prospect) => p.status === 'connected').slice(0, displayLimit),
         gradient: "bg-slate-100 border-slate-400",
         textColor: "text-slate-800",
         iconBg: "bg-slate-200",
         icon: UserPlus,
-        description: "Connexion acceptée"
+        description: "Connection accepted"
       },
       {
         id: "contacted",
-        status: "Contactés",
+        status: "Contacted",
         count: prospects.filter((p: Prospect) => p.status === 'contacted').length,
         prospects: filtered.filter((p: Prospect) => p.status === 'contacted').slice(0, displayLimit),
         gradient: "bg-blue-100 border-blue-400",
         textColor: "text-blue-800",
         iconBg: "bg-blue-200",
         icon: Mail,
-        description: "Premier contact établi"
+        description: "First contact established"
       },
       {
         id: "responded",
-        status: "Réponses",
+        status: "Replies",
         count: prospects.filter((p: Prospect) => p.status === 'responded').length,
         prospects: filtered.filter((p: Prospect) => p.status === 'responded').slice(0, displayLimit),
         gradient: "bg-purple-100 border-purple-400",
         textColor: "text-purple-900",
         iconBg: "bg-purple-200",
         icon: MessageIcon,
-        description: "Réponse reçue"
+        description: "Reply received"
       },
       {
         id: "interested",
-        status: "Intéressés",
+        status: "Interested",
         count: prospects.filter((p: Prospect) => p.status === 'interested').length,
         prospects: filtered.filter((p: Prospect) => p.status === 'interested').slice(0, displayLimit),
         gradient: "bg-yellow-100 border-yellow-400",
         textColor: "text-yellow-800",
         iconBg: "bg-yellow-200",
         icon: Star,
-        description: "Intérêt confirmé"
+        description: "Interest confirmed"
       },
       {
         id: "converted",
-        status: "Convertis",
+        status: "Converted",
         count: prospects.filter((p: Prospect) => p.status === 'converted').length,
         prospects: filtered.filter((p: Prospect) => p.status === 'converted').slice(0, displayLimit),
         gradient: "bg-emerald-100 border-emerald-400",
         textColor: "text-emerald-900",
         iconBg: "bg-emerald-200",
         icon: CheckSquare,
-        description: "Client converti"
+        description: "Client converted"
       }
     ];
     
@@ -298,19 +298,19 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
     
     // Validate email
     if (formData.email && !emailPattern.test(formData.email)) {
-      setAddError('Email invalide');
+      setAddError('Invalid email');
       return;
     }
 
     // Validate LinkedIn URL
     if (formData.linkedin_url && !urlPattern.test(formData.linkedin_url)) {
-      setAddError('URL LinkedIn invalide');
+      setAddError('Invalid LinkedIn URL');
       return;
     }
 
     // Validate phone (only digits)
     if (formData.phone && !phonePattern.test(formData.phone)) {
-      setAddError('Téléphone invalide (uniquement chiffres)');
+      setAddError('Invalid phone (digits only)');
       return;
     }
     
@@ -370,11 +370,11 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
         organizeProspects(updatedProspects);
         closeAddModal();
       } else {
-        setAddError(data.details || data.error || "Erreur inconnue");
+        setAddError(data.details || data.error || "Unknown error");
         console.error('Error adding prospect:', data.error, data.details);
       }
     } catch (error) {
-      setAddError("Erreur réseau, veuillez réessayer");
+      setAddError("Network error, please try again");
       console.error('Error adding prospect:', error);
     } finally {
       setSubmitting(false);
@@ -444,8 +444,15 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
       const response = await fetch(`/api/prospects/${deleteConfirm.prospectId}`, {
         method: 'DELETE',
       });
-      
-      const data = await response.json();
+
+      let data: any;
+      try {
+        data = await response.json();
+      } catch {
+        // Server returned a non-JSON response (e.g. HTML error page)
+        alert(`Server error (HTTP ${response.status}): the delete route may not be reachable. Check the console.`);
+        return;
+      }
       
       if (data.success) {
         // Remove from local state
@@ -455,10 +462,11 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
         setDeleteConfirm(null);
       } else {
         console.error('Error deleting prospect:', data.error, data.details);
-        alert(`Erreur: ${data.error}\n${data.details || ''}`);
+        alert(`Error deleting prospect: ${data.error}${data.details ? `\nDetails: ${data.details}` : ''}`);
       }
     } catch (error) {
       console.error('Error deleting prospect:', error);
+      alert(`Network error: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setDeleting(false);
     }
@@ -506,7 +514,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Rechercher des prospects..."
+                    placeholder="Search prospects..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
@@ -517,8 +525,8 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
             
             {/* Subtitles below */}
             <div className="-mt-2">
-              <p className="text-gray-500 text-base">Gérez vos prospects et votre pipeline de conversion</p>
-              <p className="text-gray-900 font-semibold text-base">Pipeline CRM</p>
+              <p className="text-gray-500 text-base">Manage your prospects and conversion pipeline</p>
+              <p className="text-gray-900 font-semibold text-base">CRM Pipeline</p>
             </div>
           </div>
           
@@ -526,9 +534,9 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
           <div className="grid grid-cols-4 gap-3 mt-3">
             {[
               { label: "Total", value: totalProspects, icon: Users, color: "text-orange-600", bgColor: "bg-orange-50" },
-              { label: "Contactés", value: allProspects.filter((p: Prospect) => p.status === 'contacted').length, icon: Mail, color: "text-blue-600", bgColor: "bg-blue-50" },
-              { label: "Réponses", value: allProspects.filter((p: Prospect) => p.status === 'responded').length, icon: MessageIcon, color: "text-purple-600", bgColor: "bg-purple-50" },
-              { label: "Convertis", value: totalConverted, icon: CheckSquare, color: "text-green-600", bgColor: "bg-green-50" },
+              { label: "Contacted", value: allProspects.filter((p: Prospect) => p.status === 'contacted').length, icon: Mail, color: "text-blue-600", bgColor: "bg-blue-50" },
+              { label: "Replies", value: allProspects.filter((p: Prospect) => p.status === 'responded').length, icon: MessageIcon, color: "text-purple-600", bgColor: "bg-purple-50" },
+              { label: "Converted", value: totalConverted, icon: CheckSquare, color: "text-green-600", bgColor: "bg-green-50" },
             ].map((stat) => (
               <Card key={stat.label} className="border border-gray-100 shadow-sm">
                 <CardContent className="p-3">
@@ -628,7 +636,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                             <div className="flex items-center gap-1">
                               <p className="text-sm font-semibold text-gray-900 truncate">{cleanDisplayName(prospect.name)}</p>
                               {prospect.linkedin_url && (
-                                <a href={prospect.linkedin_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} title="Voir sur LinkedIn" className="shrink-0 text-blue-500 hover:text-blue-700">
+                                <a href={prospect.linkedin_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} title="View on LinkedIn" className="shrink-0 text-blue-500 hover:text-blue-700">
                                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
                                 </a>
                               )}
@@ -684,7 +692,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                                   });
                                 }}
                                 className="flex-1 flex items-center justify-center gap-1 py-1 text-[10px] text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" 
-                                title={prospect.email || "Email indisponible"}
+                                title={prospect.email || "Email unavailable"}
                               >
                                 <Mail className="w-3 h-3" />
                               </button>
@@ -698,7 +706,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                                   });
                                 }}
                                 className="flex-1 flex items-center justify-center gap-1 py-1 text-[10px] text-gray-600 hover:text-green-600 hover:bg-green-50 rounded transition-colors" 
-                                title={prospect.phone || "Téléphone indisponible"}
+                                title={prospect.phone || "Phone unavailable"}
                               >
                                 <Phone className="w-3 h-3" />
                               </button>
@@ -711,7 +719,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                                   });
                                 }}
                                 className="flex-1 flex items-center justify-center gap-1 py-1 text-[10px] text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors" 
-                                title="Supprimer"
+                                title="Delete"
                               >
                                 <Trash2 className="w-3 h-3" />
                               </button>
@@ -729,10 +737,10 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                   whileTap={{ scale: 0.99 }}
                   onClick={() => openAddModal(stage.id)}
                   className="w-full flex items-center justify-center gap-1 text-[10px] text-gray-400 hover:text-gray-600 hover:bg-white hover:shadow-sm rounded-lg py-2 transition-all border border-dashed border-gray-300"
-                  title="Ajouter un prospect"
+                  title="Add a prospect"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  Ajouter
+                  Add
                 </motion.button>
                 
                 {/* Empty state */}
@@ -741,7 +749,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                     <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mb-2">
                       <Search className="w-4 h-4 text-gray-400" />
                     </div>
-                    <p className="text-gray-400 text-xs">Aucun prospect</p>
+                    <p className="text-gray-400 text-xs">No prospects</p>
                   </div>
                 )}
               </div>
@@ -774,8 +782,8 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                     <UserPlus className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900">Nouveau prospect</h2>
-                    <p className="text-sm text-gray-500">Ajouter à la colonne &quot;{pipelineData.find(s => s.id === addStage)?.status}&quot;</p>
+                    <h2 className="text-lg font-bold text-gray-900">New prospect</h2>
+                    <p className="text-sm text-gray-500">Add to the &quot;{pipelineData.find(s => s.id === addStage)?.status}&quot; column</p>
                   </div>
                 </div>
                 <button onClick={closeAddModal} className="w-8 h-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg flex items-center justify-center transition-colors">
@@ -788,7 +796,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Nom *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Name *</label>
                   <input
                     type="text"
                     name="name"
@@ -799,7 +807,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Poste</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Position</label>
                   <input
                     type="text"
                     name="role"
@@ -813,7 +821,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Entreprise</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Company</label>
                   <input
                     type="text"
                     name="company"
@@ -824,7 +832,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Industrie</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Industry</label>
                   <input
                     type="text"
                     name="industry"
@@ -838,7 +846,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Localisation</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Location</label>
                   <input
                     type="text"
                     name="location"
@@ -863,7 +871,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Téléphone</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Phone</label>
                   <input
                     type="tel"
                     name="phone"
@@ -901,7 +909,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                 onClick={closeAddModal}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors"
               >
-                Annuler
+                Cancel
               </button>
               <button
                 onClick={handleAddProspect}
@@ -915,12 +923,12 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                 {submitting ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Création...
+                    Creating...
                   </>
                 ) : (
                   <>
                     <Plus className="w-4 h-4" />
-                    Ajouter
+                    Add
                   </>
                 )}
               </button>
@@ -953,7 +961,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                 </div>
                 <div>
                   <h3 className="font-semibold text-sm text-gray-900">
-                    {contactPopup.type === 'email' ? 'Email' : 'Téléphone'}
+                    {contactPopup.type === 'email' ? 'Email' : 'Phone'}
                   </h3>
                   <p className="text-xs text-gray-500">{contactPopup.prospectName}</p>
                 </div>
@@ -975,13 +983,13 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                         contactPopup.type === 'email' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'
                       }`}
                     >
-                      Copier
+                      Copy
                     </button>
                     {contactPopup.type === 'email' && (
                       <a 
                         href={`mailto:${contactPopup.value}`}
                         className="px-3 py-2 rounded-lg text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200"
-                        title="Envoyer email"
+                        title="Send email"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -992,7 +1000,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                       <a 
                         href={`tel:${contactPopup.value}`}
                         className="px-3 py-2 rounded-lg text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 border border-green-200"
-                        title="Appeler"
+                        title="Call"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -1007,10 +1015,10 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                     {contactPopup.type === 'email' ? <Mail className="w-6 h-6 text-gray-400" /> : <Phone className="w-6 h-6 text-gray-400" />}
                   </div>
                   <p className="text-gray-500 font-medium text-sm">
-                    {contactPopup.type === 'email' ? 'Email indisponible' : 'Numéro indisponible'}
+                    {contactPopup.type === 'email' ? 'Email unavailable' : 'Phone unavailable'}
                   </p>
                   <p className="text-xs text-gray-400 mt-1">
-                    Aucune information enregistrée
+                    No information recorded
                   </p>
                 </div>
               )}
@@ -1022,7 +1030,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                 onClick={() => setContactPopup(null)}
                 className="w-full py-2 text-xs text-gray-600 hover:text-gray-900 font-medium transition-colors"
               >
-                Fermer
+                Close
               </button>
             </div>
           </motion.div>
@@ -1053,7 +1061,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                   <Trash2 className="w-4 h-4 text-red-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-sm text-gray-900">Supprimer le prospect</h3>
+                  <h3 className="font-semibold text-sm text-gray-900">Delete prospect</h3>
                   <p className="text-xs text-gray-500">{deleteConfirm.prospectName}</p>
                 </div>
               </div>
@@ -1066,10 +1074,10 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                   <Trash2 className="w-6 h-6 text-gray-400" />
                 </div>
                 <p className="text-gray-500 font-medium text-sm">
-                  Supprimer définitivement ce prospect ?
+                  Permanently delete this prospect?
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
-                  Cette action est irréversible
+                  This action is irreversible
                 </p>
               </div>
             </div>
@@ -1081,7 +1089,7 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                 disabled={deleting}
                 className="flex-1 py-2 text-xs text-gray-600 hover:text-gray-900 font-medium transition-colors disabled:opacity-50"
               >
-                Annuler
+                Cancel
               </button>
               <button
                 onClick={handleDeleteProspect}
@@ -1091,12 +1099,12 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                 {deleting ? (
                   <>
                     <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Suppression...
+                    Deleting...
                   </>
                 ) : (
                   <>
                     <Trash2 className="w-3 h-3" />
-                    Supprimer
+                    Delete
                   </>
                 )}
               </button>

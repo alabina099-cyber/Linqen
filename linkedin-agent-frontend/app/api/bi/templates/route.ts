@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
         message_type,
         status
       FROM messages
-      WHERE created_at > NOW() - INTERVAL '${range} days'
+      WHERE created_at > NOW() - INTERVAL '1 day' * $1
         AND message_text IS NOT NULL
     `;
 
@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
         COUNT(*) AS sent,
         COUNT(*) FILTER (WHERE status = 'replied') AS replied
       FROM messages
-      WHERE created_at > NOW() - INTERVAL '${range} days'
+      WHERE created_at > NOW() - INTERVAL '1 day' * $1
       GROUP BY dow, hour
       ORDER BY dow, hour
     `;
@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
           END AS bucket,
           status
         FROM messages
-        WHERE created_at > NOW() - INTERVAL '${range} days'
+        WHERE created_at > NOW() - INTERVAL '1 day' * $1
       )
       SELECT
         bucket,
@@ -112,9 +112,9 @@ export async function GET(req: NextRequest) {
     `;
 
     const [msgR, hmR, lenR] = await Promise.all([
-      pool.query(msgSql),
-      pool.query(heatmapSql),
-      pool.query(lengthSql),
+      pool.query(msgSql, [range]),
+      pool.query(heatmapSql, [range]),
+      pool.query(lengthSql, [range]),
     ]);
 
     // Regrouper les messages générés par l'agent en PATTERNS normalisés
@@ -136,7 +136,7 @@ export async function GET(req: NextRequest) {
       }
       g.sent += 1;
       g.totalLen += (m.message_text || "").length;
-      if (m.status === "replied" || m.status === "converted") g.replied += 1;
+      if (m.status === "replied") g.replied += 1;
     }
 
     // Construire la liste des patterns (= «templates» générés par l'agent)

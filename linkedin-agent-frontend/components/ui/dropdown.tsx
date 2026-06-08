@@ -33,7 +33,7 @@ export function Dropdown({
   value,
   onChange,
   options,
-  placeholder = "Sélectionner…",
+  placeholder = "Select…",
   ariaLabel,
   className = "",
   leftIcon: LeftIcon,

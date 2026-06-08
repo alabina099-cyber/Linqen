@@ -86,13 +86,13 @@ export default function Forecast({ range }: { range: BIRange }) {
             <div>
               <CardTitle className="text-lg">Predictive Forecast</CardTitle>
               <p className="text-xs text-gray-500 mt-0.5">
-                Projection 30 jours • alertes intelligentes • simulateur what-if
+                30-day projection • smart alerts • what-if simulator
               </p>
             </div>
           </div>
           {data && (
             <Badge className="bg-cyan-100 text-cyan-700 border-0">
-              Projection: ~{projectedTotal} conversions / 30j
+              Projection: ~{projectedTotal} conversions / 30d
             </Badge>
           )}
         </div>
@@ -128,7 +128,7 @@ export default function Forecast({ range }: { range: BIRange }) {
         <div>
           <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
             <Telescope className="w-4 h-4 text-cyan-500" />
-            Conversions: historique + projection 30 jours
+            Conversions: history + 30-day projection
           </h4>
           <div style={{ height: 320 }} className="bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-100 p-3">
             {chartData.length > 0 ? (
@@ -166,9 +166,9 @@ export default function Forecast({ range }: { range: BIRange }) {
                     x={data?.history[data.history.length - 1]?.day}
                     stroke="#94a3b8"
                     strokeDasharray="4 4"
-                    label={{ value: "Aujourd'hui", fontSize: 10, fill: "#64748b" }}
+                    label={{ value: "Today", fontSize: 10, fill: "#64748b" }}
                   />
-                  <Area type="monotone" dataKey="historical" stroke="#10b981" strokeWidth={2.5} fill="url(#histGrad)" name="Historique" connectNulls={false} />
+                  <Area type="monotone" dataKey="historical" stroke="#10b981" strokeWidth={2.5} fill="url(#histGrad)" name="Historical" connectNulls={false} />
                   <Area type="monotone" dataKey="projected" stroke="#06b6d4" strokeWidth={2} strokeDasharray="6 4" fill="url(#projGrad)" name="Projection" connectNulls={false} />
                   {whatIfBoost !== 0 && (
                     <Area type="monotone" dataKey="boosted" stroke="#a855f7" strokeWidth={2.5} strokeDasharray="3 3" fill="url(#boostGrad)" name={`What-if ${whatIfBoost > 0 ? "+" : ""}${whatIfBoost}%`} connectNulls={false} />
@@ -177,7 +177,7 @@ export default function Forecast({ range }: { range: BIRange }) {
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center text-sm text-gray-400">
-                Pas assez de données pour projeter
+                Not enough data to project
               </div>
             )}
           </div>
@@ -203,7 +203,7 @@ export default function Forecast({ range }: { range: BIRange }) {
                 value={whatIfBoost}
                 onChange={(e) => setWhatIfBoost(parseInt(e.target.value))}
                 className="w-full accent-violet-600 cursor-pointer"
-                aria-label="Ajustement volume"
+                aria-label="Adjustment volume"
               />
               <div className="flex justify-between text-[10px] text-violet-500 mt-1">
                 <span>-50%</span>
@@ -216,7 +216,7 @@ export default function Forecast({ range }: { range: BIRange }) {
             <div className="flex items-center gap-4">
               <div className="text-center">
                 <div className="text-[10px] uppercase tracking-wide font-semibold text-violet-600">
-                  Ajustement
+                  Adjustment
                 </div>
                 <div className="text-2xl font-bold text-violet-900 tabular-nums">
                   {whatIfBoost > 0 ? "+" : ""}{whatIfBoost}%
@@ -224,7 +224,7 @@ export default function Forecast({ range }: { range: BIRange }) {
               </div>
               <div className="text-center px-4 border-l border-violet-200">
                 <div className="text-[10px] uppercase tracking-wide font-semibold text-violet-600">
-                  Conversions projetées
+                  Projected conversions
                 </div>
                 <div className="text-2xl font-bold text-violet-900 tabular-nums">
                   {boostedTotal}
@@ -241,10 +241,10 @@ export default function Forecast({ range }: { range: BIRange }) {
         {data && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { label: "Conversions historiques", value: data.summary.totalConversions, suffix: "" },
-              { label: "Projection 30j", value: data.summary.projectedConversions, suffix: "" },
-              { label: "Moyenne quotidienne", value: data.summary.avgDailyConversions, suffix: "" },
-              { label: "Taux de réponse moyen", value: data.summary.avgReplyRate, suffix: "%" },
+              { label: "Historical conversions", value: data.summary.totalConversions, suffix: "" },
+              { label: "30-day projection", value: data.summary.projectedConversions, suffix: "" },
+              { label: "Daily average", value: data.summary.avgDailyConversions, suffix: "" },
+              { label: "Average reply rate", value: data.summary.avgReplyRate, suffix: "%" },
             ].map((s, i) => (
               <motion.div
                 key={s.label}

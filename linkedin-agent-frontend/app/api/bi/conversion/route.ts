@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
           COUNT(*) FILTER (WHERE status IN (${reachedFilter(s.key)})) AS ${s.key}
         `).join(",")}
       FROM prospects
-      WHERE created_at > NOW() - INTERVAL '${range} days'
+      WHERE created_at > NOW() - INTERVAL '1 day' * $1
     `;
 
     // Cycle time moyen (jours entre created_at et updated_at) par statut actuel
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
         COUNT(*) AS count
       FROM prospects
       WHERE updated_at > created_at
-        AND created_at > NOW() - INTERVAL '${range} days'
+        AND created_at > NOW() - INTERVAL '1 day' * $1
       GROUP BY status
     `;
 
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
           status,
           COUNT(*) AS count
         FROM prospects
-        WHERE created_at > NOW() - INTERVAL '${range} days'
+        WHERE created_at > NOW() - INTERVAL '1 day' * $1
         GROUP BY 1, 2
       )
       SELECT
@@ -75,9 +75,9 @@ export async function GET(req: NextRequest) {
     `;
 
     const [funnelR, cycleR, cohortR] = await Promise.all([
-      pool.query(funnelSql),
-      pool.query(cycleSql),
-      pool.query(cohortSql),
+      pool.query(funnelSql, [range]),
+      pool.query(cycleSql, [range]),
+      pool.query(cohortSql, [range]),
     ]);
 
     const f = funnelR.rows[0];

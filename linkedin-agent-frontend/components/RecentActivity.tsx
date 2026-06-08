@@ -21,13 +21,13 @@ interface Message {
   created_at: string;
 }
 
-const filters = ["Tous", "Réponses", "Conversions", "Connexions"];
+const filters = ["All", "Replies", "Conversions", "Connections"];
 
 const statusConfig: Record<string, { icon: React.ElementType; color: string; bgColor: string; badgeColor: string; badge: string; title: string }> = {
-  replied: { icon: MessageSquare, color: "text-purple-600", bgColor: "bg-purple-50", badgeColor: "bg-purple-100 text-purple-700 border-purple-200", badge: "Réponse", title: "Message reçu" },
+  replied: { icon: MessageSquare, color: "text-purple-600", bgColor: "bg-purple-50", badgeColor: "bg-purple-100 text-purple-700 border-purple-200", badge: "Reply", title: "Message received" },
   converted: { icon: CheckCircle, color: "text-green-600", bgColor: "bg-green-50", badgeColor: "bg-green-100 text-green-700 border-green-200", badge: "Conversion", title: "Conversion" },
-  sent: { icon: UserPlus, color: "text-blue-600", bgColor: "bg-blue-50", badgeColor: "bg-blue-100 text-blue-700 border-blue-200", badge: "Connexion", title: "Message envoyé" },
-  pending: { icon: Clock, color: "text-gray-600", bgColor: "bg-gray-50", badgeColor: "bg-gray-100 text-gray-700 border-gray-200", badge: "En attente", title: "En attente" },
+  sent: { icon: UserPlus, color: "text-blue-600", bgColor: "bg-blue-50", badgeColor: "bg-blue-100 text-blue-700 border-blue-200", badge: "Connection", title: "Message sent" },
+  pending: { icon: Clock, color: "text-gray-600", bgColor: "bg-gray-50", badgeColor: "bg-gray-100 text-gray-700 border-gray-200", badge: "Pending", title: "Pending" },
 };
 
 function formatTimeAgo(dateString: string): string {
@@ -35,13 +35,13 @@ function formatTimeAgo(dateString: string): string {
   const now = new Date();
   const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
   
-  if (diffInHours < 1) return "Il y a quelques minutes";
-  if (diffInHours < 24) return `Il y a ${diffInHours}h`;
-  return `Il y a ${Math.floor(diffInHours / 24)}j`;
+  if (diffInHours < 1) return "A few minutes ago";
+  if (diffInHours < 24) return `${diffInHours}h ago`;
+  return `${Math.floor(diffInHours / 24)}d ago`;
 }
 
 export default function RecentActivity() {
-  const [activeFilter, setActiveFilter] = useState("Tous");
+  const [activeFilter, setActiveFilter] = useState("All");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -67,19 +67,19 @@ export default function RecentActivity() {
     return statusConfig[status] || statusConfig.pending;
   };
 
-  const filteredMessages = activeFilter === "Tous" 
+  const filteredMessages = activeFilter === "All" 
     ? messages 
     : messages.filter(m => {
-        if (activeFilter === "Réponses") return m.status === 'replied';
+        if (activeFilter === "Replies") return m.status === 'replied';
         if (activeFilter === "Conversions") return m.status === 'converted';
-        if (activeFilter === "Connexions") return m.status === 'sent';
+        if (activeFilter === "Connections") return m.status === 'sent';
         return true;
       });
 
   const stats = [
-    { label: "Aujourd'hui", value: messages.length, icon: Clock },
+    { label: "Today", value: messages.length, icon: Clock },
     { label: "Conversions", value: messages.filter(m => m.status === 'converted').length, icon: CheckCircle },
-    { label: "Réponses", value: messages.filter(m => m.status === 'replied').length, icon: MessageSquare },
+    { label: "Replies", value: messages.filter(m => m.status === 'replied').length, icon: MessageSquare },
   ];
 
   if (loading) {
@@ -108,8 +108,8 @@ export default function RecentActivity() {
               <Activity className="w-6 h-6 text-purple-600" />
             </div>
             <div>
-              <CardTitle className="text-xl">Activité Récente</CardTitle>
-              <p className="text-sm text-gray-500">{filteredMessages.length} événements</p>
+              <CardTitle className="text-xl">Recent Activity</CardTitle>
+              <p className="text-sm text-gray-500">{filteredMessages.length} events</p>
             </div>
           </div>
           
@@ -150,7 +150,7 @@ export default function RecentActivity() {
           {filteredMessages.length === 0 ? (
             <div className="col-span-full text-center py-12 text-gray-500">
               <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-              <p>Aucune activité récente</p>
+              <p>No recent activity</p>
             </div>
           ) : (
             filteredMessages.map((message) => {
@@ -175,7 +175,7 @@ export default function RecentActivity() {
                     <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
                       <div className="flex items-center gap-1 text-xs text-gray-400">
                         <Target className="w-3 h-3" />
-                        {message.campaign_name || 'Sans campagne'}
+                        {message.campaign_name || 'No campaign'}
                       </div>
                       <div className="flex items-center gap-1 text-xs text-gray-400">
                         <Clock className="w-3 h-3" />

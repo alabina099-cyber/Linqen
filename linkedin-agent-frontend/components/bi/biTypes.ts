@@ -3,10 +3,10 @@
 export type BIRange = 7 | 30 | 90 | 180;
 
 export const RANGE_OPTIONS: { value: BIRange; label: string }[] = [
-  { value: 7, label: "7 jours" },
-  { value: 30, label: "30 jours" },
-  { value: 90, label: "90 jours" },
-  { value: 180, label: "6 mois" },
+  { value: 7, label: "7 days" },
+  { value: 30, label: "30 days" },
+  { value: 90, label: "90 days" },
+  { value: 180, label: "6 months" },
 ];
 
 export function fmt(n: number | undefined | null): string {

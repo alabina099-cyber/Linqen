@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BI Architecture Diagram</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #f8fafc;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 40px;
+  }
+  .diagram {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    padding: 48px 56px;
+    max-width: 900px;
+    width: 100%;
+  }
+  .title {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 36px;
+    letter-spacing: -0.3px;
+  }
+  .layer {
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 8px;
+    position: relative;
+  }
+  .layer-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .layer-title .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  /* Frontend */
+  .frontend {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    border: 1px solid #93c5fd;
+  }
+  .frontend .layer-title { color: #1e40af; }
+  .frontend .dot { background: #2563eb; }
+
+  /* Backend */
+  .backend {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 1px solid #fbbf24;
+  }
+  .backend .layer-title { color: #92400e; }
+  .backend .dot { background: #d97706; }
+
+  /* Database */
+  .database {
+    background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+    border: 1px solid #a78bfa;
+  }
+  .database .layer-title { color: #5b21b6; }
+  .database .dot { background: #7c3aed; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .grid-4 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .item {
+    background: rgba(255,255,255,0.85);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #334155;
+    font-weight: 500;
+    border: 1px solid rgba(0,0,0,0.06);
+    backdrop-filter: blur(4px);
+  }
+  .item-sub {
+    font-size: 11px;
+    color: #64748b;
+    font-weight: 400;
+    margin-top: 2px;
+  }
+  .arrow-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 36px;
+    position: relative;
+  }
+  .arrow-line {
+    width: 2px;
+    height: 24px;
+    background: #94a3b8;
+    position: relative;
+  }
+  .arrow-line::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #94a3b8;
+  }
+  .arrow-label {
+    position: absolute;
+    right: calc(50% + 14px);
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: #64748b;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .db-tables {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .db-table {
+    background: rgba(255,255,255,0.85);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #5b21b6;
+    font-weight: 500;
+    border: 1px solid rgba(124,58,237,0.15);
+    font-family: 'SF Mono', Monaco, monospace;
+  }
+  .highlight {
+    background: rgba(255,255,255,0.6);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: #1e40af;
+    border: 1px dashed #93c5fd;
+  }
+</style>
+</head>
+<body>
+<div class="diagram">
+  <div class="title">BI Module — Full-Stack Architecture</div>
+
+  <!-- Frontend -->
+  <div class="layer frontend">
+    <div class="layer-title"><span class="dot"></span>Frontend (React / Next.js)</div>
+    <div class="highlight">
+      <strong>BIShell</strong> — Central orchestrator: Promise.all(4 parallel API calls) → shared state via props
+    </div>
+    <div class="grid-4">
+      <div class="item">KPIHero<div class="item-sub">6 KPIs + delta</div></div>
+      <div class="item">ConversionIntelligence<div class="item-sub">Sankey, funnel, cohorts</div></div>
+      <div class="item">AIInsights<div class="item-sub">Narrative insights</div></div>
+      <div class="item">TemplateLab<div class="item-sub">Pattern mining, heatmap</div></div>
+      <div class="item">AgentAnalytics<div class="item-sub">ROI, timeline</div></div>
+      <div class="item">ProspectMap<div class="item-sub">Treemap, ICP quadrant</div></div>
+      <div class="item">Forecast<div class="item-sub">OLS regression, what-if</div></div>
+      <div class="item">BIShell<div class="item-sub">Range filter, CSV/PDF</div></div>
+    </div>
+  </div>
+
+  <!-- Arrow -->
+  <div class="arrow-container">
+    <span class="arrow-label">HTTP / REST (GET)</span>
+    <div class="arrow-line"></div>
+  </div>
+
+  <!-- Backend -->
+  <div class="layer backend">
+    <div class="layer-title"><span class="dot"></span>Backend (Next.js API Routes)</div>
+    <div class="grid">
+      <div class="item">/api/bi/kpi<div class="item-sub">6 KPIs + period comp</div></div>
+      <div class="item">/api/bi/conversion<div class="item-sub">Funnel, cycle time</div></div>
+      <div class="item">/api/bi/templates<div class="item-sub">Patterns, n-grams</div></div>
+      <div class="item">/api/bi/geo<div class="item-sub">Geography, industries</div></div>
+      <div class="item">/api/bi/agent<div class="item-sub">Tools, ROI, approvals</div></div>
+      <div class="item">/api/bi/forecast<div class="item-sub">Linear regression</div></div>
+      <div class="item">/api/bi/analytics<div class="item-sub">Aggregated summary</div></div>
+    </div>
+  </div>
+
+  <!-- Arrow -->
+  <div class="arrow-container">
+    <span class="arrow-label">node-postgres (pg)</span>
+    <div class="arrow-line"></div>
+  </div>
+
+  <!-- Database -->
+  <div class="layer database">
+    <div class="layer-title"><span class="dot"></span>PostgreSQL (NeonDB — Cloud)</div>
+    <div class="db-tables">
+      <div class="db-table">prospects</div>
+      <div class="db-table">messages</div>
+      <div class="db-table">agent_tool_steps</div>
+      <div class="db-table">linkedin_actions_queue</div>
+      <div class="db-table">agent_chat_history</div>
+      <div class="db-table">campaigns</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

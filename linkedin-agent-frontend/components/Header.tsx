@@ -15,6 +15,16 @@ export default function Header({ activeTab, setActiveTab }: HeaderProps) {
   const { t } = useSettings();
   const { user, isAdmin, logout } = useAuth();
   const [linkedInUser, setLinkedInUser] = useState<{ connected: boolean; name: string | null; email: string | null }>({ connected: false, name: null, email: null });
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    // Detect dark mode from document class (set by SettingsContext)
+    const checkDark = () => setIsDark(document.documentElement.classList.contains("dark"));
+    checkDark();
+    const observer = new MutationObserver(checkDark);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     async function fetchLinkedInAccount() {
@@ -30,7 +40,7 @@ export default function Header({ activeTab, setActiveTab }: HeaderProps) {
   }, []);
 
   // Affichage nom/email selon le type d'utilisateur
-  const displayName = user?.name || linkedInUser.name || 'Utilisateur';
+  const displayName = user?.name || linkedInUser.name || 'User';
   const displayEmail = user?.email || linkedInUser.email || '';
   const initials = displayName
     .split(' ')
@@ -47,13 +57,13 @@ export default function Header({ activeTab, setActiveTab }: HeaderProps) {
   // Navigation adaptative selon le rôle
   const baseNav = [
     { id: "prospects", label: "Prospects", icon: Users },
-    { id: "campaigns", label: t("Campagnes", "Campaigns"), icon: Target },
-    { id: "approval", label: t("Approbations", "Approvals"), icon: Clock },
-    { id: "agent", label: t("Agent IA", "AI Agent"), icon: Bot },
+    { id: "campaigns", label: "Campaigns", icon: Target },
+    { id: "approval", label: "Approvals", icon: Clock },
+    { id: "agent", label: "AI Agent", icon: Bot },
   ];
 
   const adminNav = [
-    { id: "dashboard", label: t("Tableau de bord", "Dashboard"), icon: LayoutDashboard },
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     ...baseNav,
     { id: "users", label: "Users", icon: Shield },
   ];
@@ -66,8 +76,8 @@ export default function Header({ activeTab, setActiveTab }: HeaderProps) {
         {/* Logo */}
         <div className="flex items-center gap-2.5 shrink-0">
           <img
-            src="/qlinqen-logo.png"
-            alt="Qlinqen"
+            src={isDark ? "/logo-dark.png" : "/qlinqen-logo.png"}
+            alt="linqen"
             className="h-10 w-auto object-contain"
           />
           
@@ -108,7 +118,7 @@ export default function Header({ activeTab, setActiveTab }: HeaderProps) {
 
             <button
               onClick={goToSettings}
-              aria-label="Paramètres"
+              aria-label="Settings"
               className={`p-2 rounded-xl transition-all duration-200 ${
                 activeTab === "settings"
                   ? "bg-blue-50 text-blue-600"
@@ -125,23 +135,23 @@ export default function Header({ activeTab, setActiveTab }: HeaderProps) {
           {/* User */}
           <div className="flex items-center gap-2.5">
             <div className="hidden md:block text-right">
-              <p className="text-sm font-semibold text-gray-800 leading-tight">{displayName}</p>
               <div className="flex items-center justify-end gap-1.5">
+                <p className="text-sm font-semibold text-gray-800 leading-tight">{displayName}</p>
                 {user?.role && (
                   <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
                     isAdmin
                       ? "bg-blue-50 text-blue-600 border border-blue-100"
                       : "bg-indigo-50 text-indigo-600 border border-indigo-100"
                   }`}>
-                    {isAdmin ? "Admin" : "Membre"}
+                    {isAdmin ? "Admin" : "Member"}
                   </span>
                 )}
-                {displayEmail && <span className="text-[11px] text-gray-400">{displayEmail}</span>}
               </div>
+              {displayEmail && <p className="text-[11px] text-gray-400 text-right">{displayEmail}</p>}
             </div>
             <button
               onClick={logout}
-              title="Déconnexion"
+              title="Sign out"
               className="p-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
             >
               <LogOut className="w-[18px] h-[18px]" />

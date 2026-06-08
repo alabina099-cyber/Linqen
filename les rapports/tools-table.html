@@ -7,159 +7,239 @@
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
     font-family:'Segoe UI', Arial, sans-serif;
-    background:#f8f9fa;
+    background:#f0f2f5;
     display:flex;
     justify-content:center;
-    align-items:center;
+    align-items:flex-start;
     min-height:100vh;
-    padding:40px;
+    padding:40px 20px;
   }
   .wrap {
     background:white;
-    border-radius:14px;
-    padding:36px 44px;
-    box-shadow:0 4px 20px rgba(0,0,0,0.08);
-    max-width:950px;
+    border-radius:16px;
+    padding:38px 48px 42px;
+    box-shadow:0 6px 32px rgba(0,0,0,0.10);
+    max-width:1100px;
     width:100%;
   }
-  h2 {
-    text-align:center;
-    font-size:18px;
-    color:#1a1a2e;
-    margin-bottom:28px;
-    font-weight:700;
-    letter-spacing:0.3px;
-  }
+  h2 { display:none; }
+  .subtitle { display:none; }
   table {
     width:100%;
     border-collapse:collapse;
-    font-size:13px;
+    font-size:12.5px;
   }
   thead th {
-    background:#1a1a2e;
-    color:#fff;
-    padding:12px 16px;
+    background:#ffff;
+    color:black;
+    padding:13px 16px;
     text-align:left;
     font-weight:600;
-    font-size:12.5px;
-    letter-spacing:0.4px;
+    font-size:12px;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
   }
   thead th:first-child { border-radius:8px 0 0 0; }
   thead th:last-child  { border-radius:0 8px 0 0; }
   tbody td {
-    padding:11px 16px;
-    border-bottom:1px solid #e9ecef;
+    padding:10px 16px;
+    border-bottom:1px solid #edf0f2;
     color:#37474f;
     vertical-align:middle;
+    line-height:1.45;
   }
   tbody tr:last-child td { border-bottom:none; }
   tbody tr:last-child td:first-child { border-radius:0 0 0 8px; }
   tbody tr:last-child td:last-child  { border-radius:0 0 8px 0; }
-  tbody tr:nth-child(even) { background:#f8f9fa; }
-  .cat-ci       { color:#2e7d32; font-weight:700; }
-  .cat-security { color:#e65100; font-weight:700; }
-  .cat-infra    { color:#1565c0; font-weight:700; }
-  .cat-deploy   { color:#6a1b9a; font-weight:700; }
-  .cat-cron     { color:#00695c; font-weight:700; }
-  .badge {
+  tbody tr:hover { background:#f5f7fa; }
+
+  /* Section separator rows */
+  .section-header td {
+    background:#f0f2f5;
+    color:#546e7a;
+    font-size:10.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    padding:7px 16px;
+    border-bottom:1px solid #dde1e6;
+  }
+
+  /* Category colors */
+  .cat-ci        { color:#2e7d32; font-weight:700; white-space:nowrap; }
+  .cat-test      { color:#0277bd; font-weight:700; white-space:nowrap; }
+  .cat-security  { color:#c62828; font-weight:700; white-space:nowrap; }
+  .cat-infra     { color:#1565c0; font-weight:700; white-space:nowrap; }
+  .cat-deploy    { color:#6a1b9a; font-weight:700; white-space:nowrap; }
+  .cat-cron      { color:#00695c; font-weight:700; white-space:nowrap; }
+  .cat-perf      { color:#e65100; font-weight:700; white-space:nowrap; }
+
+  /* Metric badges */
+  .metric {
     display:inline-block;
     font-size:10px;
     font-weight:700;
-    padding:2px 8px;
-    border-radius:12px;
-    margin-left:6px;
+    padding:2px 9px;
+    border-radius:20px;
+    margin-left:7px;
     vertical-align:middle;
+    white-space:nowrap;
   }
-  .badge-removed { background:#ffebee; color:#c62828; }
+  .m-green  { background:#e8f5e9; color:#2e7d32; border:1px solid #a5d6a7; }
+  .m-blue   { background:#e3f2fd; color:#1565c0; border:1px solid #90caf9; }
+  .m-orange { background:#fff3e0; color:#e65100; border:1px solid #ffcc80; }
+  .m-purple { background:#f3e5f5; color:#6a1b9a; border:1px solid #ce93d8; }
+  .m-red    { background:#ffebee; color:#c62828; border:1px solid #ef9a9a; }
+
+  code {
+    background:#f1f3f4;
+    padding:1px 5px;
+    border-radius:4px;
+    font-size:11.5px;
+    color:#c7254e;
+    font-family:'Consolas', monospace;
+  }
+  .quality-gate {
+    font-size:10px;
+    color:#2e7d32;
+    font-style:italic;
+    margin-top:2px;
+    display:block;
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h2>DevOps Toolchain — LinkedIn Agent</h2>
+  <h2>DevOps Toolchain — LinkedIn Agent (Qlinqen)</h2>
+  <p class="subtitle">8 Workflows GitHub Actions · DevSecOps · CI/CD complet</p>
   <table>
     <thead>
       <tr>
         <th style="width:22%">Category</th>
-        <th style="width:32%">Tool Used</th>
-        <th style="width:46%">Justification</th>
+        <th style="width:30%">Tool Used</th>
+        <th style="width:48%">Justification</th>
       </tr>
     </thead>
     <tbody>
+
+      <!-- CI -->
+      <tr class="section-header"><td colspan="3">Continuous Integration (CI)</td></tr>
       <tr>
         <td class="cat-ci">CI - Lint</td>
         <td>ESLint</td>
-        <td>JS/TS standard enforcement</td>
+        <td>JS/TS code style enforcement — blocks build if non-compliant</td>
       </tr>
       <tr>
-        <td class="cat-ci">CI - Types</td>
-        <td>TypeScript Compiler (<code>tsc --noEmit</code>)</td>
-        <td>Type safety at build time</td>
+        <td class="cat-ci">CI - TypeCheck</td>
+        <td>TypeScript Compiler <code>tsc --noEmit</code></td>
+        <td>Strict type checking at compile time — eliminates runtime type errors</td>
       </tr>
       <tr>
         <td class="cat-ci">CI - Build</td>
         <td>Next.js Build</td>
-        <td>Production validation before deploy</td>
+        <td>Build gated on lint + typecheck + tests passing — deployment impossible without quality validation</td>
       </tr>
       <tr>
         <td class="cat-ci">CI - Worker</td>
-        <td>TypeScript Compile</td>
-        <td>Worker TypeScript build validation</td>
+        <td>TypeScript Compile (Worker)</td>
+        <td>Independent validation of the LinkedIn queue service — isolated from frontend pipeline</td>
       </tr>
       <tr>
         <td class="cat-ci">CI - Extension</td>
-        <td>Chrome Extension Validation</td>
-        <td>Manifest &amp; extension integrity check</td>
+        <td>Chrome Extension · MV3 Check · Zip Package</td>
+        <td>Manifest V3 compliance, JS syntax check on all 5 scripts, distributable .zip artifact for Chrome Web Store</td>
+      </tr>
+
+      <!-- TESTS -->
+      <tr class="section-header"><td colspan="3">Automated Testing</td></tr>
+      <tr>
+        <td class="cat-test">Tests - Unit</td>
+        <td>Vitest + Istanbul Coverage</td>
+        <td>28 tests on prospect scoring & anti-XSS/CORS validators — 100% statement, branch and function coverage</td>
       </tr>
       <tr>
-        <td class="cat-security">Security - Deps (SCA)</td>
+        <td class="cat-test">Tests - E2E</td>
+        <td>Playwright (Chromium)</td>
+        <td>9 tests: login UI + /api/health structure + security headers + CORS + rate limiting + XSS payload rejection</td>
+      </tr>
+
+      <!-- SECURITY -->
+      <tr class="section-header"><td colspan="3">Security — 5 Layers (DevSecOps)</td></tr>
+      <tr>
+        <td class="cat-security">Security - Dependencies</td>
         <td>npm audit</td>
-        <td>Detect vulnerable dependencies</td>
+        <td>Production dependency audit (<code>--omit=dev</code>) + full critical scan — on every commit + weekly schedule</td>
       </tr>
       <tr>
         <td class="cat-security">Security - SAST</td>
-        <td>Semgrep (OWASP Top 10)</td>
-        <td>Free static analysis for JS/TS/Node.js</td>
+        <td>Semgrep (5 OWASP rulesets)</td>
+        <td>Static analysis on JS · TS · React · Node.js · OWASP Top 10 — runs on every commit</td>
       </tr>
       <tr>
-        <td class="cat-security">Security - Files</td>
+        <td class="cat-security">Security - Filesystem</td>
         <td>Trivy FS Scan</td>
-        <td>Vulnerabilities + secrets + misconfig</td>
+        <td>Triple scan: vulnerabilities + exposed secrets + misconfigurations in source files</td>
       </tr>
       <tr>
         <td class="cat-security">Security - Secrets</td>
-        <td>Gitleaks</td>
-        <td>Detect leaked API keys &amp; tokens</td>
+        <td>Gitleaks v8.21.2</td>
+        <td>API key & token leak detection in working tree — SARIF report uploaded as artifact</td>
       </tr>
       <tr>
+        <td class="cat-security">Security - Docker Image</td>
+        <td>Trivy Image Scan (GHCR)</td>
+        <td>CVE scan on published GHCR image after every push — results uploaded to GitHub Security tab (SARIF)</td>
+      </tr>
+
+      <!-- PERFORMANCE -->
+      <tr class="section-header"><td colspan="3">Performance & Quality</td></tr>
+      <tr>
+        <td class="cat-perf">Web Performance</td>
+        <td>Lighthouse CI (Google)</td>
+        <td>Automated audit: Performance ≥70 · Accessibility ≥85 · SEO ≥80 · Best Practices ≥85 — public LHCI report</td>
+      </tr>
+
+      <!-- INFRASTRUCTURE -->
+      <tr class="section-header"><td colspan="3">Containerization & Deployment</td></tr>
+      <tr>
         <td class="cat-infra">Containerization</td>
-        <td>Docker (multi-stage Dockerfile)</td>
-        <td>Industry standard + standalone output</td>
+        <td>Docker — 4-stage · <code>node:22-alpine</code> · non-root</td>
+        <td>Hardened minimal image: base→deps→builder→runner · UID 1001 · no devDependencies in production</td>
+      </tr>
+      <tr>
+        <td class="cat-infra">CI/CD Cache</td>
+        <td>GitHub Actions Cache (Docker layers)</td>
+        <td>Docker layer caching between runs — ~65% faster rebuilds · <code>cache-from: type=gha</code></td>
       </tr>
       <tr>
         <td class="cat-infra">Registry</td>
         <td>GitHub Container Registry (GHCR)</td>
-        <td>Native integration + free for public repos</td>
+        <td>Tags: <code>latest</code> · <code>main</code> · <code>sha-&lt;commit&gt;</code> — full traceability per commit via sha256 digest</td>
       </tr>
       <tr>
-        <td class="cat-deploy">Deployment</td>
+        <td class="cat-deploy">CD - Deployment</td>
         <td>Coolify (webhook trigger)</td>
-        <td>Open-source self-hosted PaaS</td>
+        <td>Deployed only after green build + Trivy scan — open-source self-hosted PaaS</td>
       </tr>
       <tr>
         <td class="cat-deploy">Monitoring</td>
         <td>Custom <code>/api/health</code> endpoint</td>
-        <td>Real-time DB + memory + uptime status</td>
+        <td>Real-time status: DB connection, memory, uptime — automatically tested by Playwright E2E suite</td>
       </tr>
+
+      <!-- MAINTENANCE -->
+      <tr class="section-header"><td colspan="3">Maintenance & Continuity</td></tr>
       <tr>
-        <td class="cat-cron">Backup</td>
+        <td class="cat-cron">Database Backup</td>
         <td>GitHub Actions CRON</td>
-        <td>Daily PostgreSQL dump (2h UTC) + 30d retention</td>
+        <td>Daily PostgreSQL dump at 02:00 UTC — uploaded as artifact with 30-day retention — manually triggerable</td>
       </tr>
       <tr>
-        <td class="cat-cron">Dependency Mgmt</td>
+        <td class="cat-cron">Dependency Management</td>
         <td>Dependabot (npm + Actions + Docker)</td>
-        <td>Weekly grouped PRs for automated updates</td>
+        <td>Weekly grouped PRs: langchain · radix-ui · next-react · @types — 3 ecosystems, max 5 open PRs</td>
       </tr>
+
     </tbody>
   </table>
 </div>

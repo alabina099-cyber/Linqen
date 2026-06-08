@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   UserPlus, Mail, MessageSquareReply, Target,
   Wand2, Star, ArrowUp, ArrowDown, Minus,
 } from "lucide-react";
-import { BIRange, fmt } from "./biTypes";
+import { fmt } from "./biTypes";
 
 interface KPIHeroProps {
-  range: BIRange;
+  data: any;
+  loading: boolean;
 }
 
 interface KPIData {
@@ -42,26 +43,12 @@ function DeltaPill({ delta, suffix = "%" }: { delta: number; suffix?: string }) 
   );
 }
 
-export default function KPIHero({ range }: KPIHeroProps) {
-  const [data, setData] = useState<KPIData | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancel = false;
-    queueMicrotask(() => setLoading(true));
-    fetch(`/api/bi/kpi?range=${range}`)
-      .then(r => r.json())
-      .then(j => {
-        if (!cancel && j.success) setData(j.kpis);
-      })
-      .catch(() => {})
-      .finally(() => !cancel && setLoading(false));
-    return () => { cancel = true; };
-  }, [range]);
+export default function KPIHero({ data: apiResp, loading }: KPIHeroProps) {
+  const data = useMemo<KPIData | null>(() => apiResp?.kpis ?? null, [apiResp]);
 
   const cards = [
     {
-      label: "Nouveaux prospects",
+      label: "New prospects",
       value: data?.prospects.value ?? 0,
       delta: data?.prospects.delta ?? 0,
       icon: UserPlus,
@@ -70,7 +57,7 @@ export default function KPIHero({ range }: KPIHeroProps) {
       iconColor: "text-blue-600",
     },
     {
-      label: "Messages envoyés",
+      label: "Messages sent",
       value: data?.messages.value ?? 0,
       delta: data?.messages.delta ?? 0,
       icon: Mail,
@@ -79,7 +66,7 @@ export default function KPIHero({ range }: KPIHeroProps) {
       iconColor: "text-indigo-600",
     },
     {
-      label: "Taux de réponse",
+      label: "Reply rate",
       value: data?.replyRate.value ?? 0,
       delta: data?.replyRate.delta ?? 0,
       icon: MessageSquareReply,
@@ -99,7 +86,7 @@ export default function KPIHero({ range }: KPIHeroProps) {
       iconColor: "text-emerald-600",
     },
     {
-      label: "Actions agent IA",
+      label: "AI agent actions",
       value: data?.agentActions.value ?? 0,
       delta: data?.agentActions.delta ?? 0,
       icon: Wand2,
@@ -108,7 +95,7 @@ export default function KPIHero({ range }: KPIHeroProps) {
       iconColor: "text-purple-600",
     },
     {
-      label: "Score moyen ICP",
+      label: "Average ICP score",
       value: data?.avgScore.value ?? 0,
       delta: 0,
       icon: Star,

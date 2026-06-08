@@ -90,7 +90,7 @@ export default function NotificationPanel() {
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
     
-    if (diffInMinutes < 1) return "À l'instant";
+    if (diffInMinutes < 1) return "Just now";
     if (diffInMinutes < 60) return `${diffInMinutes} min`;
     const diffInHours = Math.floor(diffInMinutes / 60);
     if (diffInHours < 24) return `${diffInHours}h`;
@@ -157,7 +157,7 @@ export default function NotificationPanel() {
                 <div className="flex items-center gap-1">
                   {unreadCount > 0 && (
                     <Button variant="ghost" size="sm" onClick={markAllRead} className="text-xs text-blue-600 hover:bg-blue-50">
-                      <Check className="w-3 h-3 mr-1" /> Tout lire
+                      <Check className="w-3 h-3 mr-1" /> Mark all read
                     </Button>
                   )}
                   <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="w-7 h-7">
@@ -181,7 +181,7 @@ export default function NotificationPanel() {
               {notifications.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
                   <Bell className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-                  <p>Aucune notification</p>
+                  <p>No notifications</p>
                 </div>
               ) : (
                 notifications.map((notification) => {
@@ -228,7 +228,7 @@ export default function NotificationPanel() {
                   className="w-full text-gray-500 hover:text-red-600 hover:bg-red-50 text-xs transition-all"
                 >
                   <Trash2 className="w-3.5 h-3.5 mr-2" />
-                  Tout effacer
+                  Clear all
                 </Button>
               </div>
             )}

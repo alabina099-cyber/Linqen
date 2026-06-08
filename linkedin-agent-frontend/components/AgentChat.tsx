@@ -81,30 +81,30 @@ const welcomeMessage: Message = {
   id: "welcome",
   role: "assistant",
   content:
-    "Bonjour ! Je pilote votre prospection LinkedIn avec l'IA, le backend du projet et l'extension Chrome.Je peux préparer des recherches, créer des actions LinkedIn, planifier des relances et vous expliquer exactement ce qui est en attente, approuvé, exécuté ou bloqué.\n\nDites-moi votre objectif et je m'occupe du reste.",
+    "Welcome! I am your AI-powered LinkedIn outreach assistant, I provide complete transparency on your workflow. Tell me what you want to achieve, and I'll handle the execution.",
   timestamp: new Date().toISOString(),
 };
 
 function formatDateLabel(dateString: string) {
   const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return "Date inconnue";
-  const day = date.toLocaleString("fr-FR", { day: "2-digit", month: "short" }).replace(/\.$/, "");
+  if (Number.isNaN(date.getTime())) return "Unknown date";
+  const day = date.toLocaleString("en-US", { day: "2-digit", month: "short" }).replace(/\.$/, "");
   const year = String(date.getFullYear()).slice(-2);
-  const time = date.toLocaleString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  const time = date.toLocaleString("en-US", { hour: "2-digit", minute: "2-digit" });
   return `${day} ${year}, ${time}`;
 }
 
 function formatTimeAgo(dateString: string) {
   const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return "À l'instant";
+  if (Number.isNaN(date.getTime())) return "Just now";
 
   const diffMs = Date.now() - date.getTime();
   const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
 
-  if (diffMinutes < 1) return "À l'instant";
-  if (diffMinutes < 60) return `Il y a ${diffMinutes} min`;
-  if (diffMinutes < 1440) return `Il y a ${Math.floor(diffMinutes / 60)} h`;
-  return `Il y a ${Math.floor(diffMinutes / 1440)} j`;
+  if (diffMinutes < 1) return "Just now";
+  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+  if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)} h ago`;
+  return `${Math.floor(diffMinutes / 1440)} d ago`;
 }
 
 function getActivityIcon(actionType: string) {
@@ -128,29 +128,29 @@ function getActivityIcon(actionType: string) {
 
 function getActionLabel(actionType: string) {
   const labels: Record<string, string> = {
-    search: "Recherche LinkedIn",
-    linkedin_search: "Recherche LinkedIn",
-    search_and_message: "Recherche et Envoi de message",
-    search_and_connection: "Recherche et Envoi de connexion",
-    visit_profile: "Visiter profil",
-    linkedin_visit_profile: "Visiter profil",
-    send_connection: "Demande de connexion",
-    linkedin_send_connection: "Demande de connexion",
-    send_message: "Envoyer un message",
-    linkedin_send_message: "Envoyer un message",
-    check_connection: "Vérification réseau",
-    scheduled_followup: "Suivi programmé",
-    schedule_followup: "Suivi programmé",
-    create_campaign: "Créer une campagne",
-    update_campaign: "Mettre à jour une campagne",
-    analyze_prospect: "Analyser un prospect",
-    generate_message: "Générer un message",
-    suggest_strategy: "Suggérer une stratégie",
-    save_prospect: "Enregistrer un prospect",
-    search_prospects_db: "Rechercher dans la base",
-    check_network_connections: "Vérifier le réseau",
-    get_campaign_stats: "Voir les statistiques",
-    get_rate_limits: "Voir les limites",
+    search: "LinkedIn Search",
+    linkedin_search: "LinkedIn Search",
+    search_and_message: "Search and Send Message",
+    search_and_connection: "Search and Send Connection",
+    visit_profile: "Visit Profile",
+    linkedin_visit_profile: "Visit Profile",
+    send_connection: "Connection Request",
+    linkedin_send_connection: "Connection Request",
+    send_message: "Send Message",
+    linkedin_send_message: "Send Message",
+    check_connection: "Network Check",
+    scheduled_followup: "Scheduled Follow-up",
+    schedule_followup: "Scheduled Follow-up",
+    create_campaign: "Create Campaign",
+    update_campaign: "Update Campaign",
+    analyze_prospect: "Analyze Prospect",
+    generate_message: "Generate Message",
+    suggest_strategy: "Suggest Strategy",
+    save_prospect: "Save Prospect",
+    search_prospects_db: "Search Database",
+    check_network_connections: "Check Network",
+    get_campaign_stats: "View Statistics",
+    get_rate_limits: "View Limits",
   };
   return labels[actionType] || actionType;
 }
@@ -307,11 +307,11 @@ function getStatusStyles(status: string) {
 
 function cleanErrorMessage(raw: string): string {
   const errorMap: Record<string, string> = {
-    "Type d'action inconnu": "L'extension Chrome doit être mise à jour. Rechargez-la dans chrome://extensions.",
-    "Aucun onglet LinkedIn ouvert": "Aucun onglet LinkedIn n'était ouvert. Ouvrez LinkedIn puis réessayez.",
-    "Champ message introuvable": "Le champ de message n'a pas été trouvé sur la page LinkedIn.",
-    "Aucun message envoyé": "Aucun message n'a pu être envoyé aux profils trouvés.",
-    "timeout": "L'action a pris trop de temps et a été interrompue.",
+    "Unknown action type": "The Chrome extension must be updated. Reload it in chrome://extensions.",
+    "No LinkedIn tab open": "No LinkedIn tab was open. Open LinkedIn then try again.",
+    "Message field not found": "The message field was not found on the LinkedIn page.",
+    "No message sent": "No message could be sent to the found profiles.",
+    "timeout": "The action took too long and was interrupted.",
   };
 
   for (const [key, msg] of Object.entries(errorMap)) {
@@ -356,7 +356,7 @@ export default function AgentChat() {
         setConversations(data.conversations);
       }
     } catch (error) {
-      console.error("Erreur chargement conversations:", error);
+      console.error("Error loading conversations:", error);
     }
   };
 
@@ -375,7 +375,7 @@ export default function AgentChat() {
         );
       }
     } catch (error) {
-      console.error("Erreur chargement conversation:", error);
+      console.error("Error loading conversation:", error);
     }
   };
 
@@ -422,7 +422,7 @@ export default function AgentChat() {
           setTimeline(activityData.timeline || []);
         }
       } catch (error) {
-        console.error("Erreur lors du chargement de l'espace agent:", error);
+        console.error("Error loading agent space:", error);
         setMessages([welcomeMessage]);
       } finally {
         setIsBootstrapping(false);
@@ -442,7 +442,7 @@ export default function AgentChat() {
           setTimeline(data.timeline || []);
         }
       } catch (error) {
-        console.error("Erreur lors du rafraîchissement des actions:", error);
+        console.error("Error refreshing actions:", error);
       }
     }, 4000);
 
@@ -475,7 +475,7 @@ export default function AgentChat() {
         setTimeline(data.timeline || []);
       }
     } catch (error) {
-      console.error("Erreur lors de l'actualisation des actions:", error);
+      console.error("Error refreshing actions:", error);
     } finally {
       setIsActivityLoading(false);
     }
@@ -535,7 +535,7 @@ export default function AgentChat() {
             ? {
                 id: loadingId,
                 role: "assistant",
-                content: data.response || "Je n'ai pas pu terminer cette demande pour le moment.",
+                content: data.response || "I could not complete this request at the moment.",
                 timestamp: new Date().toISOString(),
                 isLoading: false,
               }
@@ -560,7 +560,7 @@ export default function AgentChat() {
       setMessages([welcomeMessage]);
       refreshConversations();
     } catch (error) {
-      console.error("Erreur lors de la création:", error);
+      console.error("Error during creation:", error);
     }
   };
 
@@ -585,7 +585,7 @@ export default function AgentChat() {
         refreshConversations();
       }
     } catch (error) {
-      console.error("Erreur suppression conversation:", error);
+      console.error("Error deleting conversation:", error);
     } finally {
       setIsDeleting(false);
       setDeleteTarget(null);
@@ -594,9 +594,9 @@ export default function AgentChat() {
 
   // Suggestions rapides
   const suggestions = [
-    { icon: Target, text: "Créer une campagne" },
-    { icon: MessageSquare, text: "Rédiger un message" },
-    { icon: TrendingUp, text: "Analyser mes stats" },
+    { icon: Target, text: "Create Campaign" },
+    { icon: MessageSquare, text: "Write a Message" },
+    { icon: TrendingUp, text: "Analyze My Stats" },
   ];
 
   const [processingActionId, setProcessingActionId] = useState<number | null>(null);
@@ -665,9 +665,9 @@ export default function AgentChat() {
                 </div>
                 <div>
                   <CardTitle className="text-xl font-bold text-slate-900 flex items-center gap-1.5">
-                    Agent Linkedin
+                    Linqen Agent 
                   </CardTitle>
-                  <p className="text-xs text-slate-500">Conversation pilotée par OpenAI et l'extension Chrome</p>
+                  <p className="text-xs text-slate-500">Conversation powered by OpenAI and the Chrome extension</p>
                 </div>
               </div>
             <Button
@@ -686,7 +686,7 @@ export default function AgentChat() {
                 <div className="flex h-full items-center justify-center text-slate-500">
                   <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Chargement de la conversation...
+                    Loading conversation...
                   </div>
                 </div>
               ) : (
@@ -732,7 +732,7 @@ export default function AgentChat() {
                               <div className="flex items-center gap-2">
                                 <Loader2 className="w-4 h-4 animate-spin" />
                                 <span className={cn(message.role === "user" ? "text-white/90" : "text-slate-500")}>
-                                  L'agent réfléchit et prépare les actions...
+                                  The agent is thinking and preparing actions...
                                 </span>
                               </div>
                             ) : (
@@ -783,7 +783,7 @@ export default function AgentChat() {
                         handleSend();
                       }
                     }}
-                    placeholder="Crée une action..."
+                    placeholder="Creating an action..."
                     className="flex-1 rounded-2xl border-0 bg-transparent px-3 py-3 text-sm text-slate-700 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={isLoading}
                   />
@@ -808,7 +808,7 @@ export default function AgentChat() {
         <Card className="flex flex-col min-h-0 border-0 shadow-none bg-gradient-to-br from-slate-50 to-white rounded-none">
           <CardHeader className="shrink-0 border-b border-slate-200/80 px-5 h-[76px] flex flex-row items-center justify-between space-y-0 bg-white">
             <CardTitle className="text-lg font-bold text-slate-900">
-              {rightPanelView === "actions" ? "Actions de l'agent" : "Historique des chats"}
+              {rightPanelView === "actions" ? "Agent Actions" : "Chat History"}
             </CardTitle>
 
               <div className="ml-auto flex items-center gap-1">
@@ -822,7 +822,7 @@ export default function AgentChat() {
                       ? "bg-blue-600 text-white hover:bg-blue-700"
                       : "border-slate-200 bg-white"
                   )}
-                  title="Actions de l'agent"
+                  title="Agent Actions"
                 >
                   <ClipboardList className="w-3.5 h-3.5 mr-1" />
                   Actions
@@ -837,7 +837,7 @@ export default function AgentChat() {
                       ? "bg-violet-600 text-white hover:bg-violet-700"
                       : "border-slate-200 bg-white"
                   )}
-                  title="Historique des chats"
+                  title="Chat History"
                 >
                   <MessageSquare className="w-3.5 h-3.5 mr-1" />
                   Chats
@@ -853,7 +853,7 @@ export default function AgentChat() {
                     <div className="flex h-full items-center justify-center text-slate-500">
                       <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Chargement des actions agent...
+                        Loading agent actions...
                       </div>
                     </div>
                   ) : actionItems.length === 0 ? (
@@ -905,7 +905,7 @@ export default function AgentChat() {
                                           className="flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-lg text-[11px] font-medium transition-colors disabled:opacity-50 cursor-pointer"
                                         >
                                           {isProcessing ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                                          Approuver
+                                          Approve
                                         </button>
                                         <button
                                           type="button"
@@ -914,7 +914,7 @@ export default function AgentChat() {
                                           className="flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-lg text-[11px] font-medium transition-colors disabled:opacity-50 cursor-pointer"
                                         >
                                           <X className="w-3 h-3" />
-                                          Rejeter
+                                          Reject
                                         </button>
                                       </>
                                     )}
@@ -937,7 +937,7 @@ export default function AgentChat() {
                                         className="flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-lg text-[11px] font-medium transition-colors disabled:opacity-50 cursor-pointer"
                                       >
                                         {isProcessing ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
-                                        Continuer
+                                        Continue
                                       </button>
                                     )}
                                     {(item.status === "rejected" || item.status === "failed") && (
@@ -948,7 +948,7 @@ export default function AgentChat() {
                                         className="flex items-center gap-1 px-2.5 py-1 bg-violet-50 hover:bg-violet-100 border border-violet-200 text-violet-700 rounded-lg text-[11px] font-medium transition-colors disabled:opacity-50 cursor-pointer"
                                       >
                                         {isProcessing ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                                        Réessayer
+                                        Retry
                                       </button>
                                     )}
                                   </div>
@@ -962,7 +962,7 @@ export default function AgentChat() {
                                     rel="noopener noreferrer"
                                     className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-800 hover:underline"
                                   >
-                                    Voir la liste des prospects
+                                    View prospect list
                                     <ExternalLink className="w-3 h-3" />
                                   </a>
                                 )}
@@ -970,7 +970,7 @@ export default function AgentChat() {
                                 {/* Detail block */}
                                 {item.detail && (
                                   <div className="mt-2.5 rounded-xl border border-slate-100 bg-slate-50/70 p-2.5">
-                                    <p className="text-[11px] font-medium text-slate-500 mb-1">Détail</p>
+                                    <p className="text-[11px] font-medium text-slate-500 mb-1">Detail</p>
                                     {item.detail.split("\n").map((line: string, i: number) => (
                                       <p key={i} className="text-xs leading-5 text-slate-600">{line}</p>
                                     ))}
@@ -983,8 +983,8 @@ export default function AgentChat() {
                                     <span className={cn("h-1.5 w-1.5 rounded-full", styles.dot)} />
                                     {formatTimeAgo(item.createdAt)}
                                   </span>
-                                  {item.targetName && <span>Cible: {item.targetName}</span>}
-                                  {item.executedAt && <span>Exécution: {formatDateLabel(item.executedAt)}</span>}
+                                  {item.targetName && <span>Target: {item.targetName}</span>}
+                                  {item.executedAt && <span>Executed: {formatDateLabel(item.executedAt)}</span>}
                                 </div>
 
                               </div>
@@ -1002,8 +1002,8 @@ export default function AgentChat() {
                   <div className="flex h-full items-center justify-center">
                     <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-5 py-6 text-center">
                       <History className="mx-auto mb-3 h-8 w-8 text-slate-300" />
-                      <p className="text-sm font-semibold text-slate-700">Aucune conversation</p>
-                      <p className="mt-1 text-xs text-slate-500">Vos échanges avec l'agent apparaîtront ici.</p>
+                      <p className="text-sm font-semibold text-slate-700">No conversations</p>
+                      <p className="mt-1 text-xs text-slate-500">Your exchanges with the agent will appear here.</p>
                     </div>
                   </div>
                 ) : (
@@ -1045,7 +1045,7 @@ export default function AgentChat() {
                             tabIndex={0}
                             onClick={(e) => askDeleteConversation(conv.id, conv.firstMessage, e)}
                             className="shrink-0 mt-0.5 p-1.5 rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                            title="Supprimer cette conversation"
+                            title="Delete this conversation"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </div>
@@ -1085,7 +1085,7 @@ export default function AgentChat() {
                     <Trash2 className="w-4 h-4 text-red-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-sm text-gray-900">Supprimer la conversation</h3>
+                    <h3 className="font-semibold text-sm text-gray-900">Delete conversation</h3>
                     <p className="text-xs text-gray-500">{deleteTarget.preview.substring(0, 30)}...</p>
                   </div>
                 </div>
@@ -1098,10 +1098,10 @@ export default function AgentChat() {
                     <Trash2 className="w-6 h-6 text-gray-400" />
                   </div>
                   <p className="text-gray-500 font-medium text-sm">
-                    Supprimer cette conversation ?
+                    Delete this conversation?
                   </p>
                   <p className="text-xs text-gray-400 mt-1">
-                    Cette action est irréversible. La conversation et tous ses messages seront supprimés définitivement.
+                    This action is irreversible. The conversation and all its messages will be permanently deleted.
                   </p>
                 </div>
               </div>
@@ -1113,7 +1113,7 @@ export default function AgentChat() {
                   disabled={isDeleting}
                   className="flex-1 py-2 text-xs text-gray-600 hover:text-gray-900 font-medium transition-colors disabled:opacity-50"
                 >
-                  Annuler
+                  Cancel
                 </button>
                 <button
                   onClick={confirmDelete}
@@ -1123,12 +1123,12 @@ export default function AgentChat() {
                   {isDeleting ? (
                     <>
                       <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Suppression...
+                      Deleting...
                     </>
                   ) : (
                     <>
                       <Trash2 className="w-3 h-3" />
-                      Supprimer
+                      Delete
                     </>
                   )}
                 </button>
