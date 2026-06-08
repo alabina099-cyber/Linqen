@@ -17,7 +17,8 @@
     "load-test": "node scripts/load-test.js",
     "security-audit": "node scripts/security-audit.js",
     "backup": "node scripts/backup.js",
-    "restore": "node scripts/restore.js"
+    "restore": "node scripts/restore.js",
+    "migrate": "node scripts/migrate.js"
   },
   "dependencies": {
     "@langchain/community": "^1.1.22",

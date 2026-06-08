@@ -2,9 +2,8 @@
 const { Pool } = require("pg");
 
 const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ||
-    "postgresql://neondb_owner:npg_uzan40Povxwp@ep-tiny-term-ai0m9euo-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
 async function debug() {
@@ -19,14 +18,20 @@ async function debug() {
     SELECT COUNT(*) FROM prospects
     WHERE created_at > NOW() - INTERVAL '30 days'
   `);
-  console.log("2. Prospects créés dans les 30 derniers jours:", recent.rows[0].count);
+  console.log(
+    "2. Prospects créés dans les 30 derniers jours:",
+    recent.rows[0].count
+  );
 
   // 3. Vérifier les prospects créés dans les 60 derniers jours
   const recent60 = await pool.query(`
     SELECT COUNT(*) FROM prospects
     WHERE created_at > NOW() - INTERVAL '60 days'
   `);
-  console.log("3. Prospects créés dans les 60 derniers jours:", recent60.rows[0].count);
+  console.log(
+    "3. Prospects créés dans les 60 derniers jours:",
+    recent60.rows[0].count
+  );
 
   // 4. Vérifier la distribution des created_at
   const dates = await pool.query(`
@@ -52,7 +57,12 @@ async function debug() {
       COUNT(*) FILTER (WHERE TRIM(location) = '') as empty_loc
     FROM prospects
   `);
-  console.log("\n5. Locations NULL:", locCheck.rows[0].null_loc, "| vides:", locCheck.rows[0].empty_loc);
+  console.log(
+    "\n5. Locations NULL:",
+    locCheck.rows[0].null_loc,
+    "| vides:",
+    locCheck.rows[0].empty_loc
+  );
 
   // 6. Exécuter la requête exacte de l'API (range=30)
   const geoResult = await pool.query(`
@@ -67,7 +77,11 @@ async function debug() {
     ORDER BY total DESC
     LIMIT 25
   `);
-  console.log("\n6. Requête API geo (30j):", geoResult.rows.length, "résultats");
+  console.log(
+    "\n6. Requête API geo (30j):",
+    geoResult.rows.length,
+    "résultats"
+  );
   geoResult.rows.slice(0, 5).forEach((r) => {
     console.log(`   ${r.location}: ${r.total} prospects`);
   });
@@ -103,7 +117,11 @@ async function debug() {
     ORDER BY total DESC
     LIMIT 12
   `);
-  console.log("\n8. Requête API industries (30j):", indResult.rows.length, "résultats");
+  console.log(
+    "\n8. Requête API industries (30j):",
+    indResult.rows.length,
+    "résultats"
+  );
 
   // 9. Vérifier la requête scores
   const scoreResult = await pool.query(`
@@ -129,7 +147,11 @@ async function debug() {
         ELSE 5
       END
   `);
-  console.log("9. Requête API scores (30j):", scoreResult.rows.length, "résultats");
+  console.log(
+    "9. Requête API scores (30j):",
+    scoreResult.rows.length,
+    "résultats"
+  );
 
   // 10. Vérifier la requête ICP
   const icpResult = await pool.query(`

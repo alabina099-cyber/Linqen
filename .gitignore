@@ -24,6 +24,12 @@
 .DS_Store
 *.pem
 
+# Secrets locaux (observabilité, backups, etc.) — JAMAIS commit
+observability/secrets/*
+!observability/secrets/.gitkeep
+*.backup.tar.gz.gpg
+*.backup.tar.gz.age
+
 # debug
 npm-debug.log*
 yarn-debug.log*

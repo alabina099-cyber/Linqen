@@ -1,8 +1,8 @@
-const { Pool } = require('pg');
+const { Pool } = require("pg");
 
 const pool = new Pool({
-  connectionString: 'postgresql://neondb_owner:npg_uzan40Povxwp@ep-tiny-term-ai0m9euo-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require',
-  ssl: { rejectUnauthorized: false },
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
 async function run() {
@@ -23,7 +23,7 @@ async function run() {
         executed_at TIMESTAMP
       )
     `);
-    console.log('linkedin_actions_queue table created');
+    console.log("linkedin_actions_queue table created");
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS scheduled_followups (
@@ -36,14 +36,24 @@ async function run() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('scheduled_followups table created');
+    console.log("scheduled_followups table created");
 
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_actions_status ON linkedin_actions_queue(status)');
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_actions_type ON linkedin_actions_queue(action_type)');
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_actions_created ON linkedin_actions_queue(created_at)');
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_followups_scheduled ON scheduled_followups(scheduled_for)');
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_followups_status ON scheduled_followups(status)');
-    console.log('Indexes created');
+    await pool.query(
+      "CREATE INDEX IF NOT EXISTS idx_actions_status ON linkedin_actions_queue(status)"
+    );
+    await pool.query(
+      "CREATE INDEX IF NOT EXISTS idx_actions_type ON linkedin_actions_queue(action_type)"
+    );
+    await pool.query(
+      "CREATE INDEX IF NOT EXISTS idx_actions_created ON linkedin_actions_queue(created_at)"
+    );
+    await pool.query(
+      "CREATE INDEX IF NOT EXISTS idx_followups_scheduled ON scheduled_followups(scheduled_for)"
+    );
+    await pool.query(
+      "CREATE INDEX IF NOT EXISTS idx_followups_status ON scheduled_followups(status)"
+    );
+    console.log("Indexes created");
 
     // Verify
     const tables = await pool.query(`
@@ -51,12 +61,12 @@ async function run() {
       WHERE table_schema = 'public' 
       ORDER BY table_name
     `);
-    console.log('All tables:', tables.rows.map(r => r.table_name).join(', '));
+    console.log("All tables:", tables.rows.map((r) => r.table_name).join(", "));
 
     await pool.end();
-    console.log('Done!');
+    console.log("Done!");
   } catch (e) {
-    console.error('Error:', e.message);
+    console.error("Error:", e.message);
     process.exit(1);
   }
 }

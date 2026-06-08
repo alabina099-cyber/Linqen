@@ -2,75 +2,252 @@
 const { Pool } = require("pg");
 
 const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ||
-    "postgresql://neondb_owner:npg_uzan40Povxwp@ep-tiny-term-ai0m9euo-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
 // Villes riches pour la carte géo
 const geoLocations = [
   // France métro
-  "Paris", "Lyon", "Marseille", "Bordeaux", "Nantes", "Strasbourg", "Lille",
-  "Toulouse", "Nice", "Rennes", "Montpellier", "Grenoble", "Tours", "Nancy",
-  "Metz", "Dijon", "Reims", "Le Havre", "Toulon", "Angers", "Brest",
-  "Caen", "Clermont-Ferrand", "Limoges", "Amiens", "Perpignan", "Besançon",
-  "Orléans", "Mulhouse", "Rouen", "La Rochelle", "Poitiers", "Blois",
+  "Paris",
+  "Lyon",
+  "Marseille",
+  "Bordeaux",
+  "Nantes",
+  "Strasbourg",
+  "Lille",
+  "Toulouse",
+  "Nice",
+  "Rennes",
+  "Montpellier",
+  "Grenoble",
+  "Tours",
+  "Nancy",
+  "Metz",
+  "Dijon",
+  "Reims",
+  "Le Havre",
+  "Toulon",
+  "Angers",
+  "Brest",
+  "Caen",
+  "Clermont-Ferrand",
+  "Limoges",
+  "Amiens",
+  "Perpignan",
+  "Besançon",
+  "Orléans",
+  "Mulhouse",
+  "Rouen",
+  "La Rochelle",
+  "Poitiers",
+  "Blois",
   // Suisse
-  "Genève", "Lausanne", "Zurich", "Bâle", "Berne",
+  "Genève",
+  "Lausanne",
+  "Zurich",
+  "Bâle",
+  "Berne",
   // Belgique
-  "Bruxelles", "Anvers", "Gand", "Liège", "Namur",
+  "Bruxelles",
+  "Anvers",
+  "Gand",
+  "Liège",
+  "Namur",
   // Luxembourg
   "Luxembourg",
   // Canada
-  "Montréal", "Québec", "Toronto", "Vancouver", "Ottawa",
+  "Montréal",
+  "Québec",
+  "Toronto",
+  "Vancouver",
+  "Ottawa",
   // DOM-TOM + Afrique francophone
-  "Abidjan", "Dakar", "Yaoundé", "Libreville", "Casablanca", "Tunis",
-  "Pointe-à-Pitre", "Saint-Denis", "Fort-de-France", "Nouméa",
+  "Abidjan",
+  "Dakar",
+  "Yaoundé",
+  "Libreville",
+  "Casablanca",
+  "Tunis",
+  "Pointe-à-Pitre",
+  "Saint-Denis",
+  "Fort-de-France",
+  "Nouméa",
   // Europe
-  "Londres", "Berlin", "Amsterdam", "Madrid", "Barcelone", "Milan",
-  "Rome", "Lisbonne", "Dublin", "Vienne", "Copenhague", "Stockholm",
-  "Oslo", "Helsinki", "Prague", "Varsovie", "Budapest", "Athènes",
+  "Londres",
+  "Berlin",
+  "Amsterdam",
+  "Madrid",
+  "Barcelone",
+  "Milan",
+  "Rome",
+  "Lisbonne",
+  "Dublin",
+  "Vienne",
+  "Copenhague",
+  "Stockholm",
+  "Oslo",
+  "Helsinki",
+  "Prague",
+  "Varsovie",
+  "Budapest",
+  "Athènes",
   // Remote
-  "Remote",
+  "Remote"
 ];
 
 const industries = [
-  "Technology", "SaaS", "AI", "Data", "Finance", "Retail", "Healthcare",
-  "Education", "Consulting", "Media", "Real Estate", "Energy", "Transport",
-  "Food", "Legal", "Marketing", "Telecom", "Insurance", "Construction",
-  "Automotive", "E-commerce", "Gaming", "Cybersecurity", "Cloud",
-  "Blockchain", "Biotech", "AgriTech", "CleanTech", "EdTech", "PropTech",
-  "LegalTech", "HealthTech", "InsurTech", "Martech", "Fintech",
+  "Technology",
+  "SaaS",
+  "AI",
+  "Data",
+  "Finance",
+  "Retail",
+  "Healthcare",
+  "Education",
+  "Consulting",
+  "Media",
+  "Real Estate",
+  "Energy",
+  "Transport",
+  "Food",
+  "Legal",
+  "Marketing",
+  "Telecom",
+  "Insurance",
+  "Construction",
+  "Automotive",
+  "E-commerce",
+  "Gaming",
+  "Cybersecurity",
+  "Cloud",
+  "Blockchain",
+  "Biotech",
+  "AgriTech",
+  "CleanTech",
+  "EdTech",
+  "PropTech",
+  "LegalTech",
+  "HealthTech",
+  "InsurTech",
+  "Martech",
+  "Fintech"
 ];
 
 const roles = [
-  "CTO", "VP Engineering", "CEO", "Founder", "Director of Tech",
-  "Engineering Manager", "Tech Lead", "Senior Developer", "Product Manager",
-  "Head of Growth", "CIO", "IT Director", "DevOps Engineer", "Data Scientist",
-  "Full Stack Developer", "Cloud Architect", "Security Engineer",
-  "Scrum Master", "Product Owner", "Business Analyst", "Machine Learning Engineer",
-  "Site Reliability Engineer", "Platform Engineer", "Backend Developer",
-  "Frontend Developer", "Mobile Developer", "UI/UX Designer", "QA Engineer",
-  "Release Manager", "Solutions Architect", "Enterprise Architect",
-  "Data Engineer", "BI Developer", "CRM Manager", "Growth Hacker",
+  "CTO",
+  "VP Engineering",
+  "CEO",
+  "Founder",
+  "Director of Tech",
+  "Engineering Manager",
+  "Tech Lead",
+  "Senior Developer",
+  "Product Manager",
+  "Head of Growth",
+  "CIO",
+  "IT Director",
+  "DevOps Engineer",
+  "Data Scientist",
+  "Full Stack Developer",
+  "Cloud Architect",
+  "Security Engineer",
+  "Scrum Master",
+  "Product Owner",
+  "Business Analyst",
+  "Machine Learning Engineer",
+  "Site Reliability Engineer",
+  "Platform Engineer",
+  "Backend Developer",
+  "Frontend Developer",
+  "Mobile Developer",
+  "UI/UX Designer",
+  "QA Engineer",
+  "Release Manager",
+  "Solutions Architect",
+  "Enterprise Architect",
+  "Data Engineer",
+  "BI Developer",
+  "CRM Manager",
+  "Growth Hacker"
 ];
 
 const companies = [
-  "TechCorp", "InnovateTech", "GrowthSaaS", "StartupX", "DataFlow",
-  "CloudScale", "DevOpsInc", "AIStartup", "TechTeam", "CodeBase",
-  "DevWorld", "ScaleUp", "TechGrowth", "CloudFirst", "InnovateLab",
-  "DataDriven", "TechVision", "CodeCraft", "AIWorks", "TechNova",
-  "CloudNative", "ScaleTech", "DevOpsPro", "DataMinds", "TechMarseille",
-  "NiceTech", "LilleStartup", "NantesTech", "StrasbourgAI", "ToulouseData",
-  "RennesTech", "MontpellierDev", "GrenobleAI", "ToursCloud", "NancyTech",
-  "MetzData", "DijonSoft", "ReimsWeb", "HavreDigital", "ToulonSys",
-  "AngersCode", "BrestTech", "CaenSoft", "ClermontDev", "LimogesData",
-  "AmiensWeb", "PerpignanTech", "BesançonSoft", "OrléansCloud", "MulhouseDev",
-  "RouenData", "GenevaTech", "LausanneSoft", "ZurichCloud", "BaselDev",
-  "BrusselsTech", "AntwerpData", "GhentSoft", "LiegeDev", "LuxCloud",
-  "MontrealTech", "QuebecSoft", "TorontoData", "VancouverDev", "OttawaCloud",
-  "AbidjanTech", "DakarSoft", "YaoundeData", "LibrevilleDev", "CasablancaCloud",
-  "LondonTech", "BerlinSoft", "AmsterdamData", "MadridDev", "BarcelonaCloud",
+  "TechCorp",
+  "InnovateTech",
+  "GrowthSaaS",
+  "StartupX",
+  "DataFlow",
+  "CloudScale",
+  "DevOpsInc",
+  "AIStartup",
+  "TechTeam",
+  "CodeBase",
+  "DevWorld",
+  "ScaleUp",
+  "TechGrowth",
+  "CloudFirst",
+  "InnovateLab",
+  "DataDriven",
+  "TechVision",
+  "CodeCraft",
+  "AIWorks",
+  "TechNova",
+  "CloudNative",
+  "ScaleTech",
+  "DevOpsPro",
+  "DataMinds",
+  "TechMarseille",
+  "NiceTech",
+  "LilleStartup",
+  "NantesTech",
+  "StrasbourgAI",
+  "ToulouseData",
+  "RennesTech",
+  "MontpellierDev",
+  "GrenobleAI",
+  "ToursCloud",
+  "NancyTech",
+  "MetzData",
+  "DijonSoft",
+  "ReimsWeb",
+  "HavreDigital",
+  "ToulonSys",
+  "AngersCode",
+  "BrestTech",
+  "CaenSoft",
+  "ClermontDev",
+  "LimogesData",
+  "AmiensWeb",
+  "PerpignanTech",
+  "BesançonSoft",
+  "OrléansCloud",
+  "MulhouseDev",
+  "RouenData",
+  "GenevaTech",
+  "LausanneSoft",
+  "ZurichCloud",
+  "BaselDev",
+  "BrusselsTech",
+  "AntwerpData",
+  "GhentSoft",
+  "LiegeDev",
+  "LuxCloud",
+  "MontrealTech",
+  "QuebecSoft",
+  "TorontoData",
+  "VancouverDev",
+  "OttawaCloud",
+  "AbidjanTech",
+  "DakarSoft",
+  "YaoundeData",
+  "LibrevilleDev",
+  "CasablancaCloud",
+  "LondonTech",
+  "BerlinSoft",
+  "AmsterdamData",
+  "MadridDev",
+  "BarcelonaCloud"
 ];
 
 function randomInt(min, max) {
@@ -82,8 +259,15 @@ function randomChoice(arr) {
 }
 
 function randomStatus() {
-  const statuses = ["identified", "connected", "contacted", "responded", "interested", "converted"];
-  const weights = [0.12, 0.13, 0.18, 0.20, 0.17, 0.20];
+  const statuses = [
+    "identified",
+    "connected",
+    "contacted",
+    "responded",
+    "interested",
+    "converted"
+  ];
+  const weights = [0.12, 0.13, 0.18, 0.2, 0.17, 0.2];
   const rand = Math.random();
   let cum = 0;
   for (let i = 0; i < statuses.length; i++) {
@@ -95,37 +279,161 @@ function randomStatus() {
 
 function generateName(index) {
   const firstNames = [
-    "Marie", "Jean", "Sophie", "Pierre", "Claire", "Lucas", "Emma", "Thomas",
-    "Julie", "Antoine", "Camille", "Hugo", "Léa", "Paul", "Sarah", "Maxime",
-    "Chloe", "Nicolas", "Alexandre", "Isabelle", "François", "Catherine",
-    "David", "Anne", "Marc", "Laura", "Guillaume", "Valérie", "Eric",
-    "Nathalie", "Olivier", "Sandrine", "Philippe", "Charlotte", "Mathieu",
-    "Audrey", "Sylvain", "Caroline", "Damien", "Elodie", "Jérôme",
-    "Bénédicte", "Romain", "Virginie", "Fabien", "Céline", "Grégory",
-    "Mélanie", "Christophe", "Jessica", "Anthony", "Aurélie", "Kevin",
-    "Laëtitia", "Sébastien", "Manon", "Alexis", "Marion", "Quentin",
-    "Justine", "Baptiste", "Amandine", "Florian", "Margaux", "Thibault",
-    "Stéphanie", "Adrien", "Laurine", "Vincent", "Solène", "Jonathan",
-    "Émilie", "Benjamin", "Pauline", "Loïc", "Marine", "Cédric",
-    "Juliette", "Gauthier", "Inès", "Yannick", "Léna", "Maxence",
-    "Alice", "Kévin", "Zoé", "Raphaël", "Eva", "Samuel",
-    "Noémie", "Théo", "Louna", "Tom", "Maëlle", "Noah",
+    "Marie",
+    "Jean",
+    "Sophie",
+    "Pierre",
+    "Claire",
+    "Lucas",
+    "Emma",
+    "Thomas",
+    "Julie",
+    "Antoine",
+    "Camille",
+    "Hugo",
+    "Léa",
+    "Paul",
+    "Sarah",
+    "Maxime",
+    "Chloe",
+    "Nicolas",
+    "Alexandre",
+    "Isabelle",
+    "François",
+    "Catherine",
+    "David",
+    "Anne",
+    "Marc",
+    "Laura",
+    "Guillaume",
+    "Valérie",
+    "Eric",
+    "Nathalie",
+    "Olivier",
+    "Sandrine",
+    "Philippe",
+    "Charlotte",
+    "Mathieu",
+    "Audrey",
+    "Sylvain",
+    "Caroline",
+    "Damien",
+    "Elodie",
+    "Jérôme",
+    "Bénédicte",
+    "Romain",
+    "Virginie",
+    "Fabien",
+    "Céline",
+    "Grégory",
+    "Mélanie",
+    "Christophe",
+    "Jessica",
+    "Anthony",
+    "Aurélie",
+    "Kevin",
+    "Laëtitia",
+    "Sébastien",
+    "Manon",
+    "Alexis",
+    "Marion",
+    "Quentin",
+    "Justine",
+    "Baptiste",
+    "Amandine",
+    "Florian",
+    "Margaux",
+    "Thibault",
+    "Stéphanie",
+    "Adrien",
+    "Laurine",
+    "Vincent",
+    "Solène",
+    "Jonathan",
+    "Émilie",
+    "Benjamin",
+    "Pauline",
+    "Loïc",
+    "Marine",
+    "Cédric",
+    "Juliette",
+    "Gauthier",
+    "Inès",
+    "Yannick",
+    "Léna",
+    "Maxence",
+    "Alice",
+    "Kévin",
+    "Zoé",
+    "Raphaël",
+    "Eva",
+    "Samuel",
+    "Noémie",
+    "Théo",
+    "Louna",
+    "Tom",
+    "Maëlle",
+    "Noah"
   ];
   const lastNames = [
-    "Dupont", "Martin", "Bernard", "Leroy", "Moreau", "Petit", "Robert",
-    "Richard", "Dubois", "Laurent", "Simon", "Michel", "Garcia", "David",
-    "Bertrand", "Roux", "Vincent", "Fournier", "Lefebvre", "Mercier",
-    "Blanc", "Chevalier", "Rousseau", "Guerin", "Muller", "Fontaine",
-    "Garnier", "Perrin", "Morin", "Nicolas", "Marchand", "Duval",
-    "Brunet", "Hubert", "Louis", "Deschamps", "Meyer", "André",
-    "Masson", "Faure", "Lemaire", "Roy", "Barbier", "Dumas",
-    "Brun", "François", "Gérard", "Caron", "Philippe", "Chevallier",
+    "Dupont",
+    "Martin",
+    "Bernard",
+    "Leroy",
+    "Moreau",
+    "Petit",
+    "Robert",
+    "Richard",
+    "Dubois",
+    "Laurent",
+    "Simon",
+    "Michel",
+    "Garcia",
+    "David",
+    "Bertrand",
+    "Roux",
+    "Vincent",
+    "Fournier",
+    "Lefebvre",
+    "Mercier",
+    "Blanc",
+    "Chevalier",
+    "Rousseau",
+    "Guerin",
+    "Muller",
+    "Fontaine",
+    "Garnier",
+    "Perrin",
+    "Morin",
+    "Nicolas",
+    "Marchand",
+    "Duval",
+    "Brunet",
+    "Hubert",
+    "Louis",
+    "Deschamps",
+    "Meyer",
+    "André",
+    "Masson",
+    "Faure",
+    "Lemaire",
+    "Roy",
+    "Barbier",
+    "Dumas",
+    "Brun",
+    "François",
+    "Gérard",
+    "Caron",
+    "Philippe",
+    "Chevallier"
   ];
   return `${firstNames[index % firstNames.length]} ${lastNames[(index * 3) % lastNames.length]}`;
 }
 
 async function seedProspectMap() {
-  console.log("🌍 Ajout de prospects pour enrichir Prospect Intelligence Map...");
+  console.log(
+    "🌍 Ajout de prospects pour enrichir Prospect Intelligence Map..."
+  );
 
   try {
     const prospectValues = [];
@@ -145,11 +453,15 @@ async function seedProspectMap() {
       // Cold: score 0-39, status early
       let score;
       const rand = Math.random();
-      if (rand < 0.15) score = randomInt(85, 100);      // Champions
-      else if (rand < 0.35) score = randomInt(70, 84); // Hot
-      else if (rand < 0.60) score = randomInt(50, 69); // Warm
-      else if (rand < 0.80) score = randomInt(35, 49); // Cold/Warm
-      else score = randomInt(20, 34);                   // Cold
+      if (rand < 0.15)
+        score = randomInt(85, 100); // Champions
+      else if (rand < 0.35)
+        score = randomInt(70, 84); // Hot
+      else if (rand < 0.6)
+        score = randomInt(50, 69); // Warm
+      else if (rand < 0.8)
+        score = randomInt(35, 49); // Cold/Warm
+      else score = randomInt(20, 34); // Cold
 
       const daysAgo = randomInt(1, 60);
       const updatedDaysAgo = Math.max(1, daysAgo - randomInt(0, 20));
@@ -181,7 +493,9 @@ async function seedProspectMap() {
     `);
     console.log("\n🏙️  Top 20 villes:");
     cityStats.rows.forEach((row) => {
-      console.log(`   ${row.location}: ${row.count} prospects (${row.converted} convertis)`);
+      console.log(
+        `   ${row.location}: ${row.count} prospects (${row.converted} convertis)`
+      );
     });
 
     // Vérification par industrie
@@ -196,7 +510,9 @@ async function seedProspectMap() {
     `);
     console.log("\n🏭 Top 15 industries:");
     industryStats.rows.forEach((row) => {
-      console.log(`   ${row.industry}: ${row.count} prospects, score moyen ${row.avg_score} (${row.converted} convertis)`);
+      console.log(
+        `   ${row.industry}: ${row.count} prospects, score moyen ${row.avg_score} (${row.converted} convertis)`
+      );
     });
 
     // Vérification par score (pour le quadrant ICP)
@@ -228,14 +544,15 @@ async function seedProspectMap() {
     `);
     console.log("\n🎯 Quadrant ICP:");
     scoreStats.rows.forEach((row) => {
-      console.log(`   ${row.quadrant}: ${row.count} prospects (${row.converted} convertis)`);
+      console.log(
+        `   ${row.quadrant}: ${row.count} prospects (${row.converted} convertis)`
+      );
     });
 
     // Total
     const totalResult = await pool.query("SELECT COUNT(*) FROM prospects");
     console.log(`\n👥 Total prospects: ${totalResult.rows[0].count}`);
     console.log("\n🎉 Prospect Intelligence Map enrichi !");
-
   } catch (error) {
     console.error("❌ Erreur:", error);
     throw error;

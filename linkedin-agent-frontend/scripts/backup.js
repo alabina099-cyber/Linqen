@@ -9,11 +9,17 @@ const { Pool } = require("pg");
 const fs = require("fs");
 const path = require("path");
 
-const CONNECTION_STRING =
-  process.env.DATABASE_URL ||
-  "postgresql://neondb_owner:npg_uzan40Povxwp@ep-tiny-term-ai0m9euo-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require";
+const CONNECTION_STRING = process.env.DATABASE_URL;
 
-const BACKUP_DIR = process.env.BACKUP_DIR || path.join(__dirname, "..", "backups");
+if (!CONNECTION_STRING) {
+  console.error(
+    "❌ DATABASE_URL non défini. Configurez-le via les secrets GitHub ou votre fichier .env."
+  );
+  process.exit(1);
+}
+
+const BACKUP_DIR =
+  process.env.BACKUP_DIR || path.join(__dirname, "..", "backups");
 const RETENTION_DAYS = parseInt(process.env.BACKUP_RETENTION_DAYS || "30");
 
 const TABLES = [
@@ -25,7 +31,7 @@ const TABLES = [
   "notifications",
   "linkedin_actions_queue",
   "scheduled_followups",
-  "agent_chat_history",
+  "agent_chat_history"
 ];
 
 async function backup() {
@@ -45,13 +51,13 @@ async function backup() {
 
   const pool = new Pool({
     connectionString: CONNECTION_STRING,
-    ssl: { rejectUnauthorized: false },
+    ssl: { rejectUnauthorized: false }
   });
 
   const manifest = {
     timestamp: new Date().toISOString(),
     tables: {},
-    totalRows: 0,
+    totalRows: 0
   };
 
   try {
@@ -68,7 +74,7 @@ async function backup() {
         manifest.tables[table] = {
           rows: result.rows.length,
           file: `${table}.json`,
-          size: fs.statSync(filePath).size,
+          size: fs.statSync(filePath).size
         };
         manifest.totalRows += result.rows.length;
         console.log(`${result.rows.length} rows`);
@@ -120,12 +126,14 @@ function cleanupOldBackups() {
     .map((d) => ({
       name: d,
       path: path.join(BACKUP_DIR, d),
-      mtime: fs.statSync(path.join(BACKUP_DIR, d)).mtimeMs,
+      mtime: fs.statSync(path.join(BACKUP_DIR, d)).mtimeMs
     }))
     .filter((d) => d.mtime < cutoff);
 
   if (dirs.length > 0) {
-    console.log(`\nCleaning up ${dirs.length} backup(s) older than ${RETENTION_DAYS} days...`);
+    console.log(
+      `\nCleaning up ${dirs.length} backup(s) older than ${RETENTION_DAYS} days...`
+    );
     for (const d of dirs) {
       fs.rmSync(d.path, { recursive: true, force: true });
       console.log(`  Removed: ${d.name}`);

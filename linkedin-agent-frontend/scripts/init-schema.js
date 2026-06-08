@@ -1,13 +1,14 @@
 // Script pour initialiser le schéma de la base de données
-const { Pool } = require('pg');
+const { Pool } = require("pg");
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_uzan40Povxwp@ep-tiny-term-ai0m9euo-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require'
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
 async function initSchema() {
-  console.log('🔧 Initialisation du schéma de la base de données...');
-  
+  console.log("🔧 Initialisation du schéma de la base de données...");
+
   try {
     await pool.query(`
       -- Table des campagnes
@@ -39,7 +40,7 @@ async function initSchema() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    console.log('✅ Table campaigns créée');
+    console.log("✅ Table campaigns créée");
 
     await pool.query(`
       -- Table des messages
@@ -56,7 +57,7 @@ async function initSchema() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    console.log('✅ Table messages créée');
+    console.log("✅ Table messages créée");
 
     await pool.query(`
       -- Table des prospects
@@ -88,7 +89,7 @@ async function initSchema() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    console.log('✅ Table prospects créée');
+    console.log("✅ Table prospects créée");
 
     await pool.query(`
       -- Table des utilisateurs
@@ -105,7 +106,7 @@ async function initSchema() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    console.log('✅ Table users créée');
+    console.log("✅ Table users créée");
 
     await pool.query(`
       -- Table historique de chat agent IA
@@ -119,7 +120,7 @@ async function initSchema() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    console.log('✅ Table agent_chat_history créée');
+    console.log("✅ Table agent_chat_history créée");
 
     await pool.query(`
       -- Table des étapes d'outils agent (tool calls intermédiaires)
@@ -133,7 +134,7 @@ async function initSchema() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    console.log('✅ Table agent_tool_steps créée');
+    console.log("✅ Table agent_tool_steps créée");
 
     await pool.query(`
       -- Table des templates de messages
@@ -148,7 +149,7 @@ async function initSchema() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    console.log('✅ Table templates créée');
+    console.log("✅ Table templates créée");
 
     await pool.query(`
       -- Table des notifications
@@ -163,7 +164,7 @@ async function initSchema() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    console.log('✅ Table notifications créée');
+    console.log("✅ Table notifications créée");
 
     await pool.query(`
       -- Table de queue d'actions LinkedIn (communication avec extension Chrome)
@@ -182,7 +183,7 @@ async function initSchema() {
         executed_at TIMESTAMP
       );
     `);
-    console.log('✅ Table linkedin_actions_queue créée');
+    console.log("✅ Table linkedin_actions_queue créée");
 
     await pool.query(`
       -- Table des follow-ups planifiés
@@ -196,25 +197,44 @@ async function initSchema() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    console.log('✅ Table scheduled_followups créée');
+    console.log("✅ Table scheduled_followups créée");
 
     // Index pour améliorer les performances
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status);`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_campaign_id ON messages(campaign_id);`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_prospect_id ON messages(prospect_id);`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_prospects_status ON prospects(status);`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_prospects_score ON prospects(score DESC);`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_prospects_industry ON prospects(industry);`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_agent_chat_user ON agent_chat_history(user_id);`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_templates_tag ON templates(tag);`);
-    console.log('✅ Index créés');
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);`
+    );
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);`
+    );
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status);`
+    );
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_messages_campaign_id ON messages(campaign_id);`
+    );
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_messages_prospect_id ON messages(prospect_id);`
+    );
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_prospects_status ON prospects(status);`
+    );
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_prospects_score ON prospects(score DESC);`
+    );
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_prospects_industry ON prospects(industry);`
+    );
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_agent_chat_user ON agent_chat_history(user_id);`
+    );
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_templates_tag ON templates(tag);`
+    );
+    console.log("✅ Index créés");
 
-    console.log('🎉 Schéma initialisé avec succès !');
-    
+    console.log("🎉 Schéma initialisé avec succès !");
   } catch (error) {
-    console.error('❌ Erreur lors de l\'initialisation du schéma:', error);
+    console.error("❌ Erreur lors de l'initialisation du schéma:", error);
     throw error;
   } finally {
     await pool.end();

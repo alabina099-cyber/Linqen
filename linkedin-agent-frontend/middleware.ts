@@ -49,8 +49,12 @@ if (typeof setInterval !== "undefined") {
 export function middleware(request: NextRequest) {
   const response = NextResponse.next();
 
-  // 0. Rate limiting par IP pour toutes les routes API
-  if (request.nextUrl.pathname.startsWith("/api/")) {
+  // 0. Rate limiting par IP pour toutes les routes API (sauf monitoring)
+  const isMonitoringEndpoint =
+    request.nextUrl.pathname === "/api/metrics" ||
+    request.nextUrl.pathname === "/api/health";
+
+  if (request.nextUrl.pathname.startsWith("/api/") && !isMonitoringEndpoint) {
     const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
     const rateLimit = checkRateLimit(ip, 100, 60000); // 100 req/min par IP
     if (!rateLimit.allowed) {

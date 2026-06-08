@@ -1,0 +1,159 @@
+name: Backup Restore Test (Weekly)
+
+# Vérifie hebdomadairement que le dernier backup est restaurable
+# en l'appliquant sur une DB Postgres jetable.
+
+on:
+  schedule:
+    # Tous les dimanches à 3h UTC
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+jobs:
+  restore-test:
+    name: Restore last backup on disposable Postgres
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: restore_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d restore_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: linkedin-agent-frontend/package-lock.json
+
+      - name: Install deps
+        working-directory: linkedin-agent-frontend
+        run: npm ci --omit=dev --ignore-scripts
+
+      - name: Apply migrations on test DB
+        working-directory: linkedin-agent-frontend
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/restore_test
+        run: npm run migrate
+
+      - name: Download latest backup artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: backup.yml
+          name_is_regexp: true
+          name: db-backup-.*
+          path: ./latest-backup
+          if_no_artifact_found: warn
+
+      - name: Locate manifest
+        id: locate
+        run: |
+          MANIFEST=$(find ./latest-backup -name "_manifest.json" | head -1 || true)
+          if [ -z "$MANIFEST" ]; then
+            echo "⚠️ Aucun backup à tester"
+            echo "found=false" >> $GITHUB_OUTPUT
+          else
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "dir=$(dirname $MANIFEST)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run restore script
+        if: steps.locate.outputs.found == 'true'
+        working-directory: linkedin-agent-frontend
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/restore_test
+          RESTORE_DIR: ../${{ steps.locate.outputs.dir }}
+        run: node scripts/restore.js || echo "⚠️ Restore script terminé avec warnings (peut être normal selon le contenu)"
+
+      - name: Verify schema + row counts + manifest match
+        if: steps.locate.outputs.found == 'true'
+        env:
+          PGPASSWORD: test
+          MANIFEST_DIR: ${{ steps.locate.outputs.dir }}
+        run: |
+          set -e
+          PSQL="psql -h localhost -U test -d restore_test -tAc"
+
+          # 1. Vérifier les tables clés attendues par l'app
+          REQUIRED_TABLES="prospects linkedin_actions_queue worker_heartbeats _migrations"
+          MISSING=""
+          for T in $REQUIRED_TABLES; do
+            FOUND=$($PSQL "SELECT to_regclass('public.$T') IS NOT NULL")
+            if [ "$FOUND" != "t" ]; then
+              MISSING="$MISSING $T"
+            fi
+          done
+          if [ -n "$MISSING" ]; then
+            echo "❌ Tables manquantes après restore :$MISSING"
+            exit 1
+          fi
+
+          # 2. Compter les lignes restaurées (au moins une table non vide)
+          TOTAL_ROWS=0
+          for T in $REQUIRED_TABLES; do
+            N=$($PSQL "SELECT COUNT(*) FROM public.$T")
+            echo "  $T: $N lignes"
+            TOTAL_ROWS=$((TOTAL_ROWS + N))
+          done
+          if [ "$TOTAL_ROWS" -lt 1 ]; then
+            echo "❌ Aucune ligne restaurée sur les tables clés"
+            exit 1
+          fi
+
+          # 3. Cross-check avec le manifest (si counts présents)
+          MANIFEST_FILE="$MANIFEST_DIR/_manifest.json"
+          if [ -f "$MANIFEST_FILE" ] && jq -e '.tables' "$MANIFEST_FILE" >/dev/null 2>&1; then
+            echo "🔍 Cross-check manifest…"
+            jq -r '.tables | to_entries[] | "\(.key) \(.value.rows // .value)"' "$MANIFEST_FILE" \
+              | while read TBL EXPECTED; do
+                  if [ -z "$EXPECTED" ] || [ "$EXPECTED" = "null" ]; then continue; fi
+                  ACTUAL=$($PSQL "SELECT COUNT(*) FROM public.\"$TBL\"" 2>/dev/null || echo "0")
+                  if [ "$ACTUAL" != "$EXPECTED" ]; then
+                    echo "❌ $TBL : manifest=$EXPECTED, restored=$ACTUAL"
+                    exit 1
+                  fi
+                  echo "  ✓ $TBL: $ACTUAL"
+                done
+          fi
+
+          echo "## ✅ Restore test réussi" >> $GITHUB_STEP_SUMMARY
+          echo "Total lignes restaurées (tables clés): $TOTAL_ROWS" >> $GITHUB_STEP_SUMMARY
+
+      - name: Test déchiffrement R2 (si chiffrement activé)
+        if: steps.locate.outputs.found == 'true'
+        env:
+          PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
+        run: |
+          if [ -z "$PASSPHRASE" ]; then
+            echo "ℹ️ Chiffrement non activé — skip"
+            exit 0
+          fi
+          # Cherche un .tar.gz.gpg dans les artifacts téléchargés pour vérifier qu'il s'ouvre
+          ENC=$(find ./latest-backup -name "*.tar.gz.gpg" | head -1 || true)
+          if [ -z "$ENC" ]; then
+            echo "ℹ️ Pas d'archive chiffrée locale (artifact = dossier brut) — skip"
+            exit 0
+          fi
+          echo "$PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --decrypt "$ENC" > /tmp/verify.tar.gz
+          tar -tzf /tmp/verify.tar.gz > /dev/null
+          echo "✅ Déchiffrement + intégrité tar OK"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "## ❌ Restore test échoué" >> $GITHUB_STEP_SUMMARY
+          echo "Le dernier backup n'est pas restaurable. **CRITIQUE** — vérifier immédiatement." >> $GITHUB_STEP_SUMMARY

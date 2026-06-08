@@ -13,6 +13,9 @@ import { getBrowser, createPage, closeBrowser, isLoggedInToLinkedIn, loginToLink
 import { executeSendConnection } from './actions/connect';
 import { executeSendMessage } from './actions/message';
 import { executeVisitProfile } from './actions/visit';
+import { createHealthServer, WorkerHealthState } from './health-server';
+import { Pool } from 'pg';
+import type { Server } from 'http';
 
 const config: WorkerConfig = {
   workerId: process.env.WORKER_ID || `worker-${process.env.HOSTNAME || Math.random().toString(36).slice(2, 8)}`,
@@ -30,6 +33,20 @@ let isShuttingDown = false;
 let consecutiveErrors = 0;
 const MAX_CONSECUTIVE_ERRORS = 10;
 
+const healthState: WorkerHealthState = {
+  workerId: config.workerId,
+  startTime: Date.now(),
+  lastPollAt: Date.now(),
+  lastSuccessAt: null,
+  consecutiveErrors: 0,
+  totalProcessed: 0,
+  totalSucceeded: 0,
+  totalFailed: 0,
+  isShuttingDown: false,
+};
+
+let healthServer: Server | null = null;
+
 /**
  * Gestion gracieuse des signaux d'arrêt (SIGTERM, SIGINT).
  */
@@ -37,7 +54,11 @@ function setupGracefulShutdown() {
   const shutdown = async (signal: string) => {
     console.log(`[${config.workerId}] Signal ${signal} reçu. Arrêt gracieux...`);
     isShuttingDown = true;
+    healthState.isShuttingDown = true;
     try {
+      if (healthServer) {
+        await new Promise<void>((resolve) => healthServer!.close(() => resolve()));
+      }
       await closeBrowser();
       await closePool();
     } catch (err) {
@@ -99,20 +120,28 @@ async function processAction() {
         result = { success: false, error: `Type d'action non supporté: ${action.action_type}` };
     }
 
+    healthState.totalProcessed++;
     if (result.success) {
       await completeAction(action.id, result);
       console.log(`[${config.workerId}] Action #${action.id} terminée avec succès.`);
       consecutiveErrors = 0;
+      healthState.consecutiveErrors = 0;
+      healthState.totalSucceeded++;
+      healthState.lastSuccessAt = Date.now();
     } else {
       await failAction(action.id, result.error || 'Erreur inconnue', result.details);
       console.warn(`[${config.workerId}] Action #${action.id} échouée: ${result.error}`);
       consecutiveErrors++;
+      healthState.consecutiveErrors = consecutiveErrors;
+      healthState.totalFailed++;
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await failAction(action.id, `Exception worker: ${message}`);
     console.error(`[${config.workerId}] Exception sur action #${action.id}:`, message);
     consecutiveErrors++;
+    healthState.consecutiveErrors = consecutiveErrors;
+    healthState.totalFailed++;
   } finally {
     try {
       await page.close();
@@ -222,13 +251,26 @@ async function main() {
   recoveryLoop();
   statsLoop();
 
+  // Démarrer le serveur HTTP health/metrics
+  const healthPort = parseInt(process.env.HEALTH_PORT || '9090', 10);
+  const healthPool = new Pool({
+    connectionString: config.databaseUrl,
+    ssl: { rejectUnauthorized: false },
+    max: 1,
+    idleTimeoutMillis: 10000,
+    connectionTimeoutMillis: 5000,
+  });
+  healthServer = createHealthServer(healthState, healthPool, healthPort);
+
   // Boucle principale
   while (!isShuttingDown) {
+    healthState.lastPollAt = Date.now();
     try {
       await processAction();
     } catch (err) {
       console.error(`[${config.workerId}] Erreur dans la boucle principale:`, err);
       consecutiveErrors++;
+      healthState.consecutiveErrors = consecutiveErrors;
     }
 
     // Si trop d'erreurs consécutives, attendre plus longtemps

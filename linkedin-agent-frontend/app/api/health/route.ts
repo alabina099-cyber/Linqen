@@ -53,7 +53,13 @@ export async function GET() {
       status: overallStatus,
       timestamp: new Date().toISOString(),
       uptime,
-      version: process.env.npm_package_version || "0.1.0",
+      // IMAGE_TAG est injecté par Coolify lors du déploiement (ex: sha-abc1234).
+      // Sert au snapshot rollback dans .github/workflows/deploy.yml.
+      version:
+        process.env.IMAGE_TAG ||
+        process.env.GIT_SHA ||
+        process.env.npm_package_version ||
+        "0.1.0",
       checks,
       instance: process.env.HOSTNAME || "local",
     },

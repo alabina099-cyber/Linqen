@@ -4,13 +4,16 @@
 // =============================================
 const { Pool } = require("pg");
 
-const DATABASE_URL =
-  process.env.DATABASE_URL ||
-  "postgresql://neondb_owner:npg_uzan40Povxwp@ep-tiny-term-ai0m9euo-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+const DATABASE_URL = process.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+  console.error("❌ DATABASE_URL non défini.");
+  process.exit(1);
+}
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: false }
 });
 
 async function main() {
@@ -57,7 +60,9 @@ async function main() {
     if (delRes.rowCount > 0) {
       console.log("\n📋 Liste des prospects supprimés:");
       delRes.rows.forEach((p) => {
-        console.log(`   #${p.id} - ${p.name || "(sans nom)"} - ${p.linkedin_url || "(sans URL)"}`);
+        console.log(
+          `   #${p.id} - ${p.name || "(sans nom)"} - ${p.linkedin_url || "(sans URL)"}`
+        );
       });
     }
 
@@ -65,7 +70,9 @@ async function main() {
     const finalRes = await client.query(
       `SELECT COUNT(*)::int AS count FROM prospects WHERE status = 'new'`
     );
-    console.log(`\n📊 Vérification finale: ${finalRes.rows[0].count} prospect(s) 'new' restant(s)`);
+    console.log(
+      `\n📊 Vérification finale: ${finalRes.rows[0].count} prospect(s) 'new' restant(s)`
+    );
   } catch (err) {
     console.error("❌ Erreur:", err.message);
     process.exit(1);

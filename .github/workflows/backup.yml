@@ -46,12 +46,79 @@ jobs:
           echo "path=$BACKUP_DIR" >> $GITHUB_OUTPUT
           echo "name=$(basename $BACKUP_DIR)" >> $GITHUB_OUTPUT
 
-      - name: Upload backup as artifact
+      - name: Upload backup as artifact (fallback)
         uses: actions/upload-artifact@v4
         with:
           name: db-backup-${{ steps.backup-info.outputs.name }}
           path: linkedin-agent-frontend/${{ steps.backup-info.outputs.path }}
           retention-days: 30
+
+      - name: Compress backup
+        working-directory: linkedin-agent-frontend
+        run: |
+          cd "${{ steps.backup-info.outputs.path }}"
+          tar -czf "../${{ steps.backup-info.outputs.name }}.tar.gz" .
+          ls -lh "../${{ steps.backup-info.outputs.name }}.tar.gz"
+
+      - name: Encrypt backup (GPG symmetric AES256)
+        id: encrypt
+        working-directory: linkedin-agent-frontend
+        env:
+          PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
+        run: |
+          FILE="${{ steps.backup-info.outputs.name }}.tar.gz"
+          if [ -z "$PASSPHRASE" ]; then
+            echo "⚠️ BACKUP_ENCRYPTION_PASSPHRASE absent — backup R2 sera EN CLAIR (fortement déconseillé)"
+            echo "upload_name=$FILE" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "$PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --cipher-algo AES256 --symmetric --output "$FILE.gpg" "$FILE"
+          # Vérifier le déchiffrement (round-trip) avant d'écraser/d'uploader
+          echo "$PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --decrypt "$FILE.gpg" > /tmp/verify.tar.gz
+          if ! cmp -s "$FILE" /tmp/verify.tar.gz; then
+            echo "❌ Vérification déchiffrement échouée"
+            exit 1
+          fi
+          rm /tmp/verify.tar.gz
+          rm "$FILE"
+          echo "✅ Backup chiffré (round-trip OK) : $FILE.gpg"
+          echo "upload_name=$FILE.gpg" >> $GITHUB_OUTPUT
+
+      - name: Upload backup to Cloudflare R2 (S3-compatible)
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        working-directory: linkedin-agent-frontend
+        run: |
+          if [ -z "$R2_ACCESS_KEY_ID" ] || [ -z "$R2_ENDPOINT" ] || [ -z "$R2_BUCKET" ]; then
+            echo "⚠️ R2 non configuré — backup conservé uniquement en artifact GitHub (30j)"
+            echo "ℹ️  Pour activer R2: configurer R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ENDPOINT / R2_BUCKET"
+            exit 0
+          fi
+          # Installer rclone (S3-compatible, gratuit)
+          curl -fsSL https://rclone.org/install.sh | sudo bash
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf <<EOF
+          [r2]
+          type = s3
+          provider = Cloudflare
+          access_key_id = $R2_ACCESS_KEY_ID
+          secret_access_key = $R2_SECRET_ACCESS_KEY
+          endpoint = $R2_ENDPOINT
+          region = auto
+          EOF
+          FILE="${{ steps.encrypt.outputs.upload_name }}"
+          rclone copy "$FILE" "r2:$R2_BUCKET/db-backups/" --progress
+          echo "✅ Backup uploadé vers R2: $R2_BUCKET/db-backups/$FILE"
+          echo "## ☁️ Backup R2" >> $GITHUB_STEP_SUMMARY
+          echo "**Bucket:** \`$R2_BUCKET/db-backups/$FILE\`" >> $GITHUB_STEP_SUMMARY
+
+          # Rétention : supprimer les backups > 90 jours dans R2 (tar.gz et tar.gz.gpg)
+          rclone delete "r2:$R2_BUCKET/db-backups/" --min-age 90d --include "backup-*.tar.gz*" || true
 
       - name: Backup summary
         run: |

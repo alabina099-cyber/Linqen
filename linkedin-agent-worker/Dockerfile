@@ -39,6 +39,7 @@ RUN apk add --no-cache \
     ca-certificates \
     ttf-freefont \
     curl \
+    wget \
     && rm -rf /var/cache/apk/*
 
 # Puppeteer sait utiliser le Chromium système d'Alpine
@@ -58,8 +59,10 @@ COPY --from=builder --chown=worker:nodejs /app/package*.json ./
 
 USER worker
 
-# Healthcheck simple
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD node -e "console.log('ok')" || exit 1
+EXPOSE 9090
+
+# Healthcheck HTTP réel : vérifie que la boucle de polling est active
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD wget -q --spider http://localhost:9090/health || exit 1
 
 CMD ["node", "dist/index.js"]

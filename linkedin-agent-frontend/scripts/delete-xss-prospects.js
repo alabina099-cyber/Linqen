@@ -1,10 +1,8 @@
 const { Pool } = require("pg");
 
 const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ||
-    "postgresql://neondb_owner:npg_uzan40Povxwp@ep-tiny-term-ai0m9euo-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
-  ssl: { rejectUnauthorized: false },
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
 (async () => {
@@ -16,7 +14,9 @@ const pool = new Pool({
           OR linkedin_url !~* '^https?://(www\\.)?linkedin\\.com/'`
     );
 
-    console.log(`🚨 ${malicious.rowCount} prospect(s) avec URL invalide ou malicieuse trouvé(s):\n`);
+    console.log(
+      `🚨 ${malicious.rowCount} prospect(s) avec URL invalide ou malicieuse trouvé(s):\n`
+    );
     malicious.rows.forEach((p) => {
       console.log(`  #${p.id} - name: ${p.name} - url: ${p.linkedin_url}`);
     });

@@ -2,9 +2,8 @@
 const { Pool } = require("pg");
 
 const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ||
-    "postgresql://neondb_owner:npg_uzan40Povxwp@ep-tiny-term-ai0m9euo-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
 // Textes calibrés pour être entre 300 et 500 caractères
@@ -18,7 +17,7 @@ const texts300to500 = [
   "Salut, je suis le CTO de DataMinds, cabinet de conseil en data science et intelligence artificielle. Nous accompagnons des grands comptes du CAC40 sur leurs projets d'IA et de machine learning les plus stratégiques. Nous recherchons un Data Lead pour structurer notre équipe data actuellement composée de 5 personnes très talentueuses. Vous serez en charge de la qualité des livrables sur les projets clients, du recrutement de nouveaux profils data scientists et data engineers, et de la relation client sur les dossiers les plus stratégiques. Poste basé à Paris avec 2 jours de télétravail par semaine, package 85-105k€ + bonus sur résultats + voiture de fonction. Votre background technique solide et votre expérience client sont un atout majeur pour ce poste.",
   "Hello, je suis recruteur chez DevOpsPro, entreprise en hyper-croissance qui édite une plateforme d'automatisation des déploiements pour les PME et ETI. Nous avons vu votre profil et votre double compétence développement + infrastructure nous impressionne beaucoup. Nous recherchons un Senior DevOps Engineer pour rejoindre notre équipe infrastructure de 4 personnes. Vous serez responsable de l'optimisation de nos pipelines CI/CD sur GitLab, de la migration progressive de notre infrastructure vers Kubernetes sur GCP, et de l'accompagnement des équipes de développement dans leurs bonnes pratiques DevOps. Poste en full remote depuis la France, package 70-85k€ + intéressement + participation aux frais de coworking. Votre expertise est exactement ce que nous recherchons.",
   "Bonjour, votre profil est exactement ce que nous recherchons ! Je suis HR Director chez InnovateTech, cabinet de recrutement spécialisé dans les profils tech seniors. Nous avons un client, scale-up SaaS en série C qui développe une solution collaborative pour les équipes produit, qui recherche une CEO technique pour lancer sa nouvelle business unit dédiée à l'intelligence artificielle. Le poste implique de gérer une équipe de 30 personnes dès le départ, de définir la roadmap produit IA sur 18 mois, et de représenter la société auprès des investisseurs et des clients. Package : 120-150k€ + BSPCE très significatives + remote complet depuis l'Europe. Votre expérience entrepreneuriale et votre réseau dans l'écosystème startup sont des atouts majeurs. Un premier échange vous tente ?",
-  "Hello, je suis le CEO de ScaleTech, startup qui développe une plateforme no-code d'automatisation des processus métier pour les PME. Après 2 ans de développement et un premier produit validé par le marché, nous venons de finaliser notre première levée de fonds de 5M€ et entamons une phase de croissance ambitieuse. Nous recherchons un CTO qui sera mon bras droit technique et prendra la direction de toute l'ingénierie produit. Vous serez en charge de la roadmap technique, du recrutement et de la fidélisation des équipes dev (objectif : 12 personnes d'ici 12 mois), de la qualité et de la scalabilité de notre infrastructure, et de la veille technologique. Package : 80-100k€ + 8-12% d'equity selon votre expérience et votre capacité à nous rejoindre rapidement. Poste basé à Paris avec remote flexible.",
+  "Hello, je suis le CEO de ScaleTech, startup qui développe une plateforme no-code d'automatisation des processus métier pour les PME. Après 2 ans de développement et un premier produit validé par le marché, nous venons de finaliser notre première levée de fonds de 5M€ et entamons une phase de croissance ambitieuse. Nous recherchons un CTO qui sera mon bras droit technique et prendra la direction de toute l'ingénierie produit. Vous serez en charge de la roadmap technique, du recrutement et de la fidélisation des équipes dev (objectif : 12 personnes d'ici 12 mois), de la qualité et de la scalabilité de notre infrastructure, et de la veille technologique. Package : 80-100k€ + 8-12% d'equity selon votre expérience et votre capacité à nous rejoindre rapidement. Poste basé à Paris avec remote flexible."
 ];
 
 function randomInt(min, max) {
@@ -41,7 +40,7 @@ async function seed() {
         campaign_id: randomInt(1, 4),
         text: text,
         status: Math.random() < 0.5 ? "replied" : "sent",
-        daysAgo: randomInt(1, 60),
+        daysAgo: randomInt(1, 60)
       });
     }
 
@@ -103,7 +102,9 @@ async function seed() {
     console.log("│ Bucket  │ Total │ Répondu │ Taux │");
     console.log("├─────────┼───────┼─────────┼──────┤");
     verify.rows.forEach((row) => {
-      console.log(`│ ${row.bucket.padEnd(7)} │ ${String(row.total).padStart(5)} │ ${String(row.replied).padStart(7)} │ ${String(row.rate).padStart(4)}% │`);
+      console.log(
+        `│ ${row.bucket.padEnd(7)} │ ${String(row.total).padStart(5)} │ ${String(row.replied).padStart(7)} │ ${String(row.rate).padStart(4)}% │`
+      );
     });
     console.log("└─────────┴───────┴─────────┴──────┘");
 

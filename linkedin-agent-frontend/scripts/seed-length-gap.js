@@ -2,9 +2,8 @@
 const { Pool } = require("pg");
 
 const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ||
-    "postgresql://neondb_owner:npg_uzan40Povxwp@ep-tiny-term-ai0m9euo-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
 function text200to300() {
@@ -13,7 +12,7 @@ function text200to300() {
     "Hello, je suis recruteur chez TechGrowth. Nous avons une opportunité passionnante pour un développeur fullstack avec 5+ ans d'expérience. Notre stack : React, Node.js, PostgreSQL. Remote possible. Salaire compétitif selon profil.",
     "Salut, je vous contacte car votre profil correspond à une offre de CTO chez une startup en série A. Vous aurez l'occasion de construire l'équipe technique from scratch et de définir la vision produit. Equity significative incluse.",
     "Bonjour, nous sommes une scale-up SaaS en hyper-croissance et recherchons un VP Engineering. Vous serez en charge de 3 squads et participerez aux décisions stratégiques. Package : 90-110k€ + BSPCE.",
-    "Hello, je suis fondateur d'une startup IA. Nous développons un copilote pour développeurs. Votre background technique et votre réseau nous intéressent beaucoup. On en discute ?",
+    "Hello, je suis fondateur d'une startup IA. Nous développons un copilote pour développeurs. Votre background technique et votre réseau nous intéressent beaucoup. On en discute ?"
   ];
   return texts[Math.floor(Math.random() * texts.length)];
 }
@@ -24,7 +23,7 @@ function text300to500() {
     "Hello Isabelle, je suis Head of Talent chez CloudNative, une entreprise qui édite une solution de monitoring cloud pour les équipes DevOps. Nous avons vu votre profil et votre double compétence développement + infrastructure nous impressionne. Nous recherchons un Senior DevOps Engineer pour rejoindre notre équipe de 4 personnes. Vous serez responsable de l'optimisation de nos pipelines CI/CD, de la migration vers Kubernetes, et de l'accompagnement des équipes de développement dans leurs bonnes pratiques. Poste en full remote, package 70-85k€ + intéressement. Votre profil est exactement ce que nous recherchons.",
     "Salut François, je suis consultant indépendant spécialisé dans le recrutement tech. Un de mes clients, éditeur de logiciel B2B en série B, recherche un Engineering Manager pour accompagner leur croissance de 20 à 60 personnes d'ici 18 mois. Vous auriez 2 équipes sous votre responsabilité (8 développeurs au total), avec pour mission de structurer les processus de développement, d'instaurer une culture d'excellence technique, et de recruter de nouveaux profils. Le package est compétitif : 80-100k€ + BSPCE + remote flexible. Votre expérience chez ScaleTech fait de vous un candidat idéal.",
     "Bonjour Catherine, je suis la CTO de DevOpsPro, startup qui développe une plateforme d'automatisation des déploiements pour les PME. Nous venons de lever 4M€ et sommes en phase de recrutement intensif. Nous recherchons un cofondateur technique (CTO) qui prendra la direction de l'équipe engineering (actuellement 3 personnes). Vous serez en charge de la roadmap technique, du recrutement, et de la scalabilité de notre infrastructure. Package : salaire marché + 10-15% d'equity. Poste basé à Bordeaux avec remote possible. Votre profil est très intéressant.",
-    "Hello David, je suis le CEO de DataMinds, cabinet de conseil en data science. Nous accompagnons des grands comptes sur leurs projets d'IA et de machine learning. Nous recherchons un Data Lead pour structurer notre équipe data (actuellement 5 personnes). Vous serez en charge de la qualité des livrables, du recrutement, et de la relation client sur les projets les plus stratégiques. Poste basé à Paris, remote 2j/semaine, package 85-105k€ + bonus sur résultats. Votre background technique et votre expérience client sont un atout majeur.",
+    "Hello David, je suis le CEO de DataMinds, cabinet de conseil en data science. Nous accompagnons des grands comptes sur leurs projets d'IA et de machine learning. Nous recherchons un Data Lead pour structurer notre équipe data (actuellement 5 personnes). Vous serez en charge de la qualité des livrables, du recrutement, et de la relation client sur les projets les plus stratégiques. Poste basé à Paris, remote 2j/semaine, package 85-105k€ + bonus sur résultats. Votre background technique et votre expérience client sont un atout majeur."
   ];
   return texts[Math.floor(Math.random() * texts.length)];
 }
@@ -34,7 +33,9 @@ function randomInt(min, max) {
 }
 
 async function seedGap() {
-  console.log("📝 Ajout de messages pour combler les buckets 200-300 et 300-500...");
+  console.log(
+    "📝 Ajout de messages pour combler les buckets 200-300 et 300-500..."
+  );
 
   try {
     const messages = [];
@@ -45,7 +46,7 @@ async function seedGap() {
         campaign_id: randomInt(1, 4),
         text: text200to300(),
         status: Math.random() < 0.48 ? "replied" : "sent",
-        daysAgo: randomInt(1, 60),
+        daysAgo: randomInt(1, 60)
       });
     }
 
@@ -55,7 +56,7 @@ async function seedGap() {
         campaign_id: randomInt(1, 4),
         text: text300to500(),
         status: Math.random() < 0.52 ? "replied" : "sent",
-        daysAgo: randomInt(1, 60),
+        daysAgo: randomInt(1, 60)
       });
     }
 
@@ -118,7 +119,9 @@ async function seedGap() {
     console.log("│ Bucket  │ Total │ Répondu │ Taux │");
     console.log("├─────────┼───────┼─────────┼──────┤");
     verifyResult.rows.forEach((row) => {
-      console.log(`│ ${row.bucket.padEnd(7)} │ ${String(row.total).padStart(5)} │ ${String(row.replied).padStart(7)} │ ${String(row.rate).padStart(4)}% │`);
+      console.log(
+        `│ ${row.bucket.padEnd(7)} │ ${String(row.total).padStart(5)} │ ${String(row.replied).padStart(7)} │ ${String(row.rate).padStart(4)}% │`
+      );
     });
     console.log("└─────────┴───────┴─────────┴──────┘");
 

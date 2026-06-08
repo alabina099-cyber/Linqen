@@ -1,0 +1,89 @@
+# =============================================
+# Prometheus — Configuration de scraping
+#
+# IMPORTANT : Les conteneurs app/worker sont déployés par Coolify dans des
+# réseaux Docker SÉPARÉS de la stack observabilité. Pour les scraper, on
+# utilise soit :
+#   1. host.docker.internal (résolu via extra_hosts dans docker-compose) en
+#      pointant sur les ports exposés côté hôte par Coolify, soit
+#   2. Le domaine public protégé par bearer token (recommandé en prod).
+#
+# Alertmanager : règles dans observability/alerts.yml
+# =============================================
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: linkedin-agent
+    # IMPORTANT : Prometheus ne fait PAS de substitution d'env var dans son
+    # fichier de config (sauf $(EXTERNAL_LABEL_*) via --enable-feature).
+    # Si tu veux une valeur dynamique : édite ce fichier ou utilise envsubst
+    # avant de mounter le volume.
+    environment: production
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # ---- Workers ----
+  # Option A : worker exposé sur l'hôte (port 9090 publié par Coolify)
+  - job_name: 'workers'
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - 'host.docker.internal:9090'
+        labels:
+          service: linkedin-worker
+          via: host
+
+  # ---- Next.js app (via domaine public + bearer token) ----
+  # ⚠️ REMPLACER OBLIGATOIREMENT "app.example.com" ci-dessous par votre vrai domaine de prod.
+  # (Prometheus n'interprète pas les variables d'environnement dans ce fichier.)
+  # Exemple : "app.qlinqen.com"
+  - job_name: 'nextjs-app'
+    metrics_path: /api/metrics
+    scheme: https
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/secrets/metrics_token
+    static_configs:
+      - targets:
+          - 'app.example.com'
+        labels:
+          service: linkedin-frontend
+          via: public
+
+  # Fallback même-hôte (sans TLS, sans auth — uniquement si l'app expose 3000 localement)
+  - job_name: 'nextjs-app-local'
+    metrics_path: /api/metrics
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/secrets/metrics_token
+    static_configs:
+      - targets:
+          - 'host.docker.internal:3000'
+        labels:
+          service: linkedin-frontend
+          via: host
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+        labels:
+          service: docker-host
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['host.docker.internal:9100']
+        labels:
+          service: vm-host

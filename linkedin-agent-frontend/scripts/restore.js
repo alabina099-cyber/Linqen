@@ -8,11 +8,17 @@ const { Pool } = require("pg");
 const fs = require("fs");
 const path = require("path");
 
-const CONNECTION_STRING =
-  process.env.DATABASE_URL ||
-  "postgresql://neondb_owner:npg_uzan40Povxwp@ep-tiny-term-ai0m9euo-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require";
+const CONNECTION_STRING = process.env.DATABASE_URL;
 
-const BACKUP_DIR = process.env.BACKUP_DIR || path.join(__dirname, "..", "backups");
+if (!CONNECTION_STRING) {
+  console.error(
+    "❌ DATABASE_URL non défini. Configurez-le via les secrets GitHub ou votre fichier .env."
+  );
+  process.exit(1);
+}
+
+const BACKUP_DIR =
+  process.env.BACKUP_DIR || path.join(__dirname, "..", "backups");
 
 async function restore(backupName) {
   if (!backupName) {
@@ -50,13 +56,15 @@ async function restore(backupName) {
   console.log(`Total rows to restore: ${manifest.totalRows}`);
   console.log("=".repeat(70));
   console.log();
-  console.log("⚠️  WARNING: This will OVERWRITE existing data in matching tables!");
+  console.log(
+    "⚠️  WARNING: This will OVERWRITE existing data in matching tables!"
+  );
   console.log("Press Ctrl+C in the next 5 seconds to cancel...");
   await new Promise((r) => setTimeout(r, 5000));
 
   const pool = new Pool({
     connectionString: CONNECTION_STRING,
-    ssl: { rejectUnauthorized: false },
+    ssl: { rejectUnauthorized: false }
   });
 
   try {

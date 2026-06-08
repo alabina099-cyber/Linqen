@@ -6,18 +6,25 @@ on:
     branches: [main]
     paths:
       - 'linkedin-agent-frontend/**'
+      - 'linkedin-agent-worker/**'
       - 'Dockerfile'
+      - 'db/migrations/**'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
-    # Permet le lancement manuel depuis l'UI GitHub
+    inputs:
+      skip_smoke_test:
+        description: 'Skip post-deploy smoke test'
+        required: false
+        default: 'false'
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  WORKER_IMAGE_NAME: ${{ github.repository }}-worker
 
 jobs:
   build-and-push:
-    name: Build & Push to GHCR
+    name: Build & Push Frontend to GHCR
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -25,9 +32,19 @@ jobs:
     outputs:
       image-tag: ${{ steps.meta.outputs.version }}
       image-digest: ${{ steps.build.outputs.digest }}
+      sha-short: ${{ steps.sha.outputs.short }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Compute short SHA
+        id: sha
+        run: echo "short=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Set up QEMU (multi-arch)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -39,7 +56,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
+      - name: Extract metadata (frontend)
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -49,32 +66,99 @@ jobs:
             type=sha,prefix=sha-
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Docker image
+      - name: Build and push Frontend Docker image (multi-arch)
         id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
+          # Oracle Cloud Always Free = ARM A1.Flex → arm64 obligatoire.
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
 
       - name: Image digest summary
         run: |
-          echo "## ✅ Docker Image Published" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Frontend Image Published" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:** \`${{ steps.meta.outputs.tags }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Digest:** \`${{ steps.build.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+
+  build-and-push-worker:
+    name: Build & Push Worker to GHCR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-tag: ${{ steps.meta.outputs.version }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (multi-arch)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (worker)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.WORKER_IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Worker image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./linkedin-agent-worker
+          file: ./linkedin-agent-worker/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,mode=max,scope=worker
+
+      - name: Worker image summary
+        run: |
+          echo "## ✅ Worker Image Published" >> $GITHUB_STEP_SUMMARY
           echo "**Tags:** \`${{ steps.meta.outputs.tags }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Digest:** \`${{ steps.build.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
 
   trivy-scan:
-    name: Trivy Image Vulnerability Scan
+    name: Trivy Image Vulnerability Scan (both images)
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: [build-and-push, build-and-push-worker]
     permissions:
       contents: read
       packages: read
       security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - name: frontend
+            ref: ${{ github.repository }}
+          - name: worker
+            ref: ${{ github.repository }}-worker
     steps:
       - name: Login to GHCR
         uses: docker/login-action@v4
@@ -83,62 +167,262 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Scan Docker image with Trivy
+      - name: Scan ${{ matrix.image.name }} (BLOCKING on CRITICAL)
         uses: aquasecurity/trivy-action@v0.36.0
-        continue-on-error: true
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          image-ref: ${{ env.REGISTRY }}/${{ matrix.image.ref }}:latest
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL'
+
+      - name: Scan ${{ matrix.image.name }} (audit HIGH+CRITICAL)
+        if: always()
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ matrix.image.ref }}:latest
           format: table
           exit-code: '0'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'HIGH,CRITICAL'
 
-      - name: Scan et upload SARIF (toutes sévérités)
+      - name: Scan SARIF ${{ matrix.image.name }}
         if: always()
         continue-on-error: true
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          image-ref: ${{ env.REGISTRY }}/${{ matrix.image.ref }}:latest
           format: sarif
-          output: trivy-results.sarif
+          output: trivy-${{ matrix.image.name }}.sarif
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'HIGH,CRITICAL'
 
-      - name: Upload résultats Trivy → GitHub Security tab
+      - name: Upload SARIF → GitHub Security
         if: always()
         continue-on-error: true
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: trivy-results.sarif
+          sarif_file: trivy-${{ matrix.image.name }}.sarif
+          category: trivy-${{ matrix.image.name }}
 
-      - name: Résumé du scan Trivy
+      - name: Résumé Trivy ${{ matrix.image.name }}
         if: always()
+        run: echo "## 🔍 Trivy ${{ matrix.image.name }} terminé" >> $GITHUB_STEP_SUMMARY
+
+  migrate-db:
+    name: Apply DB Migrations
+    runs-on: ubuntu-latest
+    needs: [build-and-push, trivy-scan]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: linkedin-agent-frontend/package-lock.json
+
+      - name: Install pg
+        working-directory: linkedin-agent-frontend
+        run: npm ci --omit=dev --ignore-scripts
+
+      - name: Run migrations
+        working-directory: linkedin-agent-frontend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          echo "## 🔍 Trivy Image Scan terminé (mode audit)" >> $GITHUB_STEP_SUMMARY
-          echo "Résultats disponibles dans les logs ci-dessus et dans l'onglet Security (si activé)." >> $GITHUB_STEP_SUMMARY
+          if [ -z "$DATABASE_URL" ]; then
+            echo "⚠️ DATABASE_URL non défini — skip migrations"
+            exit 0
+          fi
+          npm run migrate
 
   deploy:
     name: Deploy to Coolify
     runs-on: ubuntu-latest
-    needs: [build-and-push, trivy-scan]
+    needs: [build-and-push, build-and-push-worker, trivy-scan, migrate-db]
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      previous_sha: ${{ steps.snapshot.outputs.previous_sha }}
+      new_sha: ${{ steps.snapshot.outputs.new_sha }}
     steps:
-      - name: Trigger Coolify deployment
+      - name: Snapshot current vs new SHA (for rollback)
+        id: snapshot
+        env:
+          PROD_URL: ${{ secrets.PROD_URL }}
+          NEW_SHA: sha-${{ needs.build-and-push.outputs.sha-short }}
+        run: |
+          PREVIOUS=""
+          if [ -n "$PROD_URL" ]; then
+            PREVIOUS=$(curl -fsSL --max-time 10 "$PROD_URL/api/health" 2>/dev/null | jq -r '.version // empty' 2>/dev/null || true)
+          fi
+          # Fallback : repository variable LAST_DEPLOYED_SHA (mise à jour à chaque succès)
+          if [ -z "$PREVIOUS" ] || [ "$PREVIOUS" = "unknown" ]; then
+            PREVIOUS="${{ vars.LAST_DEPLOYED_SHA }}"
+          fi
+          echo "previous_sha=$PREVIOUS" >> $GITHUB_OUTPUT
+          echo "new_sha=$NEW_SHA" >> $GITHUB_OUTPUT
+          echo "📝 Previous: ${PREVIOUS:-<none>}"
+          echo "📝 New:      $NEW_SHA"
+
+      - name: Trigger Coolify deployment (with retry)
         env:
           WEBHOOK_URL: ${{ secrets.COOLIFY_WEBHOOK_URL }}
+          WORKER_WEBHOOK_URL: ${{ secrets.COOLIFY_WORKER_WEBHOOK_URL }}
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
-          if [ -z "$WEBHOOK_URL" ]; then
-            echo "⚠️ COOLIFY_WEBHOOK_URL non configuré — déploiement manuel nécessaire"
-            exit 0
-          fi
-          curl -X POST "$WEBHOOK_URL" \
-            -H "Authorization: Bearer $COOLIFY_TOKEN" \
-            -H "Content-Type: application/json"
-          echo "✅ Webhook Coolify déclenché"
+          trigger() {
+            local URL="$1"
+            local NAME="$2"
+            if [ -z "$URL" ]; then
+              echo "⚠️ $NAME webhook non configuré — skip"
+              return 0
+            fi
+            for attempt in 1 2 3; do
+              if curl -fsS --max-time 30 -X POST "$URL" \
+                  -H "Authorization: Bearer $COOLIFY_TOKEN" \
+                  -H "Content-Type: application/json"; then
+                echo "✅ $NAME déclenché (tentative $attempt)"
+                return 0
+              fi
+              echo "⏳ $NAME échec tentative $attempt — retry dans 10s"
+              sleep 10
+            done
+            echo "❌ $NAME échec après 3 tentatives"
+            return 1
+          }
+          trigger "$WEBHOOK_URL" "Frontend"
+          trigger "$WORKER_WEBHOOK_URL" "Worker"
 
       - name: Deployment summary
         run: |
           echo "## 🚀 Deployment Triggered" >> $GITHUB_STEP_SUMMARY
-          echo "Image: \`${{ needs.build-and-push.outputs.image-tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Frontend:** \`${{ needs.build-and-push.outputs.image-tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Worker:**   \`${{ needs.build-and-push-worker.outputs.image-tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Previous SHA (for rollback):** \`${{ steps.snapshot.outputs.previous_sha }}\`" >> $GITHUB_STEP_SUMMARY
+
+  smoke-test:
+    name: Post-deploy Smoke Test
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    if: github.event.inputs.skip_smoke_test != 'true'
+    steps:
+      - name: Wait for deployment to settle
+        run: sleep 60
+
+      - name: Smoke test /api/health
+        env:
+          PROD_URL: ${{ secrets.PROD_URL }}
+        run: |
+          if [ -z "$PROD_URL" ]; then
+            echo "⚠️ PROD_URL non défini — skip smoke test"
+            exit 0
+          fi
+          set -e
+          MAX_ATTEMPTS=10
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Tentative $i/$MAX_ATTEMPTS — GET $PROD_URL/api/health"
+            HTTP_CODE=$(curl -s -o /tmp/health.json -w "%{http_code}" --max-time 15 "$PROD_URL/api/health" || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ /api/health OK"
+              cat /tmp/health.json
+              exit 0
+            fi
+            echo "⏳ HTTP $HTTP_CODE — retry dans 30s"
+            sleep 30
+          done
+          echo "❌ Smoke test échoué après $MAX_ATTEMPTS tentatives"
+          cat /tmp/health.json || true
+          exit 1
+
+      - name: Smoke test summary
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "## ✅ Smoke test réussi" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Smoke test échoué — rollback en cours" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  rollback:
+    name: Auto-rollback on smoke test failure
+    runs-on: ubuntu-latest
+    needs: [deploy, smoke-test]
+    if: failure() && needs.smoke-test.result == 'failure'
+    steps:
+      - name: Rollback via Coolify API (patch image tag → previous SHA)
+        env:
+          COOLIFY_BASE_URL: ${{ secrets.COOLIFY_BASE_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          APP_UUID: ${{ secrets.COOLIFY_APP_UUID }}
+          WORKER_UUID: ${{ secrets.COOLIFY_WORKER_UUID }}
+          PREVIOUS_SHA: ${{ needs.deploy.outputs.previous_sha }}
+        run: |
+          if [ -z "$PREVIOUS_SHA" ]; then
+            echo "❌ Pas de SHA précédent connu — rollback impossible (premier déploiement ?)" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          if [ -z "$COOLIFY_BASE_URL" ] || [ -z "$COOLIFY_TOKEN" ]; then
+            echo "❌ COOLIFY_BASE_URL ou COOLIFY_TOKEN absent — rollback manuel requis" >> $GITHUB_STEP_SUMMARY
+            echo "SHA à restaurer: \`$PREVIOUS_SHA\`" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          rollback_one() {
+            local UUID="$1"
+            local NAME="$2"
+            if [ -z "$UUID" ]; then
+              echo "⚠️ UUID $NAME absent — skip"
+              return 0
+            fi
+            echo "🔄 Rollback $NAME → $PREVIOUS_SHA"
+            # PATCH docker_registry_image_tag puis redeploy
+            curl -fsS -X PATCH "$COOLIFY_BASE_URL/api/v1/applications/$UUID" \
+              -H "Authorization: Bearer $COOLIFY_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"docker_registry_image_tag\":\"$PREVIOUS_SHA\"}" \
+              || { echo "❌ PATCH $NAME échoué"; return 1; }
+            curl -fsS -X POST "$COOLIFY_BASE_URL/api/v1/deploy?uuid=$UUID&force=true" \
+              -H "Authorization: Bearer $COOLIFY_TOKEN" \
+              || { echo "❌ Redeploy $NAME échoué"; return 1; }
+            echo "✅ $NAME rollback déclenché"
+          }
+          rollback_one "$APP_UUID" "Frontend"
+          rollback_one "$WORKER_UUID" "Worker"
+          echo "## 🔄 Rollback déclenché" >> $GITHUB_STEP_SUMMARY
+          echo "Retour vers: \`$PREVIOUS_SHA\`" >> $GITHUB_STEP_SUMMARY
+
+  mark-success:
+    name: Mark deployment as successful (update LAST_DEPLOYED_SHA)
+    runs-on: ubuntu-latest
+    needs: [deploy, smoke-test]
+    if: success()
+    permissions:
+      actions: write
+    steps:
+      - name: Update repo variable LAST_DEPLOYED_SHA
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_VARIABLES || secrets.GITHUB_TOKEN }}
+          NEW_SHA: ${{ needs.deploy.outputs.new_sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -z "$NEW_SHA" ]; then
+            echo "⚠️ Pas de nouveau SHA — skip"
+            exit 0
+          fi
+          # Crée ou met à jour la variable (best-effort, nécessite un PAT avec scope `variables:write` ; 
+          # avec GITHUB_TOKEN par défaut, cela échoue silencieusement — pas bloquant).
+          if gh api -X PATCH "repos/$REPO/actions/variables/LAST_DEPLOYED_SHA" -f value="$NEW_SHA" 2>/dev/null; then
+            echo "✅ LAST_DEPLOYED_SHA mis à jour : $NEW_SHA"
+          elif gh api -X POST "repos/$REPO/actions/variables" -f name=LAST_DEPLOYED_SHA -f value="$NEW_SHA" 2>/dev/null; then
+            echo "✅ LAST_DEPLOYED_SHA créé : $NEW_SHA"
+          else
+            echo "⚠️ Impossible de mettre à jour LAST_DEPLOYED_SHA (PAT manquant ?) — rollback s'appuiera sur /api/health"
+          fi

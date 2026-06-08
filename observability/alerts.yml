@@ -1,0 +1,108 @@
+# =============================================
+# Règles d'alerte Prometheus — LinkedIn Agent
+# Chargées par prometheus.yml (rule_files).
+# =============================================
+groups:
+  - name: app-health
+    interval: 30s
+    rules:
+      - alert: AppDown
+        expr: up{job="nextjs-app"} == 0 and up{job="nextjs-app-local"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: linkedin-frontend
+        annotations:
+          summary: "Frontend Next.js injoignable depuis 2 min"
+          description: "Aucun scrape /api/metrics ne répond. Vérifier Coolify + nginx."
+
+      - alert: DatabaseDown
+        expr: db_up == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: postgres
+        annotations:
+          summary: "DB injoignable depuis le frontend"
+          description: "db_up=0 — Neon ou pool en panne."
+
+      - alert: HighMemoryUsage
+        expr: (nextjs_memory_heap_used_bytes / nextjs_memory_heap_total_bytes) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          service: linkedin-frontend
+        annotations:
+          summary: "Heap >90 % depuis 10 min"
+
+  - name: worker-health
+    interval: 30s
+    rules:
+      - alert: WorkerDown
+        expr: worker_up == 0
+        for: 3m
+        labels:
+          severity: critical
+          service: linkedin-worker
+        annotations:
+          summary: "Worker {{ $labels.worker_id }} arrêté"
+
+      - alert: WorkerStale
+        expr: worker_last_poll_age_ms > 300000
+        for: 2m
+        labels:
+          severity: critical
+          service: linkedin-worker
+        annotations:
+          summary: "Worker {{ $labels.worker_id }} ne poll plus la queue"
+
+      - alert: WorkerConsecutiveErrors
+        expr: worker_consecutive_errors > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: linkedin-worker
+        annotations:
+          summary: "Worker {{ $labels.worker_id }} : {{ $value }} erreurs consécutives"
+
+      - alert: NoWorkersAlive
+        expr: workers_alive == 0
+        for: 3m
+        labels:
+          severity: critical
+          service: linkedin-worker
+        annotations:
+          summary: "Aucun worker actif (heartbeat <2 min)"
+
+  - name: queue
+    interval: 1m
+    rules:
+      - alert: QueueBacklog
+        expr: sum(actions_24h{status="pending"}) > 500
+        for: 15m
+        labels:
+          severity: warning
+          service: queue
+        annotations:
+          summary: "Backlog queue >500 actions pending depuis 15 min"
+
+  - name: host
+    interval: 30s
+    rules:
+      - alert: HighCPU
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 10m
+        labels:
+          severity: warning
+          service: vm-host
+        annotations:
+          summary: "CPU >90 % sur {{ $labels.instance }} depuis 10 min"
+
+      - alert: LowDisk
+        expr: (node_filesystem_avail_bytes{mountpoint="/host"} / node_filesystem_size_bytes{mountpoint="/host"}) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: vm-host
+        annotations:
+          summary: "Disque hôte < 10 % libre"

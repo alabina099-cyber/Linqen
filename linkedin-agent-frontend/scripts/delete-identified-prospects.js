@@ -1,10 +1,8 @@
 const { Pool } = require("pg");
 
 const pool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL ||
-    "postgresql://neondb_owner:npg_uzan40Povxwp@ep-tiny-term-ai0m9euo-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
-  ssl: { rejectUnauthorized: false },
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
 (async () => {
@@ -12,14 +10,18 @@ const pool = new Pool({
     const list = await pool.query(
       `SELECT id, name, linkedin_url FROM prospects WHERE status = 'identified'`
     );
-    console.log(`📊 ${list.rowCount} prospect(s) en statut 'identified' trouvé(s)\n`);
+    console.log(
+      `📊 ${list.rowCount} prospect(s) en statut 'identified' trouvé(s)\n`
+    );
 
     if (list.rowCount === 0) {
       console.log("✅ Rien à supprimer.");
       return;
     }
 
-    list.rows.forEach((p) => console.log(`  #${p.id} - ${p.name} - ${p.linkedin_url}`));
+    list.rows.forEach((p) =>
+      console.log(`  #${p.id} - ${p.name} - ${p.linkedin_url}`)
+    );
 
     const ids = list.rows.map((r) => r.id);
 

@@ -109,3 +109,50 @@ jobs:
           name: gitleaks-report
           path: gitleaks-results.sarif
           if-no-files-found: ignore
+
+  application-security:
+    name: Application Security Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: linkedin-agent-frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: linkedin-agent-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js app
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://dummy:dummy@localhost:5432/dummy' }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'sk-dummy' }}
+          NEXT_TELEMETRY_DISABLED: 1
+        run: npm run build
+
+      - name: Start server in background
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://dummy:dummy@localhost:5432/dummy' }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'sk-dummy' }}
+        run: |
+          nohup npm start > server.log 2>&1 &
+          echo $! > server.pid
+          sleep 10
+
+      - name: Run application security audit
+        env:
+          BASE_URL: http://localhost:3000
+        run: node scripts/security-audit.js
+        continue-on-error: true
+
+      - name: Stop background server
+        if: always()
+        run: |
+          if [ -f server.pid ]; then kill $(cat server.pid) 2>/dev/null || true; fi

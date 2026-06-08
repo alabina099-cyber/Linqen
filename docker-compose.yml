@@ -69,6 +69,9 @@ services:
       - WORKER_ID=${WORKER_ID:-worker-docker}
       - POLL_INTERVAL_MS=5000
       - HEADLESS=true
+      - HEALTH_PORT=9090
+    expose:
+      - "9090"
     restart: unless-stopped
     networks:
       - linkedin-net
@@ -81,11 +84,206 @@ services:
           cpus: "0.25"
           memory: 256M
     healthcheck:
-      test: ["CMD", "node", "-e", "console.log('ok')"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/health"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 30s
+
+  # =============================================
+  # PostgreSQL local (profile: local-db)
+  # Active uniquement avec : docker compose --profile local-db up
+  # En prod on utilise Neon (DATABASE_URL externe).
+  # =============================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: linkedin-agent-db
+    profiles: ["local-db"]
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-linkedin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-linkedin_dev_pwd}
+      - POSTGRES_DB=${POSTGRES_DB:-linkedin_agent}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - linkedin-net
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-linkedin} -d ${POSTGRES_DB:-linkedin_agent}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================
+  # OBSERVABILITY STACK (profile: observability)
+  # Active avec : docker compose --profile observability up -d
+  # =============================================
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: linkedin-agent-prometheus
+    profiles: ["observability"]
+    extra_hosts:
+      # Permet de scraper les conteneurs Coolify exposés sur les ports de l'hôte
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./observability/secrets:/etc/prometheus/secrets:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=15d"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+      - "--web.external-url=https://prometheus.${PUBLIC_HOST:-localhost}"
+    ports:
+      - "127.0.0.1:9091:9090"
+    restart: unless-stopped
+    networks:
+      - linkedin-net
+    depends_on:
+      - alertmanager
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: linkedin-agent-alertmanager
+    profiles: ["observability"]
+    volumes:
+      - ./observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    ports:
+      - "127.0.0.1:9093:9093"
+    restart: unless-stopped
+    networks:
+      - linkedin-net
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: linkedin-agent-node-exporter
+    profiles: ["observability"]
+    command:
+      - "--path.rootfs=/host"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+    volumes:
+      - /:/host:ro,rslave
+    ports:
+      - "127.0.0.1:9100:9100"
+    pid: host
+    restart: unless-stopped
+    networks:
+      - linkedin-net
+
+  grafana:
+    image: grafana/grafana-oss:11.3.1
+    container_name: linkedin-agent-grafana
+    profiles: ["observability"]
+    environment:
+      # GRAFANA_PASSWORD DOIT être fourni explicitement — démarrage refusé sinon.
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:?GRAFANA_USER requis}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?GRAFANA_PASSWORD requis (jamais \"admin\")}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_SECURITY_COOKIE_SECURE=true
+      - GF_SECURITY_STRICT_TRANSPORT_SECURITY=true
+      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:3001}
+      - GF_INSTALL_PLUGINS=
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3001:3000"
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+      - loki
+    networks:
+      - linkedin-net
+
+  loki:
+    image: grafana/loki:3.3.0
+    container_name: linkedin-agent-loki
+    profiles: ["observability"]
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./observability/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    ports:
+      - "127.0.0.1:3100:3100"
+    restart: unless-stopped
+    networks:
+      - linkedin-net
+
+  promtail:
+    image: grafana/promtail:3.3.0
+    container_name: linkedin-agent-promtail
+    profiles: ["observability"]
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./observability/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    depends_on:
+      - loki
+    networks:
+      - linkedin-net
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: linkedin-agent-cadvisor
+    profiles: ["observability"]
+    # privileged remplacé par capabilities minimales (principe du moindre privilège)
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_PTRACE
+      - DAC_READ_SEARCH
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    expose:
+      - "8080"
+    restart: unless-stopped
+    networks:
+      - linkedin-net
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: linkedin-agent-uptime
+    profiles: ["observability"]
+    volumes:
+      - uptime_kuma_data:/app/data
+    ports:
+      - "127.0.0.1:3002:3001"
+    restart: unless-stopped
+    networks:
+      - linkedin-net
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  uptime_kuma_data:
+  alertmanager_data:
 
 networks:
   linkedin-net:

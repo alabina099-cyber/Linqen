@@ -1,0 +1,45 @@
+# =============================================
+# Alertmanager — Routage des alertes Prometheus
+#
+# ⚠️ Alertmanager NE substitue PAS les variables d'environnement.
+# Remplace `DISCORD_WEBHOOK_URL_HERE` ci-dessous par ta vraie URL
+# AVANT de démarrer le conteneur, OU utilise un script `envsubst`
+# qui génère ce fichier à partir d'un template.
+# =============================================
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: "default"
+  group_by: ["alertname", "service"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  routes:
+    - matchers:
+        - severity = "critical"
+      receiver: "critical"
+      continue: true
+    - matchers:
+        - severity = "warning"
+      receiver: "warnings"
+
+receivers:
+  - name: "default"
+    # No-op : journalise uniquement dans Alertmanager UI
+  - name: "critical"
+    # Discord (webhook) — remplace par ta vraie URL avant déploiement.
+    # Tant que l'URL pointe sur localhost:1, les alertes restent visibles
+    # dans l'UI Alertmanager mais ne sont pas livrées.
+    webhook_configs:
+      - url: "http://localhost:1/disabled-replace-with-discord-webhook"
+        send_resolved: true
+  - name: "warnings"
+    webhook_configs:
+      - url: "http://localhost:1/disabled-replace-with-discord-webhook"
+        send_resolved: true
+
+inhibit_rules:
+  - source_matchers: [severity = "critical"]
+    target_matchers: [severity = "warning"]
+    equal: ["alertname", "service"]
