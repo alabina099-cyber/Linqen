@@ -124,3 +124,15 @@ jobs:
           done
           echo "❌ Staging smoke test failed"
           exit 1
+
+  final-verification:
+    name: Final Verification
+    runs-on: ubuntu-latest
+    needs: [build-and-push, migrate-staging-db, deploy-staging]
+    steps:
+      - name: Verify staging deployment passed
+        run: |
+          echo "## ✅ Final Verification — Staging deployment completed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build & Push:** ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- **DB Migrations:** ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deploy Staging:** ✅" >> $GITHUB_STEP_SUMMARY

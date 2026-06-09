@@ -126,3 +126,14 @@ jobs:
           echo "**Version:** \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Artifact:** \`chrome-extension-v${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Retention:** 30 days" >> $GITHUB_STEP_SUMMARY
+
+  final-verification:
+    name: Final Verification
+    runs-on: ubuntu-latest
+    needs: [validate, package]
+    steps:
+      - name: Verify Chrome Extension CI passed
+        run: |
+          echo "## ✅ Final Verification — Chrome Extension CI completed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- **Validate:** ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package:** ✅" >> $GITHUB_STEP_SUMMARY

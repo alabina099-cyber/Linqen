@@ -157,3 +157,13 @@ jobs:
         run: |
           echo "## ❌ Restore test échoué" >> $GITHUB_STEP_SUMMARY
           echo "Le dernier backup n'est pas restaurable. **CRITIQUE** — vérifier immédiatement." >> $GITHUB_STEP_SUMMARY
+
+  final-verification:
+    name: Final Verification
+    runs-on: ubuntu-latest
+    needs: [restore-test]
+    steps:
+      - name: Verify restore test passed
+        run: |
+          echo "## ✅ Final Verification — Backup restore test completed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- **Restore Test:** ✅" >> $GITHUB_STEP_SUMMARY

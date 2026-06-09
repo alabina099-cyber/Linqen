@@ -37,3 +37,13 @@ jobs:
 
       - name: TypeScript compile
         run: npm run build
+
+  final-verification:
+    name: Final Verification
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - name: Verify worker build passed
+        run: |
+          echo "## ✅ Final Verification — Worker CI completed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Worker:** ✅" >> $GITHUB_STEP_SUMMARY
