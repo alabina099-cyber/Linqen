@@ -1,3 +1,4 @@
+// CI trigger comment
 import 'dotenv/config';
 import { WorkerConfig } from './types';
 import {

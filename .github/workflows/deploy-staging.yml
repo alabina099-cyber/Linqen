@@ -5,7 +5,7 @@ name: Deploy Staging (develop branch)
 
 on:
   push:
-    branches: [develop]
+    branches: [main, develop]
     paths:
       - 'linkedin-agent-frontend/**'
       - 'linkedin-agent-worker/**'

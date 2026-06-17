@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Linqen - LinkedIn Agent - Prospection Automatique",
   "version": "3.3.0",
-  "description": "Extension Chrome pour automatiser la prospection LinkedIn avec l'Agent IA",
+  "description": "Extension Chrome pour automatiser la prospection LinkedIn avec l'Agent IA (CI triggered)",
   "permissions": [
     "activeTab",
     "tabs",
