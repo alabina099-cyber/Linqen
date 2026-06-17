@@ -1,6 +1,6 @@
 name: Backup Restore Test (Weekly)
 
-# Vérifie hebdomadairement que le dernier backup est restaurable — Final Verification
+# Vérifie hebdomadairement que le dernier backup est restaurable
 # en l'appliquant sur une DB Postgres jetable.
 
 on:
@@ -17,7 +17,6 @@ jobs:
   restore-test:
     name: Restore last backup on disposable Postgres
     runs-on: ubuntu-latest
-    continue-on-error: true
     services:
       postgres:
         image: postgres:16-alpine
@@ -55,14 +54,37 @@ jobs:
         run: npm run migrate
 
       - name: Download latest backup artifact
-        uses: dawidd6/action-download-artifact@v6
-        continue-on-error: true
-        with:
-          workflow: backup.yml
-          name_is_regexp: true
-          name: db-backup-.*
-          path: ./latest-backup
-          if_no_artifact_found: warn
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p ./latest-backup
+          echo "🔍 Checking for backup artifacts..."
+
+          # List all artifacts, filter by name prefix db-backup-, sort by date desc
+          RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts?per_page=100")
+
+          ARTIFACT=$(echo "$RESPONSE" | jq -r '.artifacts | map(select(.name | startswith("db-backup-"))) | sort_by(.created_at) | reverse | .[0]')
+
+          if [ "$ARTIFACT" = "null" ] || [ -z "$ARTIFACT" ] || [ "$ARTIFACT" = "" ]; then
+            echo "ℹ️ No backup artifact found yet. This is normal if the backup workflow has not run yet."
+            exit 0
+          fi
+
+          ARTIFACT_ID=$(echo "$ARTIFACT" | jq -r '.id')
+          ARTIFACT_NAME=$(echo "$ARTIFACT" | jq -r '.name')
+          echo "📦 Found artifact: $ARTIFACT_NAME (ID: $ARTIFACT_ID)"
+
+          # Download the artifact as a zip
+          curl -s -L -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID/zip" \
+            -o ./latest-backup/backup.zip
+
+          # Extract into a dedicated backup folder (restore.js expects a named folder)
+          mkdir -p ./latest-backup/backup-downloaded
+          unzip -q ./latest-backup/backup.zip -d ./latest-backup/backup-downloaded/
+          rm ./latest-backup/backup.zip
+          echo "✅ Backup artifact downloaded successfully"
 
       - name: Locate manifest
         id: locate
@@ -81,8 +103,15 @@ jobs:
         working-directory: linkedin-agent-frontend
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/restore_test
-          RESTORE_DIR: ../${{ steps.locate.outputs.dir }}
-        run: node scripts/restore.js || echo "⚠️ Restore script terminé avec warnings (peut être normal selon le contenu)"
+          BACKUP_DIR: ../latest-backup
+        run: |
+          BACKUP_NAME=$(ls ../latest-backup | grep '^backup-' | sort | tail -1)
+          if [ -z "$BACKUP_NAME" ]; then
+            echo "⚠️ No backup folder found in artifact"
+            exit 1
+          fi
+          echo "📂 Restoring from folder: $BACKUP_NAME"
+          node scripts/restore.js "$BACKUP_NAME"
 
       - name: Verify schema + row counts + manifest match
         if: steps.locate.outputs.found == 'true'
@@ -167,14 +196,27 @@ jobs:
           elif [ "${{ job.status }}" = "failure" ]; then
             echo "## ❌ Restore test échoué" >> $GITHUB_STEP_SUMMARY
             echo "Le dernier backup n'est pas restaurable. **CRITIQUE** — vérifier immédiatement." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ✅ Restore test réussi" >> $GITHUB_STEP_SUMMARY
+            echo "Le backup est restaurable et les données sont intègres." >> $GITHUB_STEP_SUMMARY
           fi
 
   final-verification:
     name: Final Verification
     runs-on: ubuntu-latest
     needs: [restore-test]
+    if: always()
     steps:
-      - name: Verify restore test passed
+      - name: Verify restore test result
         run: |
-          echo "## ✅ Final Verification — Backup restore test completed successfully" >> $GITHUB_STEP_SUMMARY
-          echo "- **Restore Test:** ✅" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.restore-test.result }}" = "success" ]; then
+            echo "## ✅ Final Verification — Backup restore test passed" >> $GITHUB_STEP_SUMMARY
+            echo "- **Restore Test:** ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.restore-test.result }}" = "skipped" ]; then
+            echo "## ℹ️ Final Verification — No backup to test yet" >> $GITHUB_STEP_SUMMARY
+            echo "- **Restore Test:** ℹ️ Skipped (no backup available)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Final Verification — Backup restore test failed" >> $GITHUB_STEP_SUMMARY
+            echo "- **Restore Test:** ❌ Failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
