@@ -1,5 +1,5 @@
 // =============================================
-// Auth Utilities
+// Auth Utilities — Final Verification
 // JWT + Password hashing pour le système Admin / User
 // =============================================
 
