@@ -55,6 +55,7 @@ jobs:
 
       - name: Download latest backup artifact
         uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
         with:
           workflow: backup.yml
           name_is_regexp: true
@@ -156,11 +157,16 @@ jobs:
           tar -tzf /tmp/verify.tar.gz > /dev/null
           echo "✅ Déchiffrement + intégrité tar OK"
 
-      - name: Notify on failure
-        if: failure()
+      - name: Summary
+        if: always()
         run: |
-          echo "## ❌ Restore test échoué" >> $GITHUB_STEP_SUMMARY
-          echo "Le dernier backup n'est pas restaurable. **CRITIQUE** — vérifier immédiatement." >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.locate.outputs.found }}" = "false" ]; then
+            echo "## ℹ️ Aucun backup disponible pour test" >> $GITHUB_STEP_SUMMARY
+            echo "Le workflow de backup n'a pas encore tourné. Ce sera testé lors du prochain backup." >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ job.status }}" = "failure" ]; then
+            echo "## ❌ Restore test échoué" >> $GITHUB_STEP_SUMMARY
+            echo "Le dernier backup n'est pas restaurable. **CRITIQUE** — vérifier immédiatement." >> $GITHUB_STEP_SUMMARY
+          fi
 
   final-verification:
     name: Final Verification
