@@ -103,6 +103,8 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
   // Add prospect modal state
   const [showAddModal, setShowAddModal] = useState(false);
   const [addStage, setAddStage] = useState<string>("identified");
+  // null = create mode ; number = edit mode (id du prospect)
+  const [editingProspectId, setEditingProspectId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     role: "",
@@ -256,12 +258,32 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
 
   // Handle add prospect modal
   const openAddModal = (stageId: string) => {
+    setEditingProspectId(null);
     setAddStage(stageId);
+    setShowAddModal(true);
+  };
+
+  // Ouvre le modal en mode édition, pré-rempli avec les données du prospect
+  const openEditModal = (prospect: Prospect) => {
+    setEditingProspectId(prospect.id);
+    setAddStage(prospect.status);
+    setFormData({
+      name: prospect.name || "",
+      role: prospect.role || "",
+      company: prospect.company || "",
+      industry: prospect.industry || "",
+      location: prospect.location || "",
+      email: prospect.email || "",
+      phone: prospect.phone || "",
+      linkedin_url: prospect.linkedin_url || "",
+    });
+    setAddError(null);
     setShowAddModal(true);
   };
 
   const closeAddModal = () => {
     setShowAddModal(false);
+    setEditingProspectId(null);
     setAddError(null);
     setFormData({
       name: "",
@@ -351,27 +373,35 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
       if (email && email.includes('@')) payload.email = email;
       if (linkedin_url) payload.linkedin_url = linkedin_url;
       
-      const response = await fetch('/api/prospects', {
-        method: 'POST',
+      const isEditing = editingProspectId !== null;
+      const url = isEditing
+        ? `/api/prospects/${editingProspectId}`
+        : '/api/prospects';
+      const method = isEditing ? 'PUT' : 'POST';
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(payload),
       });
       
       const data = await response.json();
       
       if (data.success) {
-        const newProspect: Prospect = {
+        const updatedProspect: Prospect = {
           ...data.prospect,
           avatar: getInitials(data.prospect.name)
         };
-        
-        const updatedProspects = [newProspect, ...allProspects];
+
+        const updatedProspects = isEditing
+          ? allProspects.map(p => (p.id === updatedProspect.id ? { ...p, ...updatedProspect } : p))
+          : [updatedProspect, ...allProspects];
         setAllProspects(updatedProspects);
         organizeProspects(updatedProspects);
         closeAddModal();
       } else {
         setAddError(data.details || data.error || "Unknown error");
-        console.error('Error adding prospect:', data.error, data.details);
+        console.error('Error saving prospect:', data.error, data.details);
       }
     } catch (error) {
       setAddError("Network error, please try again");
@@ -623,12 +653,13 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                         draggable
                         onDragStart={(e) => handleDragStart(e as any, prospect)}
                         onDragEnd={handleDragEnd}
+                        onDoubleClick={() => openEditModal(prospect)}
                         onMouseEnter={() => setHoveredCard(prospect.id)}
                         onMouseLeave={() => setHoveredCard(null)}
                         className={`bg-white rounded-lg p-2 shadow-sm hover:shadow-md transition-all duration-200 cursor-grab active:cursor-grabbing border border-gray-100 ${isHovered ? "ring-2 ring-blue-500/20 -translate-y-0.5" : ""} ${draggedProspect?.id === prospect.id ? "opacity-50 scale-95" : ""}`}
                       >
                         {/* Header avec avatar et nom */}
-                        <div className="flex items-center gap-2 mb-1.5">
+                        <div className="flex items-start gap-2 mb-1.5">
                           <div className={`w-8 h-8 rounded-full ${stage.iconBg} border ${stage.gradient.split(' ')[1]} flex items-center justify-center shrink-0 ${stage.textColor} font-bold text-xs`}>
                             {prospect.avatar}
                           </div>
@@ -641,18 +672,24 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                                 </a>
                               )}
                             </div>
-                            <p className="text-[10px] text-gray-500 truncate">{prospect.role}</p>
-                            {isAdmin && prospect.owner_name && (
-                              <span className="inline-flex items-center gap-0.5 mt-0.5 px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[9px] font-medium border border-indigo-100">
-                                <User className="w-2 h-2" />{prospect.owner_name}
-                              </span>
-                            )}
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-[10px] text-gray-500 truncate">{prospect.role}</p>
+                            </div>
                           </div>
-                          <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full ${scoreColor}`}>
+                          <div className={`self-start flex items-center gap-0.5 px-1.5 py-0.5 rounded-full ${scoreColor}`}>
                             <ScoreIcon className="w-3 h-3" />
                             <span className="text-[10px] font-bold">{prospect.score}</span>
                           </div>
                         </div>
+
+                        {/* Prospector name (admin view) */}
+                        {isAdmin && prospect.owner_name && (
+                          <div className="flex items-center gap-0.5 mb-1">
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[9px] font-medium border border-indigo-100">
+                              <User className="w-2 h-2" />{prospect.owner_name}
+                            </span>
+                          </div>
+                        )}
 
                         {/* Location */}
                         <div className="flex items-center gap-1 text-[10px] text-gray-400 mb-1">
@@ -782,8 +819,14 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                     <UserPlus className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900">New prospect</h2>
-                    <p className="text-sm text-gray-500">Add to the &quot;{pipelineData.find(s => s.id === addStage)?.status}&quot; column</p>
+                    <h2 className="text-lg font-bold text-gray-900">
+                      {editingProspectId !== null ? "Edit prospect" : "New prospect"}
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                      {editingProspectId !== null
+                        ? "Update the prospect's information"
+                        : <>Add to the &quot;{pipelineData.find(s => s.id === addStage)?.status}&quot; column</>}
+                    </p>
                   </div>
                 </div>
                 <button onClick={closeAddModal} className="w-8 h-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg flex items-center justify-center transition-colors">
@@ -923,12 +966,12 @@ export default function ProspectsPipeline({ fullView = false }: ProspectsPipelin
                 {submitting ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Creating...
+                    {editingProspectId !== null ? "Saving..." : "Creating..."}
                   </>
                 ) : (
                   <>
                     <Plus className="w-4 h-4" />
-                    Add
+                    {editingProspectId !== null ? "Save changes" : "Add"}
                   </>
                 )}
               </button>

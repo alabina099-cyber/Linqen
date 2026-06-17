@@ -19,14 +19,14 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("");
   const initialized = useRef(false);
 
-  // Rediriger vers login si non authentifié
+  // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/login");
     }
   }, [user, authLoading, router]);
 
-  // Initialiser le tab selon le rôle + écouter les changements de hash
+  // Initialize tab based on role + listen for hash changes
   useEffect(() => {
     if (authLoading || !user) return;
 

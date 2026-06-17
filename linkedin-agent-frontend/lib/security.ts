@@ -15,11 +15,7 @@ const AUTH_TAG_LENGTH = 16;
 function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY;
   if (!key || key.length < 32) {
-    // Fallback dev key — DOIT être défini en production via .env.local
-    return crypto
-      .createHash("sha256")
-      .update(key || "linkedin-agent-default-dev-key-change-in-prod")
-      .digest();
+    throw new Error("ENCRYPTION_KEY environment variable is required and must be at least 32 characters.");
   }
   return Buffer.from(key.slice(0, 32), "utf-8");
 }

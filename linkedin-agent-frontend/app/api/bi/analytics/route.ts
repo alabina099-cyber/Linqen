@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 
 // GET /api/bi/analytics?range=30
-// Endpoint agrégé: retourne un résumé global de tous les modules BI en un seul appel.
-// Utile pour des exports ou intégrations externes.
+// Aggregated endpoint: returns a global summary of all BI modules in a single call.
+// Useful for exports or external integrations.
 export async function GET(req: NextRequest) {
   try {
     const range = parseInt(req.nextUrl.searchParams.get("range") || "30");

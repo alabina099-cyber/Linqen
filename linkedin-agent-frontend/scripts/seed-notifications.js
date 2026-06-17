@@ -1,4 +1,4 @@
-const { Pool } = require("pg");
+﻿const { Pool } = require("pg");
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -8,33 +8,33 @@ const pool = new Pool({
 const notifications = [
   {
     type: "connection",
-    title: "Nouvelle connexion LinkedIn",
+    title: "New LinkedIn connection",
     message:
-      "Marie Dubois a accepté votre demande de connexion. Elle occupe le poste de Directrice Marketing chez TechCorp.",
+      "Marie Dubois accepted your connection request. She holds the position of Marketing Director at TechCorp.",
     read: false,
     data: { prospect_id: 1, prospect_name: "Marie Dubois" }
   },
   {
     type: "reply",
-    title: "Nouvelle réponse reçue",
+    title: "New reply received",
     message:
-      'Jean Martin a répondu à votre message de la campagne "Recrutement Tech Q3". Réponse : "Intéressé, parlons-en la semaine prochaine."',
+      'Jean Martin replied to your message from the "Recruitment Tech Q3" campaign. Reply: "Interested, let\'s talk next week."',
     read: false,
     data: { campaign_id: 1, prospect_id: 2, prospect_name: "Jean Martin" }
   },
   {
     type: "message",
-    title: "Message envoyé avec succès",
+    title: "Message sent successfully",
     message:
-      "Votre message à Sarah Lefebvre a été envoyé via l'extension Chrome. Statut : envoyé.",
+      "Your message to Sarah Lefebvre was sent via the Chrome extension. Status: sent.",
     read: true,
     data: { prospect_id: 3, prospect_name: "Sarah Lefebvre" }
   },
   {
     type: "alert",
-    title: "Taux de réponse en baisse",
+    title: "Reply rate declining",
     message:
-      'Le taux de réponse de la campagne "SaaS France" a chuté de 18% à 12% cette semaine. Pensez à réviser vos templates.',
+      'The reply rate for the "SaaS France" campaign dropped from 18% to 12% this week. Consider reviewing your templates.',
     read: false,
     data: {
       campaign_id: 2,
@@ -45,17 +45,17 @@ const notifications = [
   },
   {
     type: "connection",
-    title: "Nouvelle connexion LinkedIn",
+    title: "New LinkedIn connection",
     message:
-      "Pierre Garnier a accepté votre demande de connexion. CTO @ StartupFlow.",
+      "Pierre Garnier accepted your connection request. CTO @ StartupFlow.",
     read: false,
     data: { prospect_id: 4, prospect_name: "Pierre Garnier" }
   },
   {
     type: "reply",
-    title: "Conversion détectée !",
+    title: "Conversion detected!",
     message:
-      "Sophie Bernard a montré un fort intérêt pour votre offre. Elle a demandé une démo pour mardi prochain.",
+      "Sophie Bernard showed strong interest in your offer. She requested a demo for next Tuesday.",
     read: false,
     data: {
       campaign_id: 1,
@@ -66,58 +66,58 @@ const notifications = [
   },
   {
     type: "alert",
-    title: "Quota d'envoi presque atteint",
+    title: "Send quota almost reached",
     message:
-      "Vous avez envoyé 45 messages aujourd'hui sur votre limite de 50. Ralentissez pour éviter les restrictions LinkedIn.",
+      "You have sent 45 messages today out of your limit of 50. Slow down to avoid LinkedIn restrictions.",
     read: true,
     data: { sent: 45, limit: 50 }
   },
   {
     type: "message",
-    title: "Follow-up automatique envoyé",
+    title: "Automatic follow-up sent",
     message:
-      'L\'agent IA a envoyé un follow-up à Luc Moreau après 3 jours sans réponse. Template : "Relance douce".',
+      'The AI agent sent a follow-up to Luc Moreau after 3 days without reply. Template: "Soft nudge".',
     read: false,
     data: {
       prospect_id: 6,
       prospect_name: "Luc Moreau",
-      template: "Relance douce"
+      template: "Soft nudge"
     }
   },
   {
     type: "connection",
-    title: "Profil consulté",
+    title: "Profile viewed",
     message:
-      "Votre profil a été consulté par 12 prospects ciblés cette semaine. Top secteur : Technologie.",
+      "Your profile was viewed by 12 targeted prospects this week. Top industry: Technology.",
     read: true,
-    data: { views: 12, top_industry: "Technologie" }
+    data: { views: 12, top_industry: "Technology" }
   },
   {
     type: "reply",
-    title: "Nouvelle réponse reçue",
+    title: "New reply received",
     message:
-      'Claire Rousseau : "Merci pour votre message, je ne suis pas intéressée pour le moment mais gardez le contact."',
+      'Claire Rousseau: "Thank you for your message, I am not interested at the moment but keep in touch."',
     read: false,
     data: {
       campaign_id: 3,
       prospect_id: 7,
       prospect_name: "Claire Rousseau",
-      sentiment: "neutre"
+      sentiment: "neutral"
     }
   },
   {
     type: "alert",
-    title: "Agent IA en pause",
+    title: "AI agent paused",
     message:
-      "L'agent IA a été mis en pause automatiquement après 5 erreurs consécutives. Vérifiez la connexion LinkedIn.",
+      "The AI agent was automatically paused after 5 consecutive errors. Check the LinkedIn connection.",
     read: false,
-    data: { errors: 5, reason: "connexion" }
+    data: { errors: 5, reason: "connection" }
   },
   {
     type: "message",
-    title: "Campagne terminée",
+    title: "Campaign completed",
     message:
-      'La campagne "Lancement Produit B2B" est terminée. Résultats : 200 envoyés, 45 réponses, 12 conversions.',
+      'The "B2B Product Launch" campaign is finished. Results: 200 sent, 45 replies, 12 conversions.',
     read: true,
     data: { campaign_id: 4, sent: 200, replies: 45, conversions: 12 }
   }
@@ -128,7 +128,7 @@ async function seed() {
   try {
     // Clear existing notifications first
     await client.query("DELETE FROM notifications");
-    console.log("🗑️  Anciennes notifications supprimées");
+    console.log("🗑️  Old notifications deleted");
 
     for (const n of notifications) {
       await client.query(
@@ -140,10 +140,10 @@ async function seed() {
 
     const countRes = await client.query("SELECT COUNT(*) FROM notifications");
     console.log(
-      `✅ ${countRes.rows[0].count} notifications insérées avec succès`
+      `✅ ${countRes.rows[0].count} notifications inserted successfully`
     );
   } catch (err) {
-    console.error("❌ Erreur:", err.message);
+    console.error("❌ Error:", err.message);
     process.exit(1);
   } finally {
     client.release();

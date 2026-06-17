@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Qlinqen CI/CD Pipeline</title>
+  <style>
+    @page { size: A4 landscape; margin: 10mm; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: #f8fafc;
+      padding: 20px;
+      color: #1e293b;
+      font-size: 8.5pt;
+    }
+    .pipeline-container {
+      max-width: 270mm;
+      margin: 0 auto;
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 18px 22px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+    .title {
+      text-align: center;
+      font-size: 14pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 14px;
+      letter-spacing: 0.3px;
+    }
+    .subtitle {
+      text-align: center;
+      font-size: 9pt;
+      color: #64748b;
+      margin-bottom: 18px;
+    }
+
+    /* Section labels */
+    .section {
+      margin-bottom: 16px;
+    }
+    .section-label {
+      font-size: 8pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #475569;
+      margin-bottom: 8px;
+      padding-left: 4px;
+      border-left: 3px solid #64748b;
+      padding-left: 8px;
+    }
+    .section-label.ci { border-color: #2563eb; color: #1d4ed8; }
+    .section-label.security { border-color: #dc2626; color: #b91c1c; }
+    .section-label.deploy { border-color: #059669; color: #047857; }
+    .section-label.scheduled { border-color: #7c3aed; color: #6d28d9; }
+
+    /* Pipeline row */
+    .pipeline-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+    .pipeline-row .branch-label {
+      font-size: 7.5pt;
+      font-weight: 600;
+      color: #64748b;
+      width: 72px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* Box / step */
+    .step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 88px;
+      max-width: 110px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1.5px solid;
+      text-align: center;
+      position: relative;
+      background: #fff;
+    }
+    .step .icon {
+      font-size: 14pt;
+      margin-bottom: 3px;
+    }
+    .step .name {
+      font-size: 7.5pt;
+      font-weight: 600;
+      line-height: 1.25;
+    }
+    .step .detail {
+      font-size: 6.5pt;
+      color: #64748b;
+      margin-top: 2px;
+      line-height: 1.2;
+    }
+
+    /* Colors by category */
+    .step.ci { border-color: #93c5fd; background: #eff6ff; }
+    .step.ci .icon { color: #2563eb; }
+    .step.ci .name { color: #1e40af; }
+
+    .step.test { border-color: #c4b5fd; background: #f5f3ff; }
+    .step.test .icon { color: #7c3aed; }
+    .step.test .name { color: #5b21b6; }
+
+    .step.security { border-color: #fca5a5; background: #fef2f2; }
+    .step.security .icon { color: #dc2626; }
+    .step.security .name { color: #991b1b; }
+
+    .step.build { border-color: #86efac; background: #f0fdf4; }
+    .step.build .icon { color: #16a34a; }
+    .step.build .name { color: #166534; }
+
+    .step.deploy { border-color: #6ee7b7; background: #ecfdf5; }
+    .step.deploy .icon { color: #059669; }
+    .step.deploy .name { color: #065f46; }
+
+    .step.monitor { border-color: #fdba74; background: #fff7ed; }
+    .step.monitor .icon { color: #ea580c; }
+    .step.monitor .name { color: #9a3412; }
+
+    .step.scheduled { border-color: #c4b5fd; background: #faf5ff; }
+    .step.scheduled .icon { color: #7c3aed; }
+    .step.scheduled .name { color: #6b21a8; }
+
+    /* Arrow */
+    .arrow {
+      font-size: 14pt;
+      color: #94a3b8;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .arrow-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    .arrow-group .line {
+      width: 2px;
+      height: 14px;
+      background: #cbd5e1;
+    }
+    .arrow-group .branch-text {
+      font-size: 6pt;
+      color: #94a3b8;
+      background: #f1f5f9;
+      padding: 1px 4px;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+
+    /* Parallel group */
+    .parallel-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border: 1.5px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 8px;
+      background: #f8fafc;
+    }
+    .parallel-label {
+      font-size: 7pt;
+      font-weight: 700;
+      color: #64748b;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      font-size: 7pt;
+      color: #94a3b8;
+    }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      gap: 14px;
+      margin-top: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 7pt;
+      color: #64748b;
+    }
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <div class="pipeline-container">
+    <div class="title">Qlinqen CI/CD Pipeline</div>
+    <div class="subtitle">GitHub Actions — Cloud & DevOps Architecture (Updated)</div>
+
+    <!-- CI SECTION -->
+    <div class="section">
+      <div class="section-label ci">Continuous Integration — 3 Parallel Tracks</div>
+
+      <div class="pipeline-row">
+        <div class="branch-label">Frontend CI</div>
+        <div class="step ci">
+          <div class="icon">&#128208;</div>
+          <div class="name">ESLint</div>
+          <div class="detail">Code linting</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step ci">
+          <div class="icon">&#128295;</div>
+          <div class="name">TypeScript</div>
+          <div class="detail">Type check</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step test">
+          <div class="icon">&#9989;</div>
+          <div class="name">Vitest</div>
+          <div class="detail">Unit tests + coverage</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step build">
+          <div class="icon">&#128230;</div>
+          <div class="name">Next.js Build</div>
+          <div class="detail">Artifacts uploaded</div>
+        </div>
+      </div>
+
+      <div class="pipeline-row">
+        <div class="branch-label">Worker CI</div>
+        <div class="step ci">
+          <div class="icon">&#128208;</div>
+          <div class="name">Lint</div>
+          <div class="detail">TypeScript worker</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step build">
+          <div class="icon">&#128230;</div>
+          <div class="name">Worker Build</div>
+          <div class="detail">Dist compilation</div>
+        </div>
+      </div>
+
+      <div class="pipeline-row">
+        <div class="branch-label">Extension CI</div>
+        <div class="step ci">
+          <div class="icon">&#128295;</div>
+          <div class="name">Manifest V3</div>
+          <div class="detail">Validation</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step test">
+          <div class="icon">&#9989;</div>
+          <div class="name">Extension Tests</div>
+          <div class="detail">Chrome API mocks</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECURITY SECTION -->
+    <div class="section">
+      <div class="section-label security">Security Audit — 4 Layers (Scheduled + PR)</div>
+      <div class="pipeline-row">
+        <div class="step security">
+          <div class="icon">&#128274;</div>
+          <div class="name">NPM Audit</div>
+          <div class="detail">Critical + High vulns</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step security">
+          <div class="icon">&#128269;</div>
+          <div class="name">Trivy FS</div>
+          <div class="detail">Secrets + vuln + misconfig</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step security">
+          <div class="icon">&#128301;</div>
+          <div class="name">Semgrep</div>
+          <div class="detail">OWASP Top 10</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step security">
+          <div class="icon">&#128273;</div>
+          <div class="name">Gitleaks</div>
+          <div class="detail">v8.21 — Secret scan</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step security">
+          <div class="icon">&#128737;</div>
+          <div class="name">App Security</div>
+          <div class="detail">XSS / SQLi / Headers</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEPLOY SECTION -->
+    <div class="section">
+      <div class="section-label deploy">Deploy Pipeline — Coolify + GHCR + Oracle Cloud</div>
+
+      <div class="pipeline-row">
+        <div class="branch-label">Frontend</div>
+        <div class="step build">
+          <div class="icon">&#128295;</div>
+          <div class="name">Docker Build</div>
+          <div class="detail">ARM64 (Oracle Cloud)</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step build">
+          <div class="icon">&#128229;</div>
+          <div class="name">Push GHCR</div>
+          <div class="detail">sha- + latest</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step security">
+          <div class="icon">&#128027;</div>
+          <div class="name">Trivy Scan</div>
+          <div class="detail">Block on CRITICAL</div>
+        </div>
+      </div>
+
+      <div class="pipeline-row">
+        <div class="branch-label">Worker</div>
+        <div class="step build">
+          <div class="icon">&#128295;</div>
+          <div class="name">Docker Build</div>
+          <div class="detail">ARM64 (Oracle Cloud)</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step build">
+          <div class="icon">&#128229;</div>
+          <div class="name">Push GHCR</div>
+          <div class="detail">sha- + latest</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step security">
+          <div class="icon">&#128027;</div>
+          <div class="name">Trivy Scan</div>
+          <div class="detail">Block on CRITICAL</div>
+        </div>
+      </div>
+
+      <div class="pipeline-row" style="margin-top:8px;">
+        <div class="branch-label">Shared</div>
+        <div class="step deploy">
+          <div class="icon">&#128190;</div>
+          <div class="name">DB Migration</div>
+          <div class="detail">002_add_auth_roles.sql</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step deploy">
+          <div class="icon">&#128640;</div>
+          <div class="name">Coolify Deploy</div>
+          <div class="detail">Webhook + retry x3</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step monitor">
+          <div class="icon">&#128270;</div>
+          <div class="name">Smoke Test</div>
+          <div class="detail">/api/health x10</div>
+        </div>
+        <div class="arrow-group">
+          <div class="line"></div>
+          <div class="branch-text">FAIL</div>
+          <div class="line"></div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step deploy">
+          <div class="icon">&#128260;</div>
+          <div class="name">Auto-Rollback</div>
+          <div class="detail">Previous SHA via API</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCHEDULED SECTION -->
+    <div class="section">
+      <div class="section-label scheduled">Scheduled Automation — GitHub Cron + Dependabot</div>
+      <div class="pipeline-row">
+        <div class="step scheduled">
+          <div class="icon">&#9851;</div>
+          <div class="name">Dependabot</div>
+          <div class="detail">Weekly dep updates</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step scheduled">
+          <div class="icon">&#128187;</div>
+          <div class="name">DB Backup</div>
+          <div class="detail">Daily 2h UTC — R2</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step scheduled">
+          <div class="icon">&#128274;</div>
+          <div class="name">GPG Encrypt</div>
+          <div class="detail">AES256 + verify</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step scheduled">
+          <div class="icon">&#9729;</div>
+          <div class="name">Cloudflare R2</div>
+          <div class="detail">90-day retention</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step scheduled">
+          <div class="icon">&#128200;</div>
+          <div class="name">Lighthouse CI</div>
+          <div class="detail">Perf / A11y / SEO</div>
+        </div>
+        <div class="arrow">&#8594;</div>
+        <div class="step scheduled">
+          <div class="icon">&#128295;</div>
+          <div class="name">Backup Restore</div>
+          <div class="detail">Test integrity weekly</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#2563eb;"></div>CI / Lint</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#7c3aed;"></div>Tests</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#dc2626;"></div>Security</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#16a34a;"></div>Build / Push</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#059669;"></div>Deploy</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ea580c;"></div>Monitor / Rollback</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#7c3aed;"></div>Scheduled</div>
+    </div>
+
+    <div class="footer">
+      <span>GitHub Actions Workflows: ci.yml | deploy.yml | security.yml | lighthouse.yml | backup.yml | worker-ci.yml | chrome-extension-ci.yml</span>
+      <span>Updated: June 2026</span>
+    </div>
+  </div>
+</body>
+</html>

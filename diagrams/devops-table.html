@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LINQEN DevOps Toolchain</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f8f9fa;
+    padding: 40px;
+    color: #000;
+  }
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+  h1 {
+    text-align: center;
+    padding: 28px 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: #111;
+    border-bottom: 2px solid #e9ecef;
+    background: #fff;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  thead th {
+    background: #212529;
+    color: #fff;
+    text-align: left;
+    padding: 14px 18px;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  tbody tr {
+    border-bottom: 1px solid #e9ecef;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #f8f9fa; }
+  td {
+    padding: 14px 18px;
+    vertical-align: top;
+    color: #000;
+  }
+  .category {
+    font-weight: 700;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: block;
+    margin-bottom: 3px;
+  }
+  .tool-name {
+    font-weight: 600;
+    color: #000;
+  }
+  .tool-code {
+    font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+    font-size: 12px;
+    background: #f1f3f5;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #000;
+  }
+  .justification {
+    color: #000;
+    font-size: 13px;
+  }
+  .justification code {
+    font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+    font-size: 12px;
+    background: #f1f3f5;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #000;
+  }
+
+  /* Category colors for left accent */
+  .accent-ci    { border-left: 4px solid #198754; }
+  .accent-test  { border-left: 4px solid #0d6efd; }
+  .accent-sec   { border-left: 4px solid #dc3545; }
+  .accent-perf  { border-left: 4px solid #fd7e14; }
+  .accent-dep   { border-left: 4px solid #ffc107; }
+  .accent-db    { border-left: 4px solid #6f42c1; }
+  .accent-obs   { border-left: 4px solid #0dcaf0; }
+  .accent-maint { border-left: 4px solid #6c757d; }
+
+  .cat-label {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .cat-ci    { background: #d1e7dd; color: #0f5132; }
+  .cat-test  { background: #cfe2ff; color: #084298; }
+  .cat-sec   { background: #f8d7da; color: #842029; }
+  .cat-perf  { background: #ffe5d0; color: #7a3a0a; }
+  .cat-dep   { background: #fff3cd; color: #664d03; }
+  .cat-db    { background: #e0d4fc; color: #3d0b99; }
+  .cat-obs   { background: #d1f2f8; color: #055160; }
+  .cat-maint { background: #e2e3e5; color: #41464b; }
+
+  .highlight {
+    background: #fff9c4;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>LINQEN — DevOps Toolchain & Justification (Updated)</h1>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:26%">Category</th>
+        <th style="width:26%">Tool Used</th>
+        <th style="width:48%">Justification</th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <tr class="accent-ci">
+        <td><span class="cat-label cat-ci">CI — Lint</span></td>
+        <td><span class="tool-name">ESLint</span></td>
+        <td class="justification">JS/TS code style enforcement — <span class="highlight">blocks build</span> if non-compliant</td>
+      </tr>
+      <tr class="accent-ci">
+        <td><span class="cat-label cat-ci">CI — TypeCheck</span></td>
+        <td><span class="tool-name">TypeScript Compiler</span> <code class="tool-code">tsc --noEmit</code></td>
+        <td class="justification">Strict type checking at compile time — eliminates runtime type errors</td>
+      </tr>
+      <tr class="accent-ci">
+        <td><span class="cat-label cat-ci">CI — Build</span></td>
+        <td><span class="tool-name">Next.js Build</span></td>
+        <td class="justification">Build gated on lint + typecheck + tests passing — <span class="highlight">deployment impossible without quality validation</span></td>
+      </tr>
+      <tr class="accent-ci">
+        <td><span class="cat-label cat-ci">CI — Worker</span></td>
+        <td><span class="tool-name">TypeScript Compile (Worker)</span></td>
+        <td class="justification">Independent validation of the LinkedIn queue service — isolated from frontend pipeline</td>
+      </tr>
+      <tr class="accent-ci">
+        <td><span class="cat-label cat-ci">CI — Extension</span></td>
+        <td><span class="tool-name">Chrome Extension MV3 Check · Zip Package</span></td>
+        <td class="justification">Manifest V3 compliance, JS syntax check on all 5 scripts, distributable zip artifact for Chrome Web Store</td>
+      </tr>
+
+      <tr class="accent-test">
+        <td><span class="cat-label cat-test">Tests — Unit</span></td>
+        <td><span class="tool-name">Vitest</span> + Istanbul Coverage</td>
+        <td class="justification"><span class="highlight">28+ tests</span> on prospect scoring &amp; anti-XSS/CORS validators — 100% statement, branch and function coverage</td>
+      </tr>
+      <tr class="accent-test">
+        <td><span class="cat-label cat-test">Tests — E2E</span></td>
+        <td><span class="tool-name">Playwright</span> (Chromium)</td>
+        <td class="justification"><span class="highlight">9+ tests</span>: login UI + <code>/api/health</code> structure + security headers + CORS + rate limiting + XSS payload rejection</td>
+      </tr>
+      <tr class="accent-test">
+        <td><span class="cat-label cat-test">Tests — Performance</span></td>
+        <td><span class="tool-name">Lighthouse CI</span> (Google)</td>
+        <td class="justification">Automated audit: Performance ≥70 · Accessibility ≥85 · SEO ≥80 · Best Practices ≥85 — public LHCI report</td>
+      </tr>
+
+      <tr class="accent-sec">
+        <td><span class="cat-label cat-sec">Security — Dependencies</span></td>
+        <td><span class="tool-name">npm audit</span></td>
+        <td class="justification">Production dependency audit (<code>--omit=dev</code>) + full critical scan — on every commit + weekly schedule</td>
+      </tr>
+      <tr class="accent-sec">
+        <td><span class="cat-label cat-sec">Security — SAST</span></td>
+        <td><span class="tool-name">Semgrep</span> (5 OWASP rulesets)</td>
+        <td class="justification">Static analysis on JS + TS · React · Node.js · OWASP Top 10 — runs on every commit</td>
+      </tr>
+      <tr class="accent-sec">
+        <td><span class="cat-label cat-sec">Security — Filesystem</span></td>
+        <td><span class="tool-name">Trivy FS Scan</span></td>
+        <td class="justification">Triple scan: vulnerabilities + exposed secrets + misconfigurations in source files</td>
+      </tr>
+      <tr class="accent-sec">
+        <td><span class="cat-label cat-sec">Security — Secrets</span></td>
+        <td><span class="tool-name">Gitleaks</span> v8.21.2</td>
+        <td class="justification">API key &amp; token leak detection in working tree — SARIF report uploaded as artifact</td>
+      </tr>
+      <tr class="accent-sec">
+        <td><span class="cat-label cat-sec">Security — Docker Image</span></td>
+        <td><span class="tool-name">Trivy Image Scan</span> (GHCR)</td>
+        <td class="justification">CVE scan on published GHCR image after every push — <span class="highlight">CRITICAL blocking, HIGH audit</span> — results uploaded to GitHub Security tab (SARIF)</td>
+      </tr>
+      <tr class="accent-sec">
+        <td><span class="cat-label cat-sec">Security — Application</span></td>
+        <td><span class="tool-name">Custom Security Audit</span> <code class="tool-code">security-audit.js</code></td>
+        <td class="justification">Automated penetration testing: headers, SQLi, XSS, HTTPS enforcement, rate limiting, CORS validation — runs in CI against running Next.js server</td>
+      </tr>
+
+      <tr class="accent-dep">
+        <td><span class="cat-label cat-dep">Containerization</span></td>
+        <td><span class="tool-name">Docker</span> — 4-stage · <code class="tool-code">node:22-alpine</code> · non-root</td>
+        <td class="justification">Hardened minimal image base — <code>deps</code> → <code>builder</code> → <code>runner</code> · UID 1001 · no devDependencies in production</td>
+      </tr>
+      <tr class="accent-dep">
+        <td><span class="cat-label cat-dep">Multi-Arch Build</span></td>
+        <td><span class="tool-name">Docker Buildx</span> (QEMU)</td>
+        <td class="justification"><span class="highlight"><code>linux/amd64</code> + <code>linux/arm64</code></span> dual architecture — Oracle Cloud ARM (A1.Flex) compatible</td>
+      </tr>
+      <tr class="accent-dep">
+        <td><span class="cat-label cat-dep">CI/CD Cache</span></td>
+        <td><span class="tool-name">GitHub Actions Cache</span> (Docker layers)</td>
+        <td class="justification">Docker layer caching between runs — <span class="highlight">~65% faster rebuilds</span> · <code>cache-from: type=gha</code></td>
+      </tr>
+      <tr class="accent-dep">
+        <td><span class="cat-label cat-dep">Registry</span></td>
+        <td><span class="tool-name">GitHub Container Registry</span> (GHCR)</td>
+        <td class="justification">Tags: <code>latest</code> · <code>main</code> · <code>sha-{commit}</code> — full traceability per commit via sha256 digest</td>
+      </tr>
+      <tr class="accent-dep">
+        <td><span class="cat-label cat-dep">CD — Staging</span></td>
+        <td><span class="tool-name">Coolify</span> (webhook trigger)</td>
+        <td class="justification">Deployed from <code>develop</code> branch after green build + Trivy scan — mirrors production pipeline for pre-release validation</td>
+      </tr>
+      <tr class="accent-dep">
+        <td><span class="cat-label cat-dep">CD — Production</span></td>
+        <td><span class="tool-name">Coolify</span> (webhook trigger)</td>
+        <td class="justification">Deployed only after green build + Trivy scan + smoke tests — open-source self-hosted PaaS</td>
+      </tr>
+      <tr class="accent-dep">
+        <td><span class="cat-label cat-dep">Smoke Tests</span></td>
+        <td><span class="tool-name">Custom HTTP Health Checks</span></td>
+        <td class="justification">Post-deploy verification: <code>/health</code>, <code>/login</code>, <code>/api/*</code> endpoints — <span class="highlight">automatic rollback</span> on failure via <code>LAST_DEPLOYED_SHA</code> snapshot</td>
+      </tr>
+
+      <tr class="accent-db">
+        <td><span class="cat-label cat-db">DB Migrations</span></td>
+        <td><span class="tool-name">Custom <code class="tool-code">migrate.js</code></span></td>
+        <td class="justification">Postgres advisory lock (<code>pg_try_advisory_lock</code>) + <span class="highlight">SHA-256 checksum idempotence</span> — prevents concurrent execution corruption + rollback on error</td>
+      </tr>
+      <tr class="accent-db">
+        <td><span class="cat-label cat-db">DB Backup</span></td>
+        <td><span class="tool-name">GitHub Actions CRON</span></td>
+        <td class="justification">Daily PostgreSQL dump at 02:00 UTC → <span class="highlight">GPG symmetric AES-256 encryption</span> → Cloudflare R2 off-site storage + artifact with 30-day retention</td>
+      </tr>
+      <tr class="accent-db">
+        <td><span class="cat-label cat-db">DB Restore Test</span></td>
+        <td><span class="tool-name">GitHub Actions CRON</span></td>
+        <td class="justification">Weekly automated backup restore verification on ephemeral PostgreSQL instance — integrity + schema validation</td>
+      </tr>
+
+      <tr class="accent-obs">
+        <td><span class="cat-label cat-obs">Metrics</span></td>
+        <td><span class="tool-name">Prometheus</span> + cAdvisor + Node Exporter</td>
+        <td class="justification">System + container + application metrics collection — 15s scrape interval via bearer-token-protected <code>/api/metrics</code></td>
+      </tr>
+      <tr class="accent-obs">
+        <td><span class="cat-label cat-obs">Dashboards</span></td>
+        <td><span class="tool-name">Grafana</span></td>
+        <td class="justification">Custom pre-provisioned dashboards for application, infrastructure, and business intelligence metrics</td>
+      </tr>
+      <tr class="accent-obs">
+        <td><span class="cat-label cat-obs">Logs</span></td>
+        <td><span class="tool-name">Loki</span> + Promtail</td>
+        <td class="justification">Centralized log aggregation with label-based querying and Grafana integration</td>
+      </tr>
+      <tr class="accent-obs">
+        <td><span class="cat-label cat-obs">Uptime</span></td>
+        <td><span class="tool-name">Uptime Kuma</span></td>
+        <td class="justification">External monitoring with HTTP(S) polling, status page, and multi-channel alerting</td>
+      </tr>
+      <tr class="accent-obs">
+        <td><span class="cat-label cat-obs">Alerting</span></td>
+        <td><span class="tool-name">Alertmanager</span></td>
+        <td class="justification"><span class="highlight">10+ alert rules</span>: CPU, memory, disk, error rate, uptime, backup failure — routes to configured channels</td>
+      </tr>
+
+      <tr class="accent-maint">
+        <td><span class="cat-label cat-maint">Dependency Management</span></td>
+        <td><span class="tool-name">Dependabot</span> (npm + Actions + Docker)</td>
+        <td class="justification">Weekly grouped PRs: <code>langchain</code> · <code>radix-ui</code> · <code>next</code> · <code>react</code> · <code>@types</code> — 3 ecosystems, max 5 open PRs</td>
+      </tr>
+      <tr class="accent-maint">
+        <td><span class="cat-label cat-maint">Rollback</span></td>
+        <td><span class="tool-name">GitHub Actions</span></td>
+        <td class="justification">Automatic rollback on smoke test failure — compares <code>LAST_DEPLOYED_SHA</code> snapshot before every deploy</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+</body>
+</html>

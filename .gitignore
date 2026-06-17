@@ -24,6 +24,11 @@
 .DS_Store
 *.pem
 
+# Certificats TLS — JAMAIS commit (sauf README)
+nginx/certs/*
+!nginx/certs/README.md
+nginx/certbot/
+
 # Secrets locaux (observabilité, backups, etc.) — JAMAIS commit
 observability/secrets/*
 !observability/secrets/.gitkeep
@@ -38,6 +43,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel

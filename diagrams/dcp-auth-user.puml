@@ -1,0 +1,58 @@
+@startuml
+allowmixing
+hide circle
+
+skinparam classAttributeIconSize 0
+skinparam stereotypeCBackgroundColor transparent
+skinparam stereotypeCBorderColor transparent
+
+skinparam class {
+    BackgroundColor<<Boundary>> #D6E4FF
+    BorderColor<<Boundary>> #1565C0
+    HeaderBackgroundColor<<Boundary>> #A8C8FF
+    FontColor<<Boundary>> #0D47A1
+
+    BackgroundColor<<Controller>> #FFD6D6
+    BorderColor<<Controller>> #C62828
+    HeaderBackgroundColor<<Controller>> #FFB0B0
+    FontColor<<Controller>> #B71C1C
+
+    BackgroundColor<<Entity>> #D6F5D6
+    BorderColor<<Entity>> #2E7D32
+    HeaderBackgroundColor<<Entity>> #A8E6A8
+    FontColor<<Entity>> #1B5E20
+
+    FontStyle bold
+}
+
+title BCE Diagram : User Authentication
+
+class LoginView <<Boundary>> {
+  email : string
+  password : string
+  --
+  submitForm()
+  displayError(message)
+}
+
+class AuthController <<Controller>> {
+  --
+  authenticate(email, password)
+  verifyCredentials(email, password)
+  generateToken(user)
+}
+
+class User <<Entity>> {
+  -id
+  -email
+  -password_hash
+  -role : string
+}
+
+actor "User" as UserActor
+
+UserActor -- LoginView
+LoginView -- AuthController
+AuthController -- User
+
+@enduml

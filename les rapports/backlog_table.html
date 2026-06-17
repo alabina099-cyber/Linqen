@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Qlinqen — Product Backlog (7 Sprints)</title>
+<style>
+  :root{--bg:#F8FAFC;--card:#FFFFFF;--border:#E2E8F0;--text:#0F172A;--muted:#64748B;--accent:#2563EB;--must:#DC2626;--should:#D97706;--done:#059669;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text)}
+  header{text-align:center;padding:1.5rem 1rem;border-bottom:1px solid var(--border);background:#fff}
+  h1{margin:0;font-size:1.7rem}
+  .subtitle{color:var(--muted);font-size:.9rem;margin-top:.3rem}
+  .meta{display:flex;justify-content:center;gap:1.5rem;margin-top:.8rem;flex-wrap:wrap;font-size:.85rem;color:var(--muted)}
+  .meta b{color:var(--accent)}
+  .filters{display:flex;justify-content:center;gap:.4rem;padding:.8rem;flex-wrap:wrap;background:#fff}
+  .filters button{background:#fff;color:var(--text);border:1px solid var(--border);border-radius:6px;padding:.35rem .8rem;cursor:pointer;font-size:.8rem}
+  .filters button:hover,.filters button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .container{max-width:1400px;margin:0 auto;padding:0 1rem 2rem}
+  .sprint{margin-bottom:1.2rem;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--card);box-shadow:0 1px 3px #0000000d}
+  .sprint-hdr{display:flex;align-items:center;gap:.8rem;padding:.7rem 1rem;font-weight:700;cursor:pointer;background:var(--card)}
+  .pill{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;color:#fff;flex-shrink:0}
+  .sprint-title{flex:1;font-size:.95rem}
+  .sprint-sp{color:var(--muted);font-size:.8rem;font-weight:500}
+  .sprint-body{padding:0 1rem .8rem;display:none}
+  .sprint-body.open{display:block}
+  .goal{color:var(--muted);font-size:.85rem;margin:.4rem 0 .8rem;padding:.3rem .2rem}
+  table{width:100%;border-collapse:collapse;font-size:.82rem}
+  th{background:#F1F5F9;color:#475569;text-transform:uppercase;font-size:.68rem;letter-spacing:.04em;padding:.5rem .6rem;text-align:left;border-bottom:1px solid var(--border)}
+  td{padding:.5rem .6rem;border-bottom:1px solid #E2E8F066;vertical-align:top}
+  tr:hover{background:#F1F5F955}
+  .id{font-family:monospace;color:var(--accent);white-space:nowrap}
+  .story{max-width:280px}
+  .crit{color:var(--muted);font-size:.78rem;max-width:400px}
+  .pri{text-align:center;font-weight:700;font-size:.7rem;text-transform:uppercase}
+  .pri.must{color:var(--must)} .pri.should{color:var(--should)}
+  .sp{text-align:center;font-weight:600}
+  .badge{display:inline-block;padding:.1rem .4rem;border-radius:4px;font-size:.65rem;font-weight:700;text-transform:uppercase;border:1px solid}
+  .badge.done{background:#DCFCE7;color:var(--done);border-color:#86EFAC}
+  .summary{display:flex;justify-content:space-around;padding:.6rem;border-top:1px solid var(--border);background:#F8FAFC;font-size:.75rem}
+  .summary div{text-align:center}
+  .summary .n{font-size:1.3rem;font-weight:800;color:var(--accent)}
+  .summary .l{color:var(--muted);text-transform:uppercase;font-size:.65rem}
+  .dod{margin:1.5rem 0;padding:1rem;border:1px solid var(--border);border-radius:8px;background:var(--card)}
+  .dod h3{margin:0 0 .5rem;font-size:1rem}
+  .dod ul{margin:0;padding-left:1.2rem;color:var(--muted);font-size:.85rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>Qlinqen — Product Backlog</h1>
+  <p class="subtitle">AI-driven LinkedIn B2B Prospecting Agent | 7 Sprints | Scrum</p>
+  <div class="meta">
+    <span>Duration: <b>2 weeks</b>/sprint</span>
+    <span>Total: <b>~14 weeks</b></span>
+    <span>Stories: <b>54</b></span>
+    <span>Story Points: <b>297</b></span>
+  </div>
+</header>
+<div class="filters">
+  <button class="active" onclick="filter('all')">All</button>
+  <button onclick="filter('s1')">Sprint 1</button>
+  <button onclick="filter('s2')">Sprint 2</button>
+  <button onclick="filter('s3')">Sprint 3</button>
+  <button onclick="filter('s4')">Sprint 4</button>
+  <button onclick="filter('s5')">Sprint 5</button>
+  <button onclick="filter('s6')">Sprint 6</button>
+  <button onclick="filter('s7')">Sprint 7</button>
+</div>
+<div class="container"><div class="sprint" data-sprint="s1">
+  <div class="sprint-hdr" style="background:#2563EB18" onclick="toggle(this)">
+    <div class="pill" style="background:#2563EB">1</div>
+    <div class="sprint-title">Foundations and First User Flow</div>
+    <div class="sprint-sp">36 Story Points</div>
+  </div>
+  <div class="sprint-body open">
+    <p class="goal"><b>Goal:</b> Deliver a working Next.js application with authentication, database schema, and CI/CD pipeline deployed online.</p>
+    <table>
+      <tr><th>ID</th><th>User Story</th><th>Acceptance Criteria</th><th>Priority</th><th>Story Points</th><th>Status</th></tr>
+      <tr><td class='id'>S1-US01</td><td class='story'>As a developer, I want a Next.js project scaffold with TailwindCSS so that the frontend foundation is ready.</td><td class='crit'>Project builds; layout component renders; global styles apply.</td><td class='pri must'>Must</td><td class='sp'>3</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S1-US02</td><td class='story'>As a user, I want to log in and log out so that my session is secure.</td><td class='crit'>JWT tokens generated; protected routes redirect unauthenticated users; logout clears session.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S1-US03</td><td class='story'>As an admin, I want role-based access control so that admin and user permissions are separated.</td><td class='crit'>Middleware blocks unauthorized routes; role column in DB; seed data creates admin + user.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S1-US04</td><td class='story'>As a developer, I want a PostgreSQL database with migrations so that schema changes are versioned.</td><td class='crit'>Neon DB connected; migration files run via CLI; schema matches user/role tables.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S1-US05</td><td class='story'>As an ops engineer, I want Docker containers and docker-compose so that the environment is reproducible.</td><td class='crit'>`docker-compose up` starts app + DB; health checks pass.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S1-US06</td><td class='story'>As an ops engineer, I want GitHub Actions CI/CD so that every push is tested and deployed automatically.</td><td class='crit'>Workflow runs on PR/push; build + lint + test stages pass; auto-deploy to staging.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S1-US07</td><td class='story'>As a security engineer, I want HTTPS and HSTS headers so that communication is encrypted.</td><td class='crit'>Let's Encrypt certificate active; HSTS header present on all responses.</td><td class='pri must'>Must</td><td class='sp'>3</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S1-US08</td><td class='story'>As a developer, I want unit tests with Vitest so that core logic is covered.</td><td class='crit'>Vitest configured; at least one test runs in CI; coverage report generated.</td><td class='pri should'>Should</td><td class='sp'>3</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S1-US09</td><td class='story'>As a developer, I want ESLint and Prettier so that code quality is enforced.</td><td class='crit'>Config files present; pre-commit hook or CI check blocks bad formatting.</td><td class='pri should'>Should</td><td class='sp'>2</td><td><span class='badge done'>Done</span></td></tr>
+    </table>
+    <div class="summary"><div><span class="n">9</span><span class="l">Stories</span></div>
+    <div><span class="n">36</span><span class="l">Story Points</span></div>
+    <div><span class="n">0</span><span class="l">Must</span></div>
+    <div><span class="n">0</span><span class="l">Should</span></div>
+    <div><span class="n" style="color:var(--done)">Done</span><span class="l">Status</span></div></div>
+  </div>
+</div>
+<div class="sprint" data-sprint="s2">
+  <div class="sprint-hdr" style="background:#7C3AED18" onclick="toggle(this)">
+    <div class="pill" style="background:#7C3AED">2</div>
+    <div class="sprint-title">Initial CRM Management</div>
+    <div class="sprint-sp">45 Story Points</div>
+  </div>
+  <div class="sprint-body open">
+    <p class="goal"><b>Goal:</b> Deliver a full CRM module with prospect CRUD, Kanban board, dashboard, and improved security.</p>
+    <table>
+      <tr><th>ID</th><th>User Story</th><th>Acceptance Criteria</th><th>Priority</th><th>Story Points</th><th>Status</th></tr>
+      <tr><td class='id'>S2-US01</td><td class='story'>As a sales rep, I want to create, read, update, and delete prospects so that my pipeline is organized.</td><td class='crit'>All CRUD operations via UI; changes persist in DB; validation prevents bad data.</td><td class='pri must'>Must</td><td class='sp'>8</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S2-US02</td><td class='story'>As a sales rep, I want a Kanban board so that I can visualize prospect stages.</td><td class='crit'>Drag-and-drop (or status change) updates stage; columns reflect pipeline states.</td><td class='pri must'>Must</td><td class='sp'>8</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S2-US03</td><td class='story'>As a user, I want a main dashboard so that I can see key metrics at a glance.</td><td class='crit'>Dashboard loads; displays total prospects, recent activity; responsive layout.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S2-US04</td><td class='story'>As a developer, I want secured CRUD APIs so that only authorized users access data.</td><td class='crit'>API routes validate JWT; Zod schemas enforce input; 403 for unauthorized access.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S2-US05</td><td class='story'>As a security engineer, I want API rate limiting so that abuse is prevented.</td><td class='crit'>Rate limiter blocks excessive requests; returns 429 with retry-after header.</td><td class='pri must'>Must</td><td class='sp'>3</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S2-US06</td><td class='story'>As a security engineer, I want XSS protection so that scripts cannot be injected.</td><td class='crit'>Input sanitized on display; CSP header configured; no inline scripts.</td><td class='pri must'>Must</td><td class='sp'>3</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S2-US07</td><td class='story'>As a developer, I want improved CI/CD with env variable management so that deployments are reliable.</td><td class='crit'>Secrets injected via GitHub secrets; staging vs prod configs separated.</td><td class='pri should'>Should</td><td class='sp'>3</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S2-US08</td><td class='story'>As a QA engineer, I want API tests with Vitest so that endpoints are verified.</td><td class='crit'>Tests cover CRUD endpoints; mock DB in tests; run in CI.</td><td class='pri should'>Should</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S2-US09</td><td class='story'>As a QA engineer, I want component tests so that UI components work in isolation.</td><td class='crit'>At least 3 components tested with React Testing Library; run in CI.</td><td class='pri should'>Should</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr>
+    </table>
+    <div class="summary"><div><span class="n">9</span><span class="l">Stories</span></div>
+    <div><span class="n">45</span><span class="l">Story Points</span></div>
+    <div><span class="n">0</span><span class="l">Must</span></div>
+    <div><span class="n">0</span><span class="l">Should</span></div>
+    <div><span class="n" style="color:var(--done)">Done</span><span class="l">Status</span></div></div>
+  </div>
+</div>
+<div class="sprint" data-sprint="s3">
+  <div class="sprint-hdr" style="background:#05966918" onclick="toggle(this)">
+    <div class="pill" style="background:#059669">3</div>
+    <div class="sprint-title">Sales Pipeline, BI and Scoring</div>
+    <div class="sprint-sp">53 Story Points</div>
+  </div>
+  <div class="sprint-body open">
+    <p class="goal"><b>Goal:</b> Deliver an advanced pipeline with campaigns, automated follow-ups, BI analytics, and prospect scoring.</p>
+    <table>
+      <tr><th>ID</th><th>User Story</th><th>Acceptance Criteria</th><th>Priority</th><th>Story Points</th><th>Status</th></tr>
+      <tr><td class='id'>S3-US01</td><td class='story'>As a sales rep, I want advanced Kanban stages so that I can track prospects through a detailed pipeline.</td><td class='crit'>Custom stages configurable; stage transitions logged; UI reflects changes.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S3-US02</td><td class='story'>As a sales rep, I want campaigns with automatic follow-ups so that I can nurture leads systematically.</td><td class='crit'>Campaign creation UI; scheduled emails/messages sent via cron/worker; logs stored.</td><td class='pri must'>Must</td><td class='sp'>8</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S3-US03</td><td class='story'>As a manager, I want BI and analytics reports so that I can measure team performance.</td><td class='crit'>Charts render from aggregated data; filters by date range; exportable.</td><td class='pri must'>Must</td><td class='sp'>8</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S3-US04</td><td class='story'>As a sales rep, I want automatic prospect scoring so that I can prioritize high-value leads.</td><td class='crit'>Score calculated from engagement + firmographic data; displayed on prospect card.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S3-US05</td><td class='story'>As a developer, I want cron/worker jobs so that scheduled tasks run reliably.</td><td class='crit'>Worker processes campaigns; cron triggers every 15 min; failed jobs retried.</td><td class='pri must'>Must</td><td class='sp'>8</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S3-US06</td><td class='story'>As an ops engineer, I want database optimization so that queries are fast at scale.</td><td class='crit'>Indexes added; slow-query log reviewed; explain plans under 100ms.</td><td class='pri should'>Should</td><td class='sp'>3</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S3-US07</td><td class='story'>As an ops engineer, I want aggregated logs with Loki so that I can debug across services.</td><td class='crit'>Loki configured; logs queryable in Grafana; retention policy set.</td><td class='pri should'>Should</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S3-US08</td><td class='story'>As a QA engineer, I want E2E tests with Playwright so that user flows are verified.</td><td class='crit'>Playwright tests cover login → add prospect → change stage; run in CI.</td><td class='pri should'>Should</td><td class='sp'>8</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S3-US09</td><td class='story'>As a security engineer, I want audit logging on key actions so that activity is traceable.</td><td class='crit'>Create/update/delete logged with user + timestamp; admin can view audit trail.</td><td class='pri should'>Should</td><td class='sp'>3</td><td><span class='badge done'>Done</span></td></tr>
+    </table>
+    <div class="summary"><div><span class="n">9</span><span class="l">Stories</span></div>
+    <div><span class="n">53</span><span class="l">Story Points</span></div>
+    <div><span class="n">0</span><span class="l">Must</span></div>
+    <div><span class="n">0</span><span class="l">Should</span></div>
+    <div><span class="n" style="color:var(--done)">Done</span><span class="l">Status</span></div></div>
+  </div>
+</div>
+<div class="sprint" data-sprint="s4">
+  <div class="sprint-hdr" style="background:#D9770618" onclick="toggle(this)">
+    <div class="pill" style="background:#D97706">4</div>
+    <div class="sprint-title">AI Agent (First Version)</div>
+    <div class="sprint-sp">48 Story Points</div>
+  </div>
+  <div class="sprint-body open">
+    <p class="goal"><b>Goal:</b> Deliver a conversational AI agent integrated into the CRM, capable of contextual responses and history.</p>
+    <table>
+      <tr><th>ID</th><th>User Story</th><th>Acceptance Criteria</th><th>Priority</th><th>Story Points</th><th>Status</th></tr>
+      <tr><td class='id'>S4-US01</td><td class='story'>As a sales rep, I want a conversational AI agent so that I can ask questions about my prospects.</td><td class='crit'>Chat UI embedded in CRM; accepts text input; displays response.</td><td class='pri must'>Must</td><td class='sp'>8</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S4-US02</td><td class='story'>As a sales rep, I want contextual responses so that the AI understands my CRM data.</td><td class='crit'>Agent fetches relevant prospect data before answering; mentions specific names/stages.</td><td class='pri must'>Must</td><td class='sp'>8</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S4-US03</td><td class='story'>As a user, I want conversation history so that I can review past AI interactions.</td><td class='crit'>History stored per user; scrollable thread; searchable.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S4-US04</td><td class='story'>As a developer, I want LangChain + GPT-4o-mini integration so that AI responses are generated securely.</td><td class='crit'>API key stored in secrets; prompt templates versioned; response under 5s.</td><td class='pri must'>Must</td><td class='sp'>8</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S4-US05</td><td class='story'>As a security engineer, I want secured AI API keys so that they are never exposed client-side.</td><td class='crit'>Key in server env only; backend proxies all AI calls; rotation procedure documented.</td><td class='pri must'>Must</td><td class='sp'>3</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S4-US06</td><td class='story'>As a security engineer, I want AI input validation so that prompt injection is mitigated.</td><td class='crit'>Max length enforced; dangerous keywords filtered; output sanitized before display.</td><td class='pri must'>Must</td><td class='sp'>3</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S4-US07</td><td class='story'>As an ops engineer, I want AI cost monitoring so that usage stays within budget.</td><td class='crit'>Per-request cost logged; daily aggregation in Grafana; alert if threshold exceeded.</td><td class='pri should'>Should</td><td class='sp'>3</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S4-US08</td><td class='story'>As a QA engineer, I want AI functional tests so that the agent behaves predictably.</td><td class='crit'>Test suite covers greeting, prospect query, fallback; mock AI responses in tests.</td><td class='pri should'>Should</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S4-US09</td><td class='story'>As a QA engineer, I want prompt evaluation so that AI quality is measured.</td><td class='crit'>Evaluation dataset created; scoring rubric documented; regression checks in CI.</td><td class='pri should'>Should</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr>
+    </table>
+    <div class="summary"><div><span class="n">9</span><span class="l">Stories</span></div>
+    <div><span class="n">48</span><span class="l">Story Points</span></div>
+    <div><span class="n">0</span><span class="l">Must</span></div>
+    <div><span class="n">0</span><span class="l">Should</span></div>
+    <div><span class="n" style="color:var(--done)">Done</span><span class="l">Status</span></div></div>
+  </div>
+</div>
+<div class="sprint" data-sprint="s5">
+  <div class="sprint-hdr" style="background:#EA580C18" onclick="toggle(this)">
+    <div class="pill" style="background:#EA580C">5</div>
+    <div class="sprint-title">Chrome Extension and Integrations</div>
+    <div class="sprint-sp">50 Story Points</div>
+  </div>
+  <div class="sprint-body open">
+    <p class="goal"><b>Goal:</b> Deliver a Chrome Extension (MV3) that captures LinkedIn prospects, queues them for approval, and syncs with CRM.</p>
+    <table>
+      <tr><th>ID</th><th>User Story</th><th>Acceptance Criteria</th><th>Priority</th><th>Story Points</th><th>Status</th></tr>
+      <tr><td class='id'>S5-US01</td><td class='story'>As a sales rep, I want a Chrome Extension so that I can capture LinkedIn profiles with one click.</td><td class='crit'>Extension installed from store/dev mode; popup UI visible; captures name, company, role.</td><td class='pri must'>Must</td><td class='sp'>8</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S5-US02</td><td class='story'>As a sales rep, I want captured prospects to enter an approval queue so that data quality is maintained.</td><td class='crit'>Queue page in CRM; admin/reviewer can approve/reject; reason field for rejection.</td><td class='pri must'>Must</td><td class='sp'>8</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S5-US03</td><td class='story'>As a user, I want CRM ↔ Extension sync so that approved prospects appear instantly.</td><td class='crit'>WebSocket or polling updates CRM; extension shows sync status indicator.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S5-US04</td><td class='story'>As a developer, I want a worker-based approval queue so that processing is reliable.</td><td class='crit'>Worker consumes queue; handles retries; notifies user on completion.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S5-US05</td><td class='story'>As a developer, I want an integration API so that the extension communicates securely with CRM.</td><td class='crit'>Dedicated API routes; API key or OAuth auth; rate limited; documented.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S5-US06</td><td class='story'>As a security engineer, I want OAuth-secured integration so that only authorized extensions connect.</td><td class='crit'>OAuth flow implemented; token refresh; revocation endpoint.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S5-US07</td><td class='story'>As a security engineer, I want minimal Chrome Extension permissions so that user privacy is respected.</td><td class='crit'>Manifest v3 declares only required permissions; no broad host access.</td><td class='pri must'>Must</td><td class='sp'>3</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S5-US08</td><td class='story'>As a QA engineer, I want E2E integration tests so that the full capture-to-CRM flow works.</td><td class='crit'>Automated test: open LinkedIn → capture → approve in CRM → verify presence.</td><td class='pri should'>Should</td><td class='sp'>8</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S5-US09</td><td class='story'>As an ops engineer, I want separate extension environments so that staging and prod don't collide.</td><td class='crit'>Extension IDs separated; build script selects env; CI deploys to Chrome Web Store.</td><td class='pri should'>Should</td><td class='sp'>3</td><td><span class='badge done'>Done</span></td></tr>
+    </table>
+    <div class="summary"><div><span class="n">9</span><span class="l">Stories</span></div>
+    <div><span class="n">50</span><span class="l">Story Points</span></div>
+    <div><span class="n">0</span><span class="l">Must</span></div>
+    <div><span class="n">0</span><span class="l">Should</span></div>
+    <div><span class="n" style="color:var(--done)">Done</span><span class="l">Status</span></div></div>
+  </div>
+</div>
+<div class="sprint" data-sprint="s6">
+  <div class="sprint-hdr" style="background:#DC262618" onclick="toggle(this)">
+    <div class="pill" style="background:#DC2626">6</div>
+    <div class="sprint-title">Automation, Security and Quality</div>
+    <div class="sprint-sp">62 Story Points</div>
+  </div>
+  <div class="sprint-body open">
+    <p class="goal"><b>Goal:</b> Deliver a hardened, production-ready platform with advanced automation, comprehensive security scanning, and full test coverage.</p>
+    <table>
+      <tr><th>ID</th><th>User Story</th><th>Acceptance Criteria</th><th>Priority</th><th>Story Points</th><th>Status</th></tr>
+      <tr><td class='id'>S6-US01</td><td class='story'>As a sales rep, I want advanced AI automations so that repetitive tasks are handled automatically.</td><td class='crit'>Auto-suggested follow-ups; smart reminders; configurable automation rules.</td><td class='pri must'>Must</td><td class='sp'>8</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S6-US02</td><td class='story'>As a user, I want UX/UI optimizations so that the app feels fast and modern.</td><td class='crit'>Lighthouse performance score > 90; reduced bundle size; skeleton loaders added.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S6-US03</td><td class='story'>As a user, I want caching and performance tuning so that pages load quickly.</td><td class='crit'>Redis or Next.js cache configured; cache hit rate > 70%; DB query times improved.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S6-US04</td><td class='story'>As a developer, I want advanced workers so that background jobs scale.</td><td class='crit'>Worker concurrency configured; dead letter queue; monitoring dashboard shows throughput.</td><td class='pri should'>Should</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S6-US05</td><td class='story'>As an ops engineer, I want CI/CD quality gates so that only high-quality code deploys.</td><td class='crit'>Gates enforce: tests pass, coverage > 80%, security scan clean, build succeeds.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S6-US06</td><td class='story'>As an ops engineer, I want ephemeral environments so that each PR gets a preview.</td><td class='crit'>Preview env per PR; seeded with test data; auto-destroyed on merge.</td><td class='pri should'>Should</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S6-US07</td><td class='story'>As a security engineer, I want automated security scanning (Trivy, Semgrep, Gitleaks) so that vulnerabilities are caught early.</td><td class='crit'>Trivy scans images + FS in CI; Semgrep SAST on PR; Gitleaks blocks secrets; npm audit runs.</td><td class='pri must'>Must</td><td class='sp'>8</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S6-US08</td><td class='story'>As a security engineer, I want strict CORS, CSP, and HSTS headers so that attack surfaces are minimized.</td><td class='crit'>CORS whitelist enforced; CSP header blocks inline scripts; HSTS max-age >= 31536000.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S6-US09</td><td class='story'>As a QA engineer, I want a full Playwright E2E suite so that critical paths are covered.</td><td class='crit'>E2E tests cover: auth, CRUD, kanban, AI chat, extension sync, approval flow.</td><td class='pri must'>Must</td><td class='sp'>8</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S6-US10</td><td class='story'>As a QA engineer, I want Lighthouse CI so that performance, accessibility, and SEO are monitored.</td><td class='crit'>Lighthouse CI runs on PR; thresholds: perf > 90, a11y > 95, SEO > 95.</td><td class='pri should'>Should</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S6-US11</td><td class='story'>As a QA engineer, I want code coverage > 80% so that risk is quantified.</td><td class='crit'>Istanbul/v8 coverage report generated; CI blocks if coverage drops below 80%.</td><td class='pri should'>Should</td><td class='sp'>3</td><td><span class='badge done'>Done</span></td></tr>
+    </table>
+    <div class="summary"><div><span class="n">11</span><span class="l">Stories</span></div>
+    <div><span class="n">62</span><span class="l">Story Points</span></div>
+    <div><span class="n">0</span><span class="l">Must</span></div>
+    <div><span class="n">0</span><span class="l">Should</span></div>
+    <div><span class="n" style="color:var(--done)">Done</span><span class="l">Status</span></div></div>
+  </div>
+</div>
+<div class="sprint" data-sprint="s7">
+  <div class="sprint-hdr" style="background:#4F46E518" onclick="toggle(this)">
+    <div class="pill" style="background:#4F46E5">7</div>
+    <div class="sprint-title">Finalization and Production Release</div>
+    <div class="sprint-sp">46 Story Points</div>
+  </div>
+  <div class="sprint-body open">
+    <p class="goal"><b>Goal:</b> Deliver the complete product in production with documentation, onboarding, and final hardening.</p>
+    <table>
+      <tr><th>ID</th><th>User Story</th><th>Acceptance Criteria</th><th>Priority</th><th>Story Points</th><th>Status</th></tr>
+      <tr><td class='id'>S7-US01</td><td class='story'>As a user, I want final bug fixes and polish so that the experience is smooth.</td><td class='crit'>All P1/P2 bugs resolved; UI polish pass completed; no console errors on load.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S7-US02</td><td class='story'>As a user, I want technical and user documentation so that I can understand the product.</td><td class='crit'>README updated; user guide PDF generated; API docs available (Swagger/OpenAPI).</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S7-US03</td><td class='story'>As a new user, I want onboarding so that I can get started quickly.</td><td class='crit'>Onboarding flow on first login; tooltips on key features; demo data option.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S7-US04</td><td class='story'>As a developer, I want final optimizations so that the app is production-grade.</td><td class='crit'>Bundle analysis complete; unused dependencies removed; query plans optimized.</td><td class='pri should'>Should</td><td class='sp'>3</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S7-US05</td><td class='story'>As an ops engineer, I want production deployment so that users can access the live app.</td><td class='crit'>Deployed to production server; custom domain active; SSL certificate valid.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S7-US06</td><td class='story'>As an ops engineer, I want Nginx + SSL with HSTS so that the production server is secure.</td><td class='crit'>Nginx config hardened; SSL A+ on SSL Labs; HSTS preload ready.</td><td class='pri must'>Must</td><td class='sp'>3</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S7-US07</td><td class='story'>As an ops engineer, I want PostgreSQL backups and restore tests so that data is protected.</td><td class='crit'>Automated daily backups; tested restore procedure; RTO/RPO documented.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S7-US08</td><td class='story'>As a security engineer, I want a final security audit so that no vulnerabilities remain.</td><td class='crit'>Penetration test completed; OWASP Top 10 checklist reviewed; report generated.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S7-US09</td><td class='story'>As a security engineer, I want Dependabot weekly updates so that dependencies stay patched.</td><td class='crit'>Dependabot config active; first PR merged; update policy documented.</td><td class='pri should'>Should</td><td class='sp'>2</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S7-US10</td><td class='story'>As a QA engineer, I want full acceptance tests so that business requirements are met.</td><td class='crit'>Acceptance test plan executed; all must-have stories signed off; no critical defects.</td><td class='pri must'>Must</td><td class='sp'>5</td><td><span class='badge done'>Done</span></td></tr><tr><td class='id'>S7-US11</td><td class='story'>As a business stakeholder, I want business validation so that the product meets market needs.</td><td class='crit'>Demo to stakeholders; feedback collected; go/no-go decision documented.</td><td class='pri must'>Must</td><td class='sp'>3</td><td><span class='badge done'>Done</span></td></tr>
+    </table>
+    <div class="summary"><div><span class="n">11</span><span class="l">Stories</span></div>
+    <div><span class="n">46</span><span class="l">Story Points</span></div>
+    <div><span class="n">0</span><span class="l">Must</span></div>
+    <div><span class="n">0</span><span class="l">Should</span></div>
+    <div><span class="n" style="color:var(--done)">Done</span><span class="l">Status</span></div></div>
+  </div>
+</div>
+<div class="dod">
+  <h3>Definition of Done (All Sprints)</h3>
+  <ul>
+    <li>Code reviewed and merged to main</li>
+    <li>Unit tests passing (Vitest)</li>
+    <li>CI/CD pipeline green</li>
+    <li>Security scan clean (Semgrep, Trivy, Gitleaks)</li>
+    <li>Deployed to staging environment</li>
+    <li>Feature validated against acceptance criteria</li>
+    <li>Documentation updated (if applicable)</li>
+    <li>No critical or high-severity bugs</li>
+  </ul>
+</div>
+</div>
+<script>
+function toggle(el){const body=el.parentElement.querySelector('.sprint-body');body.classList.toggle('open')}
+function filter(s){document.querySelectorAll('.sprint').forEach(sec=>{sec.style.display=(s==='all'||sec.dataset.sprint===s)?'block':'none'});document.querySelectorAll('.filters button').forEach(b=>b.classList.remove('active'));event.target.classList.add('active');if(s==='all'){document.querySelectorAll('.sprint-body').forEach(b=>b.classList.add('open'))}}
+document.querySelectorAll('.sprint-body').forEach(b=>b.classList.add('open'));
+</script>
+</body></html>

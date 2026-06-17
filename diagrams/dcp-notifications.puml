@@ -1,0 +1,59 @@
+@startuml
+allowmixing
+hide circle
+
+skinparam classAttributeIconSize 0
+skinparam stereotypeCBackgroundColor transparent
+skinparam stereotypeCBorderColor transparent
+
+skinparam class {
+    BackgroundColor<<Dialogue>> #D6E4FF
+    BorderColor<<Dialogue>> #1565C0
+    HeaderBackgroundColor<<Dialogue>> #A8C8FF
+    FontColor<<Dialogue>> #0D47A1
+
+    BackgroundColor<<Controller>> #FFD6D6
+    BorderColor<<Controller>> #C62828
+    HeaderBackgroundColor<<Controller>> #FFB0B0
+    FontColor<<Controller>> #B71C1C
+
+    BackgroundColor<<Entite>> #D6F5D6
+    BorderColor<<Entite>> #2E7D32
+    HeaderBackgroundColor<<Entite>> #A8E6A8
+    FontColor<<Entite>> #1B5E20
+
+    FontStyle bold
+}
+
+title DCP : View Notifications Popup
+
+class NotificationPopup <<Dialogue>> {
+  notifications : Notification[]
+  unreadCount : int
+  --
+  displayPopup()
+  markAsRead(id)
+  markAllAsRead()
+}
+
+class NotificationController <<Controller>> {
+  --
+  getNotifications(userId)
+  markAsRead(id)
+  markAllAsRead(userId)
+}
+
+class Notification <<Entite>> {
+  -id
+  -message
+  -type
+  -read : boolean
+  -created_at
+}
+
+actor User
+
+User -- NotificationPopup
+NotificationPopup -- NotificationController
+NotificationController -- Notification
+@enduml

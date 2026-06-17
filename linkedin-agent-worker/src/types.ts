@@ -9,10 +9,21 @@ export interface LinkedInAction {
   error_message: string | null;
   campaign_id: number | null;
   prospect_id: number | null;
+  // Multi-admin SaaS : propriétaire de l'action.
+  // - Si role='admin' : c'est l'admin lui-même.
+  // - Si role='user'  : on remonte à admin_id pour le cookie LinkedIn.
+  user_id: number | null;
   created_at: string;
   executed_at: string | null;
   claimed_by: string | null;
   claimed_at: string | null;
+}
+
+// Session LinkedIn d'un admin, résolue à partir d'une action.
+export interface AdminLinkedInSession {
+  adminId: number;
+  adminName: string;
+  cookieValue: string; // li_at en clair (déchiffré juste-en-temps)
 }
 
 export interface ActionResult {

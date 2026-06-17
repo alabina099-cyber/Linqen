@@ -7,6 +7,7 @@
 import { NextRequest } from "next/server";
 import { query } from "./db";
 import { verifyToken } from "./auth";
+import { getTokenFromRequest } from "./auth-cookies";
 
 export interface RequestUser {
   userId: number;
@@ -41,47 +42,32 @@ export async function ensureOwnershipColumns(): Promise<void> {
 
 // ---------------------------------------------
 // Résout l'utilisateur courant à partir de la requête.
-// 1. Bearer JWT  -> utilisateur secondaire (role=user)
-// 2. Sinon       -> admin via session LinkedIn (un seul admin)
+// Architecture multi-admin SaaS : JWT obligatoire pour TOUS les rôles
+// (admin OU user secondaire). Plus de fallback "premier admin".
 // ---------------------------------------------
 export async function getRequestUser(request: NextRequest): Promise<RequestUser | null> {
-  // 1. JWT (utilisateurs secondaires)
-  const authHeader = request.headers.get("authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    const payload = await verifyToken(authHeader.slice(7));
-    if (payload && payload.userId) {
-      // Vérifier que le compte est toujours actif
-      const check = await query(
-        `SELECT id, name, role, admin_id, is_active FROM users WHERE id = $1`,
-        [payload.userId]
-      );
-      const row = check.rows[0];
-      if (row && row.is_active !== false) {
-        return {
-          userId: row.id,
-          role: row.role === "admin" ? "admin" : "user",
-          adminId: row.admin_id ?? null,
-          name: row.name,
-        };
-      }
-      return null;
-    }
-  }
+  // Cookie HttpOnly (navigateur) OU header Bearer (extension Chrome)
+  const token = getTokenFromRequest(request);
+  if (!token) return null;
 
-  // 2. Fallback : admin via session LinkedIn
-  const admin = await query(
-    `SELECT id, name FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1`
+  const payload = await verifyToken(token);
+  if (!payload || !payload.userId) return null;
+
+  // Vérifier que le compte est toujours actif et récupérer le rôle/admin_id
+  // à jour depuis la base (ne pas se fier uniquement au contenu du JWT).
+  const check = await query(
+    `SELECT id, name, role, admin_id, is_active FROM users WHERE id = $1`,
+    [payload.userId]
   );
-  if (admin.rows.length > 0) {
-    return {
-      userId: admin.rows[0].id,
-      role: "admin",
-      adminId: null,
-      name: admin.rows[0].name,
-    };
-  }
+  const row = check.rows[0];
+  if (!row || row.is_active === false) return null;
 
-  return null;
+  return {
+    userId: row.id,
+    role: row.role === "admin" ? "admin" : "user",
+    adminId: row.admin_id ?? null,
+    name: row.name,
+  };
 }
 
 // ---------------------------------------------

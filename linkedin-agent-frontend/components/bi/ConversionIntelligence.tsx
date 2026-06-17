@@ -146,7 +146,7 @@ Analyzing the Prospect-to-Customer Journey              </p>
             </div>
           </div>
 
-          {/* Funnel détaillé avec drop-off */}
+          {/* Detailed funnel with drop-off */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -283,7 +283,7 @@ Analyzing the Prospect-to-Customer Journey              </p>
                       return (
                         <tr key={i}>
                           <td className="p-1.5 text-gray-700 font-medium whitespace-nowrap">
-                            {new Date(c.week).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
+                            {new Date(c.week).toLocaleDateString("en-US", { day: "2-digit", month: "short" })}
                           </td>
                           {cell(c.total)}
                           {cell(c.connected)}

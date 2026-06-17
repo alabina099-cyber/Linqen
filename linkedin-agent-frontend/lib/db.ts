@@ -1,11 +1,28 @@
 import { Pool, PoolClient } from 'pg';
 
-// Configuration de la connexion Neon DB
+// SSL conditionnel : activé pour les bases distantes (Neon, etc.),
+// désactivé en local (postgres docker / WSL qui n'a pas SSL configuré).
+// Override possible via PGSSL=true|false.
+function shouldUseSsl(connectionString: string | undefined): boolean {
+  if (process.env.PGSSL === 'false') return false;
+  if (process.env.PGSSL === 'true') return true;
+  if (!connectionString) return false;
+  try {
+    const url = new URL(connectionString);
+    if (url.searchParams.get('sslmode') === 'disable') return false;
+    if (url.searchParams.get('sslmode')) return true; // require / prefer / etc
+    const host = url.hostname;
+    return host !== 'localhost' && host !== '127.0.0.1' && host !== '::1';
+  } catch {
+    return false;
+  }
+}
+
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  ssl: shouldUseSsl(process.env.DATABASE_URL)
+    ? { rejectUnauthorized: false }
+    : false,
 });
 
 // Fonction utilitaire pour exécuter des requêtes

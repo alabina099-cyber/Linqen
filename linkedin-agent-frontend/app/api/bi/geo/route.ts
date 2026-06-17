@@ -3,17 +3,17 @@ import { pool } from "@/lib/db";
 
 // GET /api/bi/geo?range=30
 // Module 3: Prospect Intelligence Map
-//  - Densité géographique + conversion par lieu
-//  - Treemap industrie × seniority
-//  - Distribution des scores
-//  - Quadrant ICP fit (score × engagement)
+//  - Geographic density + conversion by location
+//  - Industry × seniority treemap
+//  - Score distribution
+//  - ICP fit quadrant (score × engagement)
 export async function GET(req: NextRequest) {
   try {
     const range = parseInt(req.nextUrl.searchParams.get("range") || "30");
 
     const geoSql = `
       SELECT
-        COALESCE(NULLIF(TRIM(location), ''), 'Inconnu') AS location,
+        COALESCE(NULLIF(TRIM(location), ''), 'Unknown') AS location,
         COUNT(*) AS total,
         COUNT(*) FILTER (WHERE status = 'converted') AS converted,
         ROUND(AVG(score)::numeric, 0) AS avg_score
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
       ORDER BY 1
     `;
 
-    // ICP quadrant: score (y) × engagement (x = nb messages reçus / envoyés au prospect)
+    // ICP quadrant: score (y) × engagement (x = number of messages received / sent to the prospect)
     const icpSql = `
       SELECT
         p.id,

@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     // Charger les settings de l'utilisateur courant (fallback admin pour cron/extension)
     const settingsResult = userId
       ? await query('SELECT settings FROM users WHERE id = $1', [userId])
-      : await query("SELECT settings FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
+      : { rows: [] };
     const settings = settingsResult.rows[0]?.settings || {};
     const smartFollowUpEnabled = settings.ai?.smartFollowUp === true;
 

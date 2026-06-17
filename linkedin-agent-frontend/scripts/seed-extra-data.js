@@ -1,4 +1,4 @@
-// Script pour ajouter des données supplémentaires pour ProspectMap et Heatmap
+// Script to add supplementary data for ProspectMap and Heatmap
 const { Pool } = require("pg");
 
 const pool = new Pool({
@@ -6,7 +6,7 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Villes françaises et internationales pour la diversité géo
+// French and international cities for geographic diversity
 const cities = [
   { name: "Paris", country: "France" },
   { name: "Lyon", country: "France" },
@@ -34,24 +34,24 @@ const cities = [
   { name: "Limoges", country: "France" },
   { name: "Amiens", country: "France" },
   { name: "Perpignan", country: "France" },
-  { name: "Besançon", country: "France" },
-  { name: "Orléans", country: "France" },
+  { name: "Besancon", country: "France" },
+  { name: "Orleans", country: "France" },
   { name: "Mulhouse", country: "France" },
   { name: "Rouen", country: "France" },
-  { name: "Bruxelles", country: "Belgique" },
-  { name: "Genève", country: "Suisse" },
+  { name: "Brussels", country: "Belgium" },
+  { name: "Geneva", country: "Switzerland" },
   { name: "Luxembourg", country: "Luxembourg" },
-  { name: "Montréal", country: "Canada" },
-  { name: "Genève", country: "Suisse" },
-  { name: "Lausanne", country: "Suisse" },
-  { name: "Marrakech", country: "Maroc" },
-  { name: "Casablanca", country: "Maroc" },
-  { name: "Tunis", country: "Tunisie" },
-  { name: "Dakar", country: "Sénégal" },
-  { name: "Abidjan", country: "Côte d'Ivoire" },
-  { name: "Yaoundé", country: "Cameroun" },
+  { name: "Montreal", country: "Canada" },
+  { name: "Geneva", country: "Switzerland" },
+  { name: "Lausanne", country: "Switzerland" },
+  { name: "Marrakesh", country: "Morocco" },
+  { name: "Casablanca", country: "Morocco" },
+  { name: "Tunis", country: "Tunisia" },
+  { name: "Dakar", country: "Senegal" },
+  { name: "Abidjan", country: "Ivory Coast" },
+  { name: "Yaounde", country: "Cameroon" },
   { name: "Libreville", country: "Gabon" },
-  { name: "Beyrouth", country: "Liban" },
+  { name: "Beirut", country: "Lebanon" },
   { name: "Dubai", country: "UAE" }
 ];
 
@@ -532,8 +532,8 @@ async function seedExtraData() {
   );
 
   try {
-    // 1. Ajouter 80 prospects supplémentaires répartis géographiquement
-    console.log("👥 Ajout de 80 prospects supplémentaires...");
+    // 1. Add 80 additional prospects distributed geographically
+    console.log("👥 Adding 80 additional prospects...");
     const prospectValues = [];
     for (let i = 31; i <= 110; i++) {
       const city = randomChoice(cities);
@@ -554,10 +554,10 @@ async function seedExtraData() {
       INSERT INTO prospects (linkedin_url, name, role, company, industry, location, company_size, score, status, created_at, updated_at)
       VALUES ${prospectValues.join(", ")}
     `);
-    console.log("✅ 80 prospects supplémentaires insérés");
+    console.log("✅ 80 additional prospects inserted");
 
-    // 2. Ajouter 150 messages avec horaires variés pour la heatmap
-    console.log("💬 Ajout de 150 messages pour la heatmap...");
+    // 2. Add 150 messages with varied schedules for the heatmap
+    console.log("💬 Adding 150 messages for the heatmap...");
     const messageValues = [];
     const statuses = ["sent", "replied"];
     const statusWeights = [0.55, 0.45]; // 55% sent, 45% replied
@@ -566,11 +566,11 @@ async function seedExtraData() {
       const campaignId = randomInt(1, 4);
       const prospectId = randomInt(1, 110);
       const daysAgo = randomInt(1, 60);
-      const hour = randomInt(8, 18); // Heures de bureau
+      const hour = randomInt(8, 18); // Business hours
       const minute = randomInt(0, 59);
-      const dayOfWeek = randomInt(0, 6); // 0=dimanche, 6=samedi
+      const dayOfWeek = randomInt(0, 6); // 0=Sunday, 6=Saturday
 
-      // Choisir le statut avec les poids
+      // Choose status with weights
       const rand = Math.random();
       let status = "sent";
       let cum = 0;
@@ -582,13 +582,13 @@ async function seedExtraData() {
         }
       }
 
-      // Privilégier les jours de semaine (lundi-vendredi)
+      // Favor weekdays (Monday-Friday)
       const finalDayOfWeek = Math.random() < 0.75 ? randomInt(1, 5) : dayOfWeek;
 
-      // Construire la date avec le bon jour de la semaine
+      // Build the date with the correct day of the week
       const baseDate = new Date();
       baseDate.setDate(baseDate.getDate() - daysAgo);
-      // Ajuster pour avoir le bon jour de la semaine
+      // Adjust to get the correct day of the week
       const currentDay = baseDate.getDay();
       const diff = finalDayOfWeek - currentDay;
       baseDate.setDate(baseDate.getDate() + diff);
@@ -596,11 +596,11 @@ async function seedExtraData() {
       const timestamp = `${baseDate.getFullYear()}-${String(baseDate.getMonth() + 1).padStart(2, "0")}-${String(baseDate.getDate()).padStart(2, "0")} ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`;
 
       messageValues.push(
-        `(${campaignId}, ${prospectId}, 'Prospect ${prospectId}', 'Role ${prospectId}', 'Company ${prospectId}', 'Message de test pour la heatmap...', 'connection', '${status}', '${timestamp}')`
+        `(${campaignId}, ${prospectId}, 'Prospect ${prospectId}', 'Role ${prospectId}', 'Company ${prospectId}', 'Test message for heatmap...', 'connection', '${status}', '${timestamp}')`
       );
     }
 
-    // Insérer par batches de 50 pour éviter les requêtes trop longues
+    // Insert in batches of 50 to avoid overly long queries
     for (let i = 0; i < messageValues.length; i += 50) {
       const batch = messageValues.slice(i, i + 50);
       await pool.query(`
@@ -608,10 +608,10 @@ async function seedExtraData() {
         VALUES ${batch.join(", ")}
       `);
     }
-    console.log("✅ 150 messages supplémentaires insérés");
+    console.log("✅ 150 additional messages inserted");
 
-    // 3. Ajouter plus de tool steps
-    console.log("🤖 Ajout de tool steps supplémentaires...");
+    // 3. Add more tool steps
+    console.log("🤖 Adding additional tool steps...");
     const tools = [
       "search_prospects",
       "visit_profile",
@@ -637,10 +637,10 @@ async function seedExtraData() {
         VALUES ${batch.join(", ")}
       `);
     }
-    console.log("✅ 50 tool steps supplémentaires insérés");
+    console.log("✅ 50 additional tool steps inserted");
 
-    // 4. Ajouter plus d'actions LinkedIn
-    console.log("📋 Ajout d'actions LinkedIn supplémentaires...");
+    // 4. Add more LinkedIn actions
+    console.log("📋 Adding additional LinkedIn actions...");
     const actionTypes = [
       "search",
       "visit_profile",
@@ -678,9 +678,9 @@ async function seedExtraData() {
       INSERT INTO linkedin_actions_queue (action_type, target_url, target_name, status, executed_at, created_at)
       VALUES ${actionValues.join(", ")}
     `);
-    console.log("✅ 40 actions LinkedIn supplémentaires insérées");
+    console.log("✅ 40 additional LinkedIn actions inserted");
 
-    // Vérification
+    // Verification
     const [prospectsCount, messagesCount, toolStepsCount, actionsCount] =
       await Promise.all([
         pool.query("SELECT COUNT(*) FROM prospects"),
@@ -689,13 +689,13 @@ async function seedExtraData() {
         pool.query("SELECT COUNT(*) FROM linkedin_actions_queue")
       ]);
 
-    console.log("\n📊 Vérification finale:");
+    console.log("\n📊 Final verification:");
     console.log(`   - Total prospects: ${prospectsCount.rows[0].count}`);
     console.log(`   - Total messages: ${messagesCount.rows[0].count}`);
     console.log(`   - Total tool steps: ${toolStepsCount.rows[0].count}`);
     console.log(`   - Total actions: ${actionsCount.rows[0].count}`);
 
-    // Stats par ville
+    // City stats
     const cityStats = await pool.query(`
       SELECT location, COUNT(*) as count, COUNT(*) FILTER (WHERE status = 'converted') as converted
       FROM prospects
@@ -703,14 +703,14 @@ async function seedExtraData() {
       ORDER BY count DESC
       LIMIT 15
     `);
-    console.log("\n🏙️  Top 15 villes:");
+    console.log("\n🏙️  Top 15 cities:");
     cityStats.rows.forEach((row) => {
       console.log(
-        `   ${row.location}: ${row.count} prospects (${row.converted} convertis)`
+        `   ${row.location}: ${row.count} prospects (${row.converted} converted)`
       );
     });
 
-    // Stats heatmap
+    // Heatmap stats
     const heatmapStats = await pool.query(`
       SELECT
         EXTRACT(DOW FROM created_at) as day_of_week,
@@ -722,8 +722,8 @@ async function seedExtraData() {
       GROUP BY day_of_week, hour
       ORDER BY day_of_week, hour
     `);
-    console.log("\n🔥 Heatmap (jour × heure) - nombre de messages:");
-    const days = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+    console.log("\n🔥 Heatmap (day × hour) - number of messages:");
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     for (let d = 0; d < 7; d++) {
       const dayData = heatmapStats.rows.filter(
         (r) => parseInt(r.day_of_week) === d
@@ -731,13 +731,13 @@ async function seedExtraData() {
       if (dayData.length > 0) {
         const total = dayData.reduce((s, r) => s + parseInt(r.count), 0);
         const replies = dayData.reduce((s, r) => s + parseInt(r.replies), 0);
-        console.log(`   ${days[d]}: ${total} messages (${replies} réponses)`);
+        console.log(`   ${days[d]}: ${total} messages (${replies} replies)`);
       }
     }
 
-    console.log("\n🎉 Données supplémentaires insérées avec succès !");
+    console.log("\n🎉 Additional data inserted successfully!");
   } catch (error) {
-    console.error("❌ Erreur:", error);
+    console.error("❌ Error:", error);
     throw error;
   } finally {
     await pool.end();

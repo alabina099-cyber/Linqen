@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LinkedIn Agent — Hybrid Architecture</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #f0f4f8;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 36px 24px;
+    min-height: 100vh;
+  }
+
+  h1 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+    text-align: center;
+  }
+
+  .diagram {
+    width: 100%;
+    max-width: 960px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* ── Top row: 3 columns ── */
+  .top-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+  }
+
+  .layer {
+    background: #fff;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  }
+
+  .layer-header {
+    padding: 11px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: center;
+    color: #fff;
+  }
+
+  .layer-body {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .module {
+    background: #f8fafc;
+    border-radius: 9px;
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .module-title {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 4px;
+  }
+
+  .module-desc {
+    font-size: 10.5px;
+    color: #64748b;
+    line-height: 1.55;
+  }
+
+  /* Colors */
+  .ext .layer-header  { background: #3b82f6; }
+  .dash .layer-header { background: #8b5cf6; }
+  .work .layer-header { background: #f59e0b; }
+
+  .ext  .module { border-color: #bfdbfe; background: #eff6ff; }
+  .dash .module { border-color: #ddd6fe; background: #f5f3ff; }
+  .work .module { border-color: #fde68a; background: #fffbeb; }
+
+  /* ── Arrow row ── */
+  .arrow-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+    letter-spacing: 0.04em;
+    padding: 2px 0;
+  }
+
+  .arrow-line {
+    flex: 1;
+    height: 1px;
+    background: #cbd5e1;
+    max-width: 120px;
+  }
+
+  .arrow-icon { font-size: 16px; color: #94a3b8; }
+
+  /* ── Bottom row: backend ── */
+  .backend-row {
+    background: #fff;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  }
+
+  .backend-row .layer-header { background: #10b981; }
+
+  .backend-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+
+  .backend-grid .module { border-color: #a7f3d0; background: #f0fdf4; }
+
+  /* ── Figure caption ── */
+  .caption {
+    margin-top: 18px;
+    font-size: 11px;
+    color: #94a3b8;
+    text-align: center;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<h1>Figure 3.1 — Hybrid Multi-Component Architecture Overview</h1>
+
+<div class="diagram">
+
+  <!-- TOP ROW -->
+  <div class="top-row">
+
+    <!-- Chrome Extension -->
+    <div class="layer ext">
+      <div class="layer-header">Chrome Extension (Manifest V3)</div>
+      <div class="layer-body">
+        <div class="module">
+          <div class="module-title">Background Service Worker</div>
+          <div class="module-desc">Polls action queue (12 s), enforces daily limits, applies human-like delays, monitors inbox replies &amp; accepted connections, recovers stale actions.</div>
+        </div>
+        <div class="module">
+          <div class="module-title">Content Script</div>
+          <div class="module-desc">Scrapes LinkedIn profiles and search results, performs DOM-level automated actions with selector fallbacks.</div>
+        </div>
+        <div class="module">
+          <div class="module-title">Bridge Script</div>
+          <div class="module-desc">Relays commands and JWT tokens between the web dashboard and the extension.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Web Dashboard -->
+    <div class="layer dash">
+      <div class="layer-header">Web Dashboard</div>
+      <div class="layer-body">
+        <div class="module">
+          <div class="module-title">Next.js 16 · React 19 · TypeScript</div>
+          <div class="module-desc">Full-stack app with server-side rendering, API routes, middleware, and a component-based UI.</div>
+        </div>
+        <div class="module">
+          <div class="module-title">Core Modules</div>
+          <div class="module-desc">Campaigns, approval queue, agent chat, automation settings, and real-time analytics dashboard.</div>
+        </div>
+        <div class="module">
+          <div class="module-title">Authentication</div>
+          <div class="module-desc">LinkedIn cookie login for admins · Email/password + JWT for team members · Role-based access control.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Headless Worker -->
+    <div class="layer work">
+      <div class="layer-header">Headless Worker</div>
+      <div class="layer-body">
+        <div class="module">
+          <div class="module-title">Node.js + Puppeteer</div>
+          <div class="module-desc">Polls the action queue every 5 s and executes LinkedIn actions server-side 24/7 without a browser extension.</div>
+        </div>
+        <div class="module">
+          <div class="module-title">Containerized Deployment</div>
+          <div class="module-desc">Packaged as a Docker container, deployed via Coolify on Oracle Cloud. Supports horizontal scaling.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ARROW -->
+  <div class="arrow-row">
+    <div class="arrow-line"></div>
+    <span>Extension</span>
+    <span class="arrow-icon">⟶</span>
+    <span>HTTPS / REST + JWT</span>
+    <span class="arrow-icon">⟵</span>
+    <span>Worker</span>
+    <div class="arrow-line"></div>
+  </div>
+
+  <!-- BACKEND ROW -->
+  <div class="backend-row">
+    <div class="layer-header">Backend &amp; Infrastructure</div>
+    <div class="backend-grid">
+
+      <div class="module">
+        <div class="module-title">PostgreSQL (Neon)</div>
+        <div class="module-desc">Serverless relational database for prospects, campaigns, action queues, and audit logs.</div>
+      </div>
+
+      <div class="module">
+        <div class="module-title">AI · LangChain · OpenAI</div>
+        <div class="module-desc">Intelligent message generation and campaign execution via tool-calling agents with configurable tone.</div>
+      </div>
+
+      <div class="module">
+        <div class="module-title">Nginx Load Balancer</div>
+        <div class="module-desc">Reverse proxy with TLS termination, rate limiting, and static asset caching. Horizontal scaling via Docker Compose.</div>
+      </div>
+
+      <div class="module">
+        <div class="module-title">Observability Stack</div>
+        <div class="module-desc">Prometheus · Grafana · Loki · AlertManager · cAdvisor · Uptime Kuma — metrics, logs, alerts, and uptime monitoring.</div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<p class="caption">Figure 3.1 — Hybrid Architecture Overview · LinkedIn Agent Platform</p>
+
+</body>
+</html>

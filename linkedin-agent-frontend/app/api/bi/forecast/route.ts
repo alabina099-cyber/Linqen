@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 
 // GET /api/bi/forecast?range=30&horizon=30
-// Module 5: Predictive Forecast (régression linéaire simple)
-//  - Historique journalier
-//  - Projection future (linéaire OLS)
-//  - Alertes intelligentes
-//  - Données pour what-if simulator
+// Module 5: Predictive Forecast (simple linear regression)
+//  - Daily history
+//  - Future projection (linear OLS)
+//  - Smart alerts
+//  - What-if simulator data
 function linearRegression(points: Array<{ x: number; y: number }>) {
   const n = points.length;
   if (n < 2) return { slope: 0, intercept: points[0]?.y || 0 };
@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Stats agrégées
+    // Aggregated stats
     const totalConversions = history.reduce((s, h) => s + h.conversions, 0);
     const projectedConversions = projection.reduce((s, p) => s + p.conversions, 0);
     const avgDailyConversions = totalConversions / Math.max(1, history.length);
@@ -91,33 +91,33 @@ export async function GET(req: NextRequest) {
       return m > 0 ? Math.round((r / m) * 100) : 0;
     })();
 
-    // Alertes
+    // Alerts
     const alerts = [];
     if (regConversions.slope > 0) {
       alerts.push({
         type: "positive",
-        title: "Tendance haussière détectée",
-        message: `Les conversions augmentent en moyenne de ${(regConversions.slope * 7).toFixed(1)}/semaine.`,
+        title: "Uptrend detected",
+        message: `Conversions are increasing by an average of ${(regConversions.slope * 7).toFixed(1)}/week.`,
       });
     } else if (regConversions.slope < -0.05) {
       alerts.push({
         type: "warning",
-        title: "Tendance baissière",
-        message: `Les conversions diminuent. Action recommandée: revoir les templates les moins performants.`,
+        title: "Downtrend",
+        message: `Conversions are declining. Recommended action: review underperforming templates.`,
       });
     }
     if (avgReplyRate > 20) {
       alerts.push({
         type: "positive",
-        title: "Taux de réponse excellent",
-        message: `${avgReplyRate}% de réponses — bien au-dessus de la moyenne LinkedIn (5-15%).`,
+        title: "Excellent reply rate",
+        message: `${avgReplyRate}% responses — well above LinkedIn average (5-15%).`,
       });
     }
     if (regMessages.slope < 0) {
       alerts.push({
         type: "info",
-        title: "Volume d'envoi en baisse",
-        message: "Pensez à augmenter le volume quotidien pour maintenir la croissance.",
+        title: "Sending volume declining",
+        message: "Consider increasing daily volume to maintain growth.",
       });
     }
 

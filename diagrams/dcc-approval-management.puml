@@ -1,0 +1,93 @@
+@startuml
+hide circle
+skinparam classAttributeIconSize 0
+
+skinparam package {
+    BorderColor #888888
+    BackgroundColor #FAFAFA
+    FontStyle bold
+}
+
+skinparam class {
+    BackgroundColor<<Action>>     #FFF8E1
+    BorderColor<<Action>>         #E65100
+    HeaderBackgroundColor<<Action>> #FFD54F
+    FontColor<<Action>>           #E65100
+
+    BackgroundColor<<navigator>>     #FFFDE7
+    BorderColor<<navigator>>         #F9A825
+    HeaderBackgroundColor<<navigator>> #FFF59D
+    FontColor<<navigator>>           #827717
+
+    BackgroundColor  #FFFFFF
+    BorderColor      #AAAAAA
+    FontStyle bold
+}
+
+title DCC : Manage Approval Action by User
+
+package "Presentation" {
+    class ApprovalQueueView <<navigator>> {
+        -actions : LinkedInAction[]
+        -stats : ActionStats[]
+        -selectedStatus : String
+        --
+        +displayQueue() : void
+        +approveAction(id : int) : void
+        +rejectAction(id : int) : void
+        +stopAction(id : int) : void
+        +retryAction(id : int) : void
+        +filterByStatus(status : String) : void
+    }
+}
+
+package "Application Logic" {
+    class GetActionsAction <<Action>> {
+        +execute() : void
+    }
+    class UpdateActionAction <<Action>> {
+        +execute() : void
+    }
+}
+
+package "Business Logic" {
+    class LinkedInAction {
+        -id : int
+        -action_type : String
+        -target_url : String
+        -target_name : String
+        -payload : JSON
+        -status : String
+        -campaign_id : String
+        +approve() : void
+        +reject() : void
+        +stop() : void
+        +retry() : void
+    }
+    class ActionStats {
+        -status : String
+        -count : int
+    }
+    class User {
+        -id : int
+        -email : String
+        -role : String
+        +canApprove() : boolean
+    }
+}
+
+' Presentation → Application Logic
+ApprovalQueueView --> GetActionsAction
+ApprovalQueueView --> UpdateActionAction
+
+' Application Logic → Business Logic
+GetActionsAction   --> LinkedInAction
+GetActionsAction   --> ActionStats
+GetActionsAction   --> User
+UpdateActionAction --> LinkedInAction
+UpdateActionAction --> User
+
+' Business Logic associations
+LinkedInAction "0..*" --> "1" User
+
+@enduml

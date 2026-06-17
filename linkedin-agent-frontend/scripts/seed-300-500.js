@@ -1,4 +1,4 @@
-// Script pour ajouter des messages spécifiquement dans le bucket 300-500 caractères
+// Script to add messages specifically in the 300-500 character bucket
 const { Pool } = require("pg");
 
 const pool = new Pool({
@@ -6,18 +6,18 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Textes calibrés pour être entre 300 et 500 caractères
+// Texts calibrated to be between 300 and 500 characters
 const texts300to500 = [
-  "Bonjour, j'ai découvert votre profil LinkedIn et je suis particulièrement impressionné par votre parcours professionnel. Votre expérience en développement web fullstack ainsi que votre capacité à manager des équipes techniques seraient un atout majeur pour notre entreprise. Nous recherchons actuellement un Lead Developer pour notre équipe Produit qui compte déjà 8 développeurs talentueux. Notre stack technique est moderne : React, TypeScript, Node.js, PostgreSQL et Redis. Le poste est en télétravail hybride avec 3 jours de remote par semaine. Le package est attractif : 75-95k€ brut annuel selon votre expérience, avec des BSPCE et une enveloppe formation de 3k€ par an. Seriez-vous ouvert à un call de 20 minutes pour en discuter de manière informelle ?",
-  "Hello, je suis Head of Talent chez TechGrowth, une scale-up SaaS en série C qui développe une solution d'automatisation marketing pour les équipes B2B. Nous avons récemment levé 25M€ et sommes en phase d'expansion européenne. Nous recherchons un VP of Engineering qui sera responsable de notre stratégie technique sur les 3 prochaines années. Cela inclut la structuration de nos 4 squads actuelles (32 personnes au total), le recrutement de 20 nouveaux profils d'ici fin d'année, et la migration de notre architecture monolithique vers des microservices. Le package est compétitif : 110-140k€ brut, BSPCE représentant 0.5% du capital, remote hybride, et 5k€ de formation par an. Votre profil est exactement ce que nous recherchons. Un échange vous tente ?",
-  "Salut, je suis la CEO et cofondatrice de CloudNative, startup qui édite une solution de monitoring cloud pour les équipes DevOps. Après 3 ans de bootstrapping, nous venons de finaliser notre première levée de 3M€ et entamons une phase de croissance ambitieuse. Notre stack est moderne : Next.js, Node.js, PostgreSQL, Redis, Kubernetes sur GCP. Nous recherchons un CTO cofondateur qui prendra la direction technique de l'entreprise. Vos responsabilités incluent : définir la roadmap technique sur 18 mois, recruter et structurer l'équipe dev (objectif : 8 personnes d'ici 6 mois), mettre en place les bonnes pratiques de développement (CI/CD, testing, documentation), et représenter la tech auprès des clients et investisseurs. Compensation : salaire marché (60-75k€) + 15 à 20% d'equity selon votre apport. Poste basé à Lyon mais remote possible dans un fuseau horaire européen.",
-  "Bonjour, je suis consultant en recrutement tech spécialisé dans les profils seniors. Un de mes clients, éditeur de logiciel B2B en série B avec 200 collaborateurs, recherche un Engineering Manager pour accompagner leur croissance jusqu'à 500 personnes d'ici 2 ans. Vous aurez 2 équipes sous votre responsabilité (soit 8 développeurs au total), avec pour mission de structurer les processus de développement, d'instaurer une culture d'excellence technique via des tech talks et hackathons internes, et de recruter activement de nouveaux profils. Le package est attractif : 80-100k€ + BSPCE significatives + remote flexible. Votre expérience passée et votre capacité à structurer des équipes from scratch font de vous un candidat idéal. Puis-je vous proposer un café virtuel pour en parler ?",
-  "Hello, je suis fondateur d'AIStartup, startup qui développe un copilote intelligent pour développeurs basé sur l'IA générative. Nous venons de lever 4M€ en série A et sommes en phase de recrutement intensif. Nous recherchons un cofondateur technique (CTO) qui prendra la direction de notre équipe engineering actuellement composée de 3 personnes très talentueuses. Vous serez en charge de toute la roadmap produit et technique, du recrutement de 10 nouveaux développeurs d'ici fin d'année, et de la scalabilité de notre infrastructure cloud sur AWS. Le package inclut un salaire de marché (70-90k€) + 10-15% d'equity significative. Poste basé à Bordeaux avec remote complet possible. Votre double compétence dev + product fait de vous le candidat idéal.",
-  "Bonjour, nous sommes une fintech en forte croissance basée à Paris et recherchons un Lead Developer pour notre équipe Core Banking. Vous serez en charge de manager une équipe de 6 développeurs seniors, de participer aux choix d'architecture technique (nous migrons vers une architecture event-driven), et de garantir la qualité du code via des code reviews systématiques et une couverture de tests supérieure à 80%. Notre stack est moderne : React, TypeScript, Node.js, PostgreSQL, Redis, Docker, Kubernetes. Le package est très attractif : 85-105k€ selon expérience, télétravail hybride (3 jours remote), prime d'intéressement, et enveloppe formation de 4k€ par an. Votre profil est exactement ce dont nous avons besoin pour accélérer.",
-  "Salut, je suis le CTO de DataMinds, cabinet de conseil en data science et intelligence artificielle. Nous accompagnons des grands comptes du CAC40 sur leurs projets d'IA et de machine learning les plus stratégiques. Nous recherchons un Data Lead pour structurer notre équipe data actuellement composée de 5 personnes très talentueuses. Vous serez en charge de la qualité des livrables sur les projets clients, du recrutement de nouveaux profils data scientists et data engineers, et de la relation client sur les dossiers les plus stratégiques. Poste basé à Paris avec 2 jours de télétravail par semaine, package 85-105k€ + bonus sur résultats + voiture de fonction. Votre background technique solide et votre expérience client sont un atout majeur pour ce poste.",
-  "Hello, je suis recruteur chez DevOpsPro, entreprise en hyper-croissance qui édite une plateforme d'automatisation des déploiements pour les PME et ETI. Nous avons vu votre profil et votre double compétence développement + infrastructure nous impressionne beaucoup. Nous recherchons un Senior DevOps Engineer pour rejoindre notre équipe infrastructure de 4 personnes. Vous serez responsable de l'optimisation de nos pipelines CI/CD sur GitLab, de la migration progressive de notre infrastructure vers Kubernetes sur GCP, et de l'accompagnement des équipes de développement dans leurs bonnes pratiques DevOps. Poste en full remote depuis la France, package 70-85k€ + intéressement + participation aux frais de coworking. Votre expertise est exactement ce que nous recherchons.",
-  "Bonjour, votre profil est exactement ce que nous recherchons ! Je suis HR Director chez InnovateTech, cabinet de recrutement spécialisé dans les profils tech seniors. Nous avons un client, scale-up SaaS en série C qui développe une solution collaborative pour les équipes produit, qui recherche une CEO technique pour lancer sa nouvelle business unit dédiée à l'intelligence artificielle. Le poste implique de gérer une équipe de 30 personnes dès le départ, de définir la roadmap produit IA sur 18 mois, et de représenter la société auprès des investisseurs et des clients. Package : 120-150k€ + BSPCE très significatives + remote complet depuis l'Europe. Votre expérience entrepreneuriale et votre réseau dans l'écosystème startup sont des atouts majeurs. Un premier échange vous tente ?",
-  "Hello, je suis le CEO de ScaleTech, startup qui développe une plateforme no-code d'automatisation des processus métier pour les PME. Après 2 ans de développement et un premier produit validé par le marché, nous venons de finaliser notre première levée de fonds de 5M€ et entamons une phase de croissance ambitieuse. Nous recherchons un CTO qui sera mon bras droit technique et prendra la direction de toute l'ingénierie produit. Vous serez en charge de la roadmap technique, du recrutement et de la fidélisation des équipes dev (objectif : 12 personnes d'ici 12 mois), de la qualité et de la scalabilité de notre infrastructure, et de la veille technologique. Package : 80-100k€ + 8-12% d'equity selon votre expérience et votre capacité à nous rejoindre rapidement. Poste basé à Paris avec remote flexible."
+  "Hello, I discovered your LinkedIn profile and I am particularly impressed by your professional journey. Your fullstack web development experience as well as your ability to manage technical teams would be a major asset for our company. We are currently looking for a Lead Developer for our Product team which already has 8 talented developers. Our tech stack is modern: React, TypeScript, Node.js, PostgreSQL and Redis. The position is hybrid remote with 3 days remote per week. The package is attractive: 75-95k euros gross annual depending on your experience, with stock options and a training budget of 3k euros per year. Would you be open to a 20-minute call to discuss it informally?",
+  "Hello, I am Head of Talent at TechGrowth, a Series C SaaS scale-up developing a marketing automation solution for B2B teams. We recently raised 25M euros and are in a European expansion phase. We are looking for a VP of Engineering who will be responsible for our technical strategy over the next 3 years. This includes structuring our 4 current squads (32 people in total), recruiting 20 new profiles by year-end, and migrating our monolithic architecture to microservices. The package is competitive: 110-140k euros gross, stock options representing 0.5% of equity, hybrid remote, and 5k euros of training per year. Your profile is exactly what we are looking for. Does a chat interest you?",
+  "Hi, I am the CEO and co-founder of CloudNative, a startup that publishes a cloud monitoring solution for DevOps teams. After 3 years of bootstrapping, we have just finalized our first fundraising round of 3M euros and are embarking on an ambitious growth phase. Our stack is modern: Next.js, Node.js, PostgreSQL, Redis, Kubernetes on GCP. We are looking for a co-founder CTO who will take the technical direction of the company. Your responsibilities include: defining the technical roadmap over 18 months, recruiting and structuring the dev team (goal: 8 people within 6 months), implementing development best practices (CI/CD, testing, documentation), and representing tech to clients and investors. Compensation: market salary (60-75k euros) + 15 to 20% equity depending on your contribution. Position based in Lyon but remote possible in a European time zone.",
+  "Hello, I am a tech recruitment consultant specialized in senior profiles. One of my clients, a Series B B2B software publisher with 200 employees, is looking for an Engineering Manager to support their growth to 500 people within 2 years. You will have 2 teams under your responsibility (8 developers in total), with the mission to structure development processes, instill a culture of technical excellence through tech talks and internal hackathons, and actively recruit new profiles. The package is attractive: 80-100k euros + significant stock options + flexible remote. Your past experience and ability to structure teams from scratch make you an ideal candidate. Can I offer you a virtual coffee to talk about it?",
+  "Hello, I am the founder of AIStartup, a startup developing an intelligent copilot for developers based on generative AI. We just raised 4M euros in Series A and are in an intensive recruitment phase. We are looking for a technical co-founder (CTO) who will lead our engineering team currently composed of 3 very talented people. You will be in charge of the entire product and technical roadmap, recruiting 10 new developers by year-end, and scaling our cloud infrastructure on AWS. The package includes a market salary (70-90k euros) + 10-15% significant equity. Position based in Bordeaux with fully remote possible. Your dual dev + product skills make you the ideal candidate.",
+  "Hello, we are a fast-growing fintech based in Paris looking for a Lead Developer for our Core Banking team. You will be in charge of managing a team of 6 senior developers, participating in technical architecture decisions (we are migrating to an event-driven architecture), and ensuring code quality through systematic code reviews and test coverage above 80%. Our stack is modern: React, TypeScript, Node.js, PostgreSQL, Redis, Docker, Kubernetes. The package is very attractive: 85-105k euros depending on experience, hybrid remote (3 days remote), profit-sharing bonus, and training budget of 4k euros per year. Your profile is exactly what we need to accelerate.",
+  "Hi, I am the CTO of DataMinds, a data science and artificial intelligence consulting firm. We support large CAC40 companies on their most strategic AI and machine learning projects. We are looking for a Data Lead to structure our data team currently composed of 5 very talented people. You will be in charge of deliverable quality on client projects, recruiting new data scientist and data engineer profiles, and client relationships on the most strategic accounts. Position based in Paris with 2 days of remote work per week, package 85-105k euros + performance bonus + company car. Your solid technical background and client experience are a major asset for this position.",
+  "Hello, I am a recruiter at DevOpsPro, a hyper-growth company that publishes a deployment automation platform for SMBs and mid-sized companies. We saw your profile and your dual development + infrastructure skills really impress us. We are looking for a Senior DevOps Engineer to join our infrastructure team of 4 people. You will be responsible for optimizing our CI/CD pipelines on GitLab, gradually migrating our infrastructure to Kubernetes on GCP, and supporting development teams in their DevOps best practices. Full remote position from France, package 70-85k euros + profit sharing + coworking fee reimbursement. Your expertise is exactly what we are looking for.",
+  "Hello, your profile is exactly what we are looking for! I am the HR Director at InnovateTech, a recruitment firm specialized in senior tech profiles. We have a client, a Series C SaaS scale-up developing a collaborative solution for product teams, looking for a technical CEO to launch their new business unit dedicated to artificial intelligence. The role involves managing a team of 30 people from day one, defining the AI product roadmap over 18 months, and representing the company to investors and clients. Package: 120-150k euros + very significant stock options + fully remote from Europe. Your entrepreneurial experience and network in the startup ecosystem are major assets. Does a first chat interest you?",
+  "Hello, I am the CEO of ScaleTech, a startup developing a no-code business process automation platform for SMBs. After 2 years of development and a first product validated by the market, we have just finalized our first fundraising round of 5M euros and are embarking on an ambitious growth phase. We are looking for a CTO who will be my technical right-hand person and will lead all product engineering. You will be in charge of the technical roadmap, recruiting and retaining dev teams (goal: 12 people within 12 months), quality and scalability of our infrastructure, and technology watch. Package: 80-100k euros + 8-12% equity depending on your experience and ability to join us quickly. Position based in Paris with flexible remote."
 ];
 
 function randomInt(min, max) {
@@ -25,15 +25,15 @@ function randomInt(min, max) {
 }
 
 async function seed() {
-  console.log("📝 Ajout de messages calibrés 300-500 caractères...");
+  console.log("📝 Adding calibrated 300-500 character messages...");
 
   try {
     const messages = [];
 
-    // 45 messages entre 300 et 500 caractères
+    // 45 messages between 300 and 500 characters
     for (let i = 0; i < 45; i++) {
       const baseText = texts300to500[i % texts300to500.length];
-      // Ajouter un peu de variation pour éviter les doublons exacts
+      // Add a little variation to avoid exact duplicates
       const suffix = ` (ref: ${i + 100})`;
       const text = baseText + suffix;
       messages.push({
@@ -44,7 +44,7 @@ async function seed() {
       });
     }
 
-    // Insérer par batches
+    // Insert in batches
     const batchSize = 25;
     for (let i = 0; i < messages.length; i += batchSize) {
       const batch = messages.slice(i, i + batchSize);
@@ -61,9 +61,9 @@ async function seed() {
       `);
     }
 
-    console.log(`✅ ${messages.length} messages insérés`);
+    console.log(`✅ ${messages.length} messages inserted`);
 
-    // Vérification
+    // Verification
     const verify = await pool.query(`
       WITH bucketed AS (
         SELECT
@@ -97,9 +97,9 @@ async function seed() {
         END
     `);
 
-    console.log("\n📊 Distribution finale:");
+    console.log("\n📊 Final distribution:");
     console.log("┌─────────┬───────┬─────────┬──────┐");
-    console.log("│ Bucket  │ Total │ Répondu │ Taux │");
+    console.log("│ Bucket  │ Total │ Replied │ Rate │");
     console.log("├─────────┼───────┼─────────┼──────┤");
     verify.rows.forEach((row) => {
       console.log(
@@ -110,9 +110,9 @@ async function seed() {
 
     const totalResult = await pool.query("SELECT COUNT(*) FROM messages");
     console.log(`\n📨 Total messages: ${totalResult.rows[0].count}`);
-    console.log("\n🎉 Terminé !");
+    console.log("\n🎉 Done!");
   } catch (error) {
-    console.error("❌ Erreur:", error);
+    console.error("❌ Error:", error);
     throw error;
   } finally {
     await pool.end();

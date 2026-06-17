@@ -101,7 +101,7 @@ export default function BIShell() {
           <button
             onClick={handlePrint}
             className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-xl shadow-sm text-xs font-semibold text-gray-700 hover:bg-gray-50 hover:shadow-md transition-all print:hidden"
-            title="Imprimer / Exporter en PDF"
+            title="Print / Export to PDF"
           >
             <Printer className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">PDF</span>

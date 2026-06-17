@@ -1,4 +1,4 @@
-// Script pour enrichir Prospect Intelligence Map (géo, industries, scores, quadrant)
+// Script to enrich Prospect Intelligence Map (geo, industries, scores, quadrant)
 const { Pool } = require("pg");
 
 const pool = new Pool({
@@ -6,9 +6,9 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Villes riches pour la carte géo
+// Rich cities for the geo map
 const geoLocations = [
-  // France métro
+  // Mainland France
   "Paris",
   "Lyon",
   "Marseille",
@@ -35,63 +35,63 @@ const geoLocations = [
   "Limoges",
   "Amiens",
   "Perpignan",
-  "Besançon",
-  "Orléans",
+  "Besancon",
+  "Orleans",
   "Mulhouse",
   "Rouen",
   "La Rochelle",
   "Poitiers",
   "Blois",
-  // Suisse
-  "Genève",
+  // Switzerland
+  "Geneva",
   "Lausanne",
   "Zurich",
-  "Bâle",
+  "Basel",
   "Berne",
-  // Belgique
-  "Bruxelles",
-  "Anvers",
-  "Gand",
-  "Liège",
+  // Belgium
+  "Brussels",
+  "Antwerp",
+  "Ghent",
+  "Liege",
   "Namur",
   // Luxembourg
   "Luxembourg",
   // Canada
-  "Montréal",
-  "Québec",
+  "Montreal",
+  "Quebec",
   "Toronto",
   "Vancouver",
   "Ottawa",
-  // DOM-TOM + Afrique francophone
+  // Overseas territories + French-speaking Africa
   "Abidjan",
   "Dakar",
-  "Yaoundé",
+  "Yaounde",
   "Libreville",
   "Casablanca",
   "Tunis",
-  "Pointe-à-Pitre",
+  "Pointe-a-Pitre",
   "Saint-Denis",
   "Fort-de-France",
-  "Nouméa",
+  "Noumea",
   // Europe
-  "Londres",
+  "London",
   "Berlin",
   "Amsterdam",
   "Madrid",
-  "Barcelone",
+  "Barcelona",
   "Milan",
   "Rome",
-  "Lisbonne",
+  "Lisbon",
   "Dublin",
-  "Vienne",
-  "Copenhague",
+  "Vienna",
+  "Copenhagen",
   "Stockholm",
   "Oslo",
   "Helsinki",
   "Prague",
   "Varsovie",
   "Budapest",
-  "Athènes",
+  "Athens",
   // Remote
   "Remote"
 ];
@@ -299,7 +299,7 @@ function generateName(index) {
     "Nicolas",
     "Alexandre",
     "Isabelle",
-    "François",
+    "Francois",
     "Catherine",
     "David",
     "Anne",
@@ -332,8 +332,8 @@ function generateName(index) {
     "Anthony",
     "Aurélie",
     "Kevin",
-    "Laëtitia",
-    "Sébastien",
+    "Laetitia",
+    "Sebastien",
     "Manon",
     "Alexis",
     "Marion",
@@ -421,7 +421,7 @@ function generateName(index) {
     "Barbier",
     "Dumas",
     "Brun",
-    "François",
+    "Francois",
     "Gérard",
     "Caron",
     "Philippe",
@@ -431,14 +431,12 @@ function generateName(index) {
 }
 
 async function seedProspectMap() {
-  console.log(
-    "🌍 Ajout de prospects pour enrichir Prospect Intelligence Map..."
-  );
+  console.log("🌍 Adding prospects to enrich Prospect Intelligence Map...");
 
   try {
     const prospectValues = [];
 
-    // Générer 200 prospects supplémentaires avec distribution ciblée
+    // Generate 200 additional prospects with targeted distribution
     for (let i = 111; i <= 310; i++) {
       const location = randomChoice(geoLocations);
       const industry = randomChoice(industries);
@@ -446,7 +444,7 @@ async function seedProspectMap() {
       const company = randomChoice(companies);
       const status = randomStatus();
 
-      // Distribution des scores pour remplir le quadrant ICP
+      // Score distribution to fill the ICP quadrant
       // Champions: score 80-100, status advanced
       // Hot: score 60-79, status advanced
       // Warm: score 40-59, status medium
@@ -471,7 +469,7 @@ async function seedProspectMap() {
       );
     }
 
-    // Insérer par batches
+    // Insert in batches
     const batchSize = 50;
     for (let i = 0; i < prospectValues.length; i += batchSize) {
       const batch = prospectValues.slice(i, i + batchSize);
@@ -480,9 +478,9 @@ async function seedProspectMap() {
         VALUES ${batch.join(", ")}
       `);
     }
-    console.log(`✅ 200 prospects supplémentaires insérés`);
+    console.log(`✅ 200 additional prospects inserted`);
 
-    // Vérification par ville
+    // Verification by city
     const cityStats = await pool.query(`
       SELECT location, COUNT(*) as count,
         COUNT(*) FILTER (WHERE status = 'converted') as converted
@@ -491,14 +489,14 @@ async function seedProspectMap() {
       ORDER BY count DESC
       LIMIT 20
     `);
-    console.log("\n🏙️  Top 20 villes:");
+    console.log("\n🏙️  Top 20 cities:");
     cityStats.rows.forEach((row) => {
       console.log(
-        `   ${row.location}: ${row.count} prospects (${row.converted} convertis)`
+        `   ${row.location}: ${row.count} prospects (${row.converted} converted)`
       );
     });
 
-    // Vérification par industrie
+    // Verification by industry
     const industryStats = await pool.query(`
       SELECT industry, COUNT(*) as count,
         COUNT(*) FILTER (WHERE status = 'converted') as converted,
@@ -511,11 +509,11 @@ async function seedProspectMap() {
     console.log("\n🏭 Top 15 industries:");
     industryStats.rows.forEach((row) => {
       console.log(
-        `   ${row.industry}: ${row.count} prospects, score moyen ${row.avg_score} (${row.converted} convertis)`
+        `   ${row.industry}: ${row.count} prospects, average score ${row.avg_score} (${row.converted} converted)`
       );
     });
 
-    // Vérification par score (pour le quadrant ICP)
+    // Verification by score (for the ICP quadrant)
     const scoreStats = await pool.query(`
       SELECT
         CASE
@@ -542,19 +540,19 @@ async function seedProspectMap() {
           ELSE 4
         END
     `);
-    console.log("\n🎯 Quadrant ICP:");
+    console.log("\n🎯 ICP Quadrant:");
     scoreStats.rows.forEach((row) => {
       console.log(
-        `   ${row.quadrant}: ${row.count} prospects (${row.converted} convertis)`
+        `   ${row.quadrant}: ${row.count} prospects (${row.converted} converted)`
       );
     });
 
     // Total
     const totalResult = await pool.query("SELECT COUNT(*) FROM prospects");
     console.log(`\n👥 Total prospects: ${totalResult.rows[0].count}`);
-    console.log("\n🎉 Prospect Intelligence Map enrichi !");
+    console.log("\n🎉 Prospect Intelligence Map enriched!");
   } catch (error) {
-    console.error("❌ Erreur:", error);
+    console.error("❌ Error:", error);
     throw error;
   } finally {
     await pool.end();

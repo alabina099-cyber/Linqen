@@ -1,0 +1,76 @@
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam handwritten false
+
+skinparam activity {
+    BackgroundColor #E3F2FD
+    BorderColor #1565C0
+    FontStyle bold
+}
+
+skinparam diamond {
+    BackgroundColor #FFF8E1
+    BorderColor #F57C00
+    FontStyle bold
+}
+
+skinparam partition {
+    BorderColor #444444
+    BackgroundColor #FAFAFA
+    FontStyle bold
+}
+
+title Activity Diagram : Admin Sign-Up via LinkedIn Auth
+
+|Client|
+start
+:Open Application;
+:Navigate to LinkedIn Auth page;
+:Select auth method\n(cookie / extension / oauth);
+:Enter LinkedIn credentials;
+:Submit auth request;
+
+|Backend|
+:Receive auth request;
+:Validate method parameter;
+
+if (Valid method ?) then (No)
+    :Return 400 Bad Request;
+    |Client|
+    :Display error message;
+    stop
+else (Yes)
+    if (Method == cookie AND\ncookie missing ?) then (Yes)
+        :Return 400 Bad Request\n"Cookie li_at requis";
+        |Client|
+        :Display error message;
+        stop
+    else (No)
+    endif
+    |Backend|
+    :Save LinkedIn session\nto app_settings table;
+    :Ensure mono-admin\nguard (max 1 admin);
+    :Query existing admin\nFROM users;
+
+    if (Admin exists ?) then (Yes)
+        :Update existing admin\n(name, email, linkedin_connected);
+    else (No)
+        :Check if user\nwith email exists;
+
+        if (User exists ?) then (Yes)
+            :Promote user\nto admin role;
+        else (No)
+            :Create new admin\nINSERT INTO users;
+        endif
+    endif
+
+    :Create unique index\nidx_users_single_admin;
+    :Return 200 Success;
+
+    |Client|
+    :Display success message;
+    :Redirect to Dashboard;
+    stop
+endif
+
+@enduml

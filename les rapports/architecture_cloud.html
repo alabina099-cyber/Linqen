@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloud Architecture – LinkedIn Agent</title>
+<style>
+  body { margin: 0; padding: 20px 0; background: #e2e8f0; font-family: 'Segoe UI', Arial, sans-serif; }
+  svg  { display: block; margin: auto; border-radius: 16px; box-shadow: 0 8px 32px #0003; }
+  .bar { text-align: center; padding: 0 0 16px; }
+  .btn { background: #2563eb; color: #fff; border: none; padding: 10px 30px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn:hover { background: #1d4ed8; }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <button class="btn" onclick="savePNG()">&#128190; Save as PNG</button>
+</div>
+
+<svg id="arch" width="960" height="660" viewBox="0 0 960 660" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <marker id="a"  markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#64748b"/></marker>
+  <marker id="aB" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#2563eb"/></marker>
+  <marker id="aG" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#16a34a"/></marker>
+  <marker id="aO" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#d97706"/></marker>
+  <marker id="aC" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#0891b2"/></marker>
+  <marker id="aP" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#7c3aed"/></marker>
+  <filter id="sh"><feDropShadow dx="0" dy="2" stdDeviation="5" flood-color="#0002"/></filter>
+</defs>
+
+<!-- Background -->
+<rect width="960" height="660" fill="#f8fafc" rx="16"/>
+
+<!-- ── TITLE ─────────────────────────────────────────── -->
+<text x="480" y="30" text-anchor="middle" font-size="18" font-weight="700" fill="#0f172a">LinkedIn Agent — Cloud Architecture</text>
+<text x="480" y="48" text-anchor="middle" font-size="11" fill="#94a3b8">Oracle Cloud Always Free · GitHub Actions · Coolify · Neon · Cloudflare R2</text>
+
+<!-- ══ 1. DEVELOPER ══════════════════════════════════ -->
+<rect x="390" y="58" width="180" height="44" rx="10" fill="#fff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#sh)"/>
+<text x="480" y="76" text-anchor="middle" font-size="13" font-weight="700" fill="#1e293b">&#x1F4BB; Developer</text>
+<text x="480" y="93" text-anchor="middle" font-size="10" fill="#64748b">git push origin main</text>
+
+<!-- arrow dev → GA -->
+<line x1="480" y1="102" x2="480" y2="118" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>
+
+<!-- ══ 2. GITHUB ACTIONS ══════════════════════════════ -->
+<rect x="120" y="120" width="720" height="72" rx="12" fill="#eff6ff" stroke="#3b82f6" stroke-width="2" filter="url(#sh)"/>
+<text x="480" y="147" text-anchor="middle" font-size="13" font-weight="700" fill="#1d4ed8">&#x2699;&#xFE0F;  GitHub Actions CI/CD</text>
+<text x="480" y="165" text-anchor="middle" font-size="10.5" fill="#374151">ci &nbsp;·&nbsp; deploy (build → scan → migrate → webhook → smoke → rollback) &nbsp;·&nbsp; security &nbsp;·&nbsp; backup &nbsp;·&nbsp; e2e &nbsp;·&nbsp; lighthouse</text>
+<text x="480" y="181" text-anchor="middle" font-size="9.5" fill="#64748b">10 workflows &nbsp;·&nbsp; GHCR multi-arch AMD64+ARM64 &nbsp;·&nbsp; Trivy CRITICAL blocking &nbsp;·&nbsp; auto rollback</text>
+
+<!-- arrow GA → GHCR -->
+<line x1="300" y1="192" x2="220" y2="218" stroke="#2563eb" stroke-width="1.5" marker-end="url(#aB)"/>
+<text x="228" y="211" font-size="9" fill="#2563eb">push images</text>
+
+<!-- ══ 3. GHCR ════════════════════════════════════════ -->
+<rect x="80" y="220" width="200" height="46" rx="10" fill="#fff" stroke="#7c3aed" stroke-width="2" filter="url(#sh)"/>
+<text x="180" y="240" text-anchor="middle" font-size="12" font-weight="700" fill="#6d28d9">&#x1F4E6; GHCR</text>
+<text x="180" y="257" text-anchor="middle" font-size="9.5" fill="#64748b">ghcr.io · linux/amd64 + linux/arm64</text>
+
+<!-- arrow GHCR → VM -->
+<line x1="180" y1="266" x2="180" y2="292" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#aP)"/>
+<text x="188" y="284" font-size="9" fill="#7c3aed">pull</text>
+
+<!-- arrow GA → Coolify webhook -->
+<path d="M 720 192 Q 860 192 860 310" stroke="#d97706" stroke-width="1.5" fill="none" stroke-dasharray="6,3" marker-end="url(#aO)"/>
+<text x="808" y="186" font-size="9" fill="#b45309">webhook</text>
+
+<!-- ══ 4. ORACLE CLOUD VM ═════════════════════════════ -->
+<rect x="60" y="294" width="640" height="200" rx="12" fill="#f0fdf4" stroke="#16a34a" stroke-width="2" filter="url(#sh)"/>
+<text x="380" y="316" text-anchor="middle" font-size="13" font-weight="700" fill="#15803d">&#x2601;&#xFE0F;  Oracle Cloud VM — ARM A1.Flex  (4 vCPU · 24 GB RAM · &#8364;0/month)</text>
+<text x="380" y="332" text-anchor="middle" font-size="9.5" fill="#4ade80" font-style="italic">Managed by Coolify · Docker network: linkedin-net</text>
+
+<!-- nginx box -->
+<rect x="76"  y="342" width="138" height="130" rx="8" fill="#fff" stroke="#16a34a" stroke-width="1.5"/>
+<text x="145" y="360" text-anchor="middle" font-size="11" font-weight="700" fill="#15803d">nginx</text>
+<text x="84"  y="392" font-size="9.5" fill="#374151">TLS 1.2/1.3 · HSTS</text>
+<text x="84"  y="408" font-size="9.5" fill="#374151">OCSP · HTTP/2</text>
+<text x="84"  y="424" font-size="9.5" fill="#374151">Rate limiting</text>
+<text x="84"  y="440" font-size="9.5" fill="#374151">Load balance</text>
+<text x="84"  y="458" font-size="9" fill="#64748b">least_conn</text>
+
+<!-- app box -->
+<rect x="228" y="342" width="138" height="130" rx="8" fill="#fff" stroke="#16a34a" stroke-width="1.5"/>
+<text x="297" y="360" text-anchor="middle" font-size="11" font-weight="700" fill="#15803d">Next.js App</text>
+<text x="236" y="392" font-size="9.5" fill="#374151">Campaign UI</text>
+<text x="236" y="408" font-size="9.5" fill="#374151">BI Dashboard</text>
+<text x="236" y="424" font-size="9.5" fill="#374151">/api/health</text>
+<text x="236" y="440" font-size="9.5" fill="#374151">/api/metrics</text>
+<text x="236" y="458" font-size="9" fill="#64748b">512 MB limit</text>
+
+<!-- worker box -->
+<rect x="380" y="342" width="138" height="130" rx="8" fill="#fff" stroke="#16a34a" stroke-width="1.5"/>
+<text x="449" y="360" text-anchor="middle" font-size="11" font-weight="700" fill="#15803d">Worker</text>
+<text x="388" y="392" font-size="9.5" fill="#374151">Puppeteer</text>
+<text x="388" y="408" font-size="9.5" fill="#374151">Chromium headless</text>
+<text x="388" y="424" font-size="9.5" fill="#374151">Polls actions_queue</text>
+<text x="388" y="440" font-size="9.5" fill="#374151">/health · /metrics</text>
+<text x="388" y="458" font-size="9" fill="#64748b">1 GB limit</text>
+
+<!-- observability box -->
+<rect x="532" y="342" width="150" height="130" rx="8" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="607" y="360" text-anchor="middle" font-size="11" font-weight="700" fill="#6d28d9">Observability</text>
+<text x="540" y="392" font-size="9.5" fill="#374151">Prometheus · Grafana</text>
+<text x="540" y="408" font-size="9.5" fill="#374151">Loki · Promtail</text>
+<text x="540" y="424" font-size="9.5" fill="#374151">Alertmanager</text>
+<text x="540" y="440" font-size="9.5" fill="#374151">cAdvisor · Node Exp.</text>
+<text x="540" y="458" font-size="9" fill="#64748b">10 alert rules</text>
+
+<!-- security bar -->
+<rect x="76" y="480" width="606" height="20" rx="5" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
+<text x="379" y="494" text-anchor="middle" font-size="9" fill="#92400e">
+  &#x1F512;  Oracle Security Lists + UFW + SSH key-only + Fail2ban + non-root UID 1001
+</text>
+
+<!-- ══ 5. COOLIFY ═════════════════════════════════════ -->
+<rect x="720" y="294" width="220" height="200" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2" filter="url(#sh)"/>
+<text x="830" y="316" text-anchor="middle" font-size="13" font-weight="700" fill="#b45309">&#x1F680; Coolify</text>
+<text x="830" y="332" text-anchor="middle" font-size="9.5" fill="#64748b">Self-hosted PaaS · :8000</text>
+<text x="730" y="354" font-size="10" fill="#374151">Orchestrates App + Worker</text>
+<text x="730" y="372" font-size="10" fill="#374151">Webhook deploy (3× retry)</text>
+<text x="730" y="390" font-size="10" fill="#374151">Rollback via PATCH API</text>
+<text x="730" y="408" font-size="10" fill="#374151">MTTR &lt; 2 min</text>
+<line x1="730" y1="420" x2="928" y2="420" stroke="#fcd34d" stroke-width="1"/>
+<text x="830" y="438" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">VM Firewall</text>
+<text x="730" y="456" font-size="9.5" fill="#374151">L1 Oracle Security Lists</text>
+<text x="730" y="473" font-size="9.5" fill="#374151">L2 UFW · L3 Fail2ban</text>
+
+<!-- ══ 6. EXTERNAL SERVICES ═══════════════════════════ -->
+
+<!-- Neon -->
+<rect x="60"  y="520" width="196" height="56" rx="10" fill="#fff" stroke="#0891b2" stroke-width="2" filter="url(#sh)"/>
+<text x="158" y="540" text-anchor="middle" font-size="12" font-weight="700" fill="#0e7490">&#x1F418; Neon PostgreSQL</text>
+<text x="158" y="557" text-anchor="middle" font-size="9.5" fill="#64748b">Serverless · Free · 500 MB</text>
+<text x="158" y="569" text-anchor="middle" font-size="9" fill="#374151">prospects · campaigns · actions_queue</text>
+
+<!-- R2 -->
+<rect x="276" y="520" width="196" height="56" rx="10" fill="#fff" stroke="#f97316" stroke-width="2" filter="url(#sh)"/>
+<text x="374" y="540" text-anchor="middle" font-size="12" font-weight="700" fill="#ea580c">&#x2601;&#xFE0F; Cloudflare R2</text>
+<text x="374" y="557" text-anchor="middle" font-size="9.5" fill="#64748b">Backup · 10 GB free · &#8364;0 egress</text>
+<text x="374" y="569" text-anchor="middle" font-size="9" fill="#374151">GPG AES256 · 90d retention</text>
+
+<!-- Discord -->
+<rect x="492" y="520" width="188" height="56" rx="10" fill="#fff" stroke="#818cf8" stroke-width="2" filter="url(#sh)"/>
+<text x="586" y="540" text-anchor="middle" font-size="12" font-weight="700" fill="#4f46e5">&#x1F4AC; Discord</text>
+<text x="586" y="557" text-anchor="middle" font-size="9.5" fill="#64748b">Alertmanager routing</text>
+<text x="586" y="569" text-anchor="middle" font-size="9" fill="#374151">#critical · #warnings</text>
+
+<!-- ── LEGEND ──────────────────────────────────────────── -->
+<rect x="720" y="514" width="220" height="114" rx="10" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/>
+<text x="830" y="530" text-anchor="middle" font-size="10" font-weight="700" fill="#1e293b">Legend</text>
+<line x1="734" y1="543" x2="762" y2="543" stroke="#2563eb"  stroke-width="1.5" marker-end="url(#aB)"/>  <text x="768" y="547" font-size="9" fill="#374151">Image push / pull</text>
+<line x1="734" y1="558" x2="762" y2="558" stroke="#d97706"  stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#aO)"/> <text x="768" y="562" font-size="9" fill="#374151">Webhook / API</text>
+<line x1="734" y1="573" x2="762" y2="573" stroke="#16a34a"  stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#aG)"/> <text x="768" y="577" font-size="9" fill="#374151">Daily backup</text>
+<line x1="734" y1="588" x2="762" y2="588" stroke="#0891b2"  stroke-width="1.5" marker-end="url(#aC)"/>  <text x="768" y="592" font-size="9" fill="#374151">DB connection</text>
+<line x1="734" y1="603" x2="762" y2="603" stroke="#818cf8"  stroke-width="1.5" marker-end="url(#a)"/>   <text x="768" y="607" font-size="9" fill="#374151">Alert notification</text>
+<!-- cost badge -->
+<rect x="880" y="530" width="56" height="56" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+<text x="908" y="549" text-anchor="middle" font-size="9"  font-weight="600" fill="#15803d">COST</text>
+<text x="908" y="568" text-anchor="middle" font-size="22" font-weight="700" fill="#16a34a">&#8364;0</text>
+<text x="908" y="582" text-anchor="middle" font-size="8"  fill="#4ade80">/month</text>
+
+<!-- ══ ARROWS ════════════════════════════════════════════ -->
+
+<!-- Internet → nginx -->
+<line x1="42"  y1="407" x2="76"  y2="407" stroke="#16a34a" stroke-width="1.5" marker-end="url(#aG)"/>
+<line x1="34"  y1="156" x2="34"  y2="407" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5,3"/>
+<text x="26" y="290" font-size="9" font-weight="700" fill="#15803d" transform="rotate(-90,26,290)">INTERNET :443</text>
+
+<!-- backup.yml → R2 -->
+<line x1="660" y1="192" x2="374" y2="520" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#aG)"/>
+
+<!-- App → Neon -->
+<line x1="230" y1="494" x2="168" y2="520" stroke="#0891b2" stroke-width="1.5" marker-end="url(#aC)"/>
+<text x="168" y="515" font-size="8.5" fill="#0891b2">SQL</text>
+
+<!-- Worker → Neon -->
+<line x1="400" y1="494" x2="220" y2="520" stroke="#0891b2" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#aC)"/>
+
+<!-- Alertmanager → Discord -->
+<line x1="580" y1="494" x2="580" y2="520" stroke="#818cf8" stroke-width="1.5" marker-end="url(#a)"/>
+
+</svg>
+
+<script>
+function savePNG() {
+  const svg = document.getElementById('arch');
+  const w = 960, h = 660;
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(0, 0, w, h);
+  const blob = new Blob([new XMLSerializer().serializeToString(svg)],
+                        { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = function () {
+    ctx.drawImage(img, 0, 0, w, h);
+    URL.revokeObjectURL(url);
+    const a = document.createElement('a');
+    a.download = 'architecture_cloud.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  };
+  img.src = url;
+}
+</script>
+</body>
+</html>

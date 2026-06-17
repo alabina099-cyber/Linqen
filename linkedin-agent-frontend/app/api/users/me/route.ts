@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { verifyToken } from "@/lib/auth";
+import { getTokenFromRequest } from "@/lib/auth-cookies";
 import { z } from "zod";
 
 const userSchema = z.object({
@@ -13,34 +14,18 @@ const userSchema = z.object({
   settings: z.record(z.string(), z.unknown()).optional(),
 });
 
+// Multi-admin SaaS : JWT obligatoire (admin ET user secondaire)
 async function resolveCurrentUser(request: NextRequest) {
-  // 1. Essayer JWT (users secondaires)
-  const authHeader = request.headers.get("authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    const payload = await verifyToken(authHeader.slice(7));
-    if (payload) {
-      const result = await query(
-        "SELECT * FROM users WHERE id = $1",
-        [payload.userId]
-      );
-      if (result.rows.length > 0) return result.rows[0];
-    }
-  }
+  const token = getTokenFromRequest(request);
+  if (!token) return null;
 
-  // 2. Essayer LinkedIn auth (admins)
-  const adminResult = await query(
-    `SELECT u.* FROM users u
-     JOIN app_settings s ON s.key = 'linkedin_session_cookie'
-     WHERE u.role = 'admin'
-     LIMIT 1`
-  );
-  if (adminResult.rows.length > 0) return adminResult.rows[0];
+  const payload = await verifyToken(token);
+  if (!payload?.userId) return null;
 
-  // 3. Legacy fallback
-  const legacy = await query("SELECT * FROM users LIMIT 1");
-  if (legacy.rows.length > 0) return legacy.rows[0];
-
-  return null;
+  const result = await query("SELECT * FROM users WHERE id = $1", [payload.userId]);
+  const user = result.rows[0];
+  if (!user || user.is_active === false) return null;
+  return user;
 }
 
 // GET /api/users/me - Récupérer l'utilisateur courant (admin via LinkedIn, user via JWT)

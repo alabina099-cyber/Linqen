@@ -1,0 +1,128 @@
+@startuml
+!theme plain
+skinparam backgroundColor #F8F9FA
+skinparam componentStyle rectangle
+skinparam linetype ortho
+skinparam wrapWidth 180
+
+skinparam rectangle {
+  BackgroundColor<<ci>>    #D4EDDA
+  BorderColor<<ci>>        #155724
+  FontColor<<ci>>          #155724
+
+  BackgroundColor<<test>>  #CCE5FF
+  BorderColor<<test>>      #004085
+  FontColor<<test>>        #004085
+
+  BackgroundColor<<sec>>  #F8D7DA
+  BorderColor<<sec>>       #721C24
+  FontColor<<sec>>         #721C24
+
+  BackgroundColor<<dep>>   #FFF3CD
+  BorderColor<<dep>>       #856404
+  FontColor<<dep>>         #856404
+
+  BackgroundColor<<obs>>   #E2D4F0
+  BorderColor<<obs>>       #4A148C
+  FontColor<<obs>>         #4A148C
+
+  BackgroundColor<<sch>>   #D1ECF1
+  BorderColor<<sch>>       #0C5460
+  FontColor<<sch>>         #0C5460
+}
+
+title LINQEN — CI/CD Pipeline Architecture (Updated)
+
+/'
+  Layout strategy for A4 portrait:
+  - Main flow runs top-to-bottom in the center
+  - Staging floats to the left of Deploy
+  - Observability & Scheduled sit at the bottom, side by side
+'/
+
+package "Continuous Integration" {
+  rectangle "CI Frontend\nLint · TypeCheck · Unit Tests · Build" as CI_FE <<ci>>
+  rectangle "CI Worker\nBuild & Lint"                         as CI_WK  <<ci>>
+  rectangle "CI Extension\nManifest · ESLint"               as CI_EXT <<ci>>
+}
+
+package "Automated Tests" {
+  rectangle "E2E Tests\nPlaywright (UI + API)"    as E2E <<test>>
+  rectangle "Lighthouse CI\nPerformance Audit"    as LH  <<test>>
+}
+
+package "Security Gate (6 Layers)" {
+  rectangle "NPM Audit"                          as SEC1 <<sec>>
+  rectangle "Semgrep (SAST)"                     as SEC2 <<sec>>
+  rectangle "Trivy FS Scan"                      as SEC3 <<sec>>
+  rectangle "Gitleaks"                           as SEC4 <<sec>>
+  rectangle "Trivy Image\nCRITICAL blocking\nHIGH audit" as SEC5 <<sec>>
+  rectangle "Custom App Security Audit\nsecurity-audit.js" as SEC6 <<sec>>
+}
+
+package "Build & Push" {
+  rectangle "Docker Buildx\nlinux/amd64 + linux/arm64\n→ GHCR" as DOCKER <<dep>>
+}
+
+package "Database & Deploy" as PKG_DEPLOY {
+  rectangle "DB Migrations\nAdvisory Lock + SHA-256" as MIGRATE <<dep>>
+  rectangle "Deploy to Coolify\nWebhook + Retry"  as DEPLOY  <<dep>>
+  rectangle "Smoke Tests\n/health /login /api"       as SMOKE   <<dep>>
+  rectangle "Auto-Rollback\non smoke failure"      as ROLLBACK <<dep>>
+}
+
+package "Staging (develop)" as PKG_STAGING {
+  rectangle "Staging Deploy\n+ Smoke Tests" as STAGING <<dep>>
+}
+
+package "Observability" {
+  rectangle "Prometheus + Grafana\nMetrics & Dashboards" as OBS1 <<obs>>
+  rectangle "Loki + Promtail\nLog Aggregation"         as OBS2 <<obs>>
+  rectangle "Uptime Kuma\nExternal Monitoring"         as OBS3 <<obs>>
+  rectangle "Alertmanager\n10+ Alert Rules"           as OBS4 <<obs>>
+}
+
+package "Scheduled Automation" {
+  rectangle "Daily Backup\nGPG AES-256 → R2"  as BACKUP <<sch>>
+  rectangle "Weekly Restore Test"            as RESTORE <<sch>>
+  rectangle "Dependabot\nPR Auto-Review"     as DEPBOT <<sch>>
+}
+
+' ───────── Vertical main flow (center) ─────────
+CI_FE  --> E2E
+CI_WK  --> E2E
+CI_EXT --> E2E
+CI_FE  --> LH
+
+E2E  --> SEC1
+LH   --> SEC1
+
+SEC1 --> SEC2
+SEC2 --> SEC3
+SEC3 --> SEC4
+SEC4 --> SEC6
+SEC6 --> DOCKER
+DOCKER --> SEC5
+SEC5 --> MIGRATE
+MIGRATE --> DEPLOY
+DEPLOY --> SMOKE
+SMOKE --> ROLLBACK : if failed
+
+' ───────── Staging parallel track (left of Deploy) ─────────
+PKG_STAGING -[hidden]right-> PKG_DEPLOY
+STAGING --> DEPLOY
+
+' ───────── Bottom row : Observability (left) + Scheduled (right) ─────────
+SMOKE   --> OBS1   : metrics
+OBS1    --> OBS2
+OBS2    --> OBS3
+OBS3    --> OBS4
+
+DEPBOT  -[hidden]up-> SMOKE
+DEPBOT  --> BACKUP
+BACKUP  --> RESTORE
+
+' Force bottom alignment
+OBS4 -[hidden]right-> RESTORE
+
+@enduml

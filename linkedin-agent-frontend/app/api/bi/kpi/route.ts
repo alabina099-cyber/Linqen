@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 
 // GET /api/bi/kpi?range=30
-// Hero KPIs avec comparaison période précédente
+// Hero KPIs with previous period comparison
 export async function GET(req: NextRequest) {
   try {
     const range = parseInt(req.nextUrl.searchParams.get("range") || "30");

@@ -66,7 +66,7 @@ export const linkedinSearchTool = new DynamicStructuredTool({
         daily_max: rateLimit.dailyMax,
       });
     } catch (error) {
-      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Error" });
     }
   },
 });
@@ -113,7 +113,7 @@ export const linkedinVisitProfileTool = new DynamicStructuredTool({
         daily_max: rateLimit.dailyMax,
       });
     } catch (error) {
-      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Error" });
     }
   },
 });
@@ -166,7 +166,7 @@ export const linkedinSendConnectionTool = new DynamicStructuredTool({
         hourly_max: rateLimit.hourlyMax,
       });
     } catch (error) {
-      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Error" });
     }
   },
 });
@@ -261,7 +261,7 @@ export const linkedinSendMessageTool = new DynamicStructuredTool({
         hourly_max: rateLimit.hourlyMax,
       });
     } catch (error) {
-      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Error" });
     }
   },
 });
@@ -336,7 +336,7 @@ export const analyzeProspectTool = new DynamicStructuredTool({
         recommended_action: action,
       });
     } catch (error) {
-      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Error" });
     }
   },
 });
@@ -467,7 +467,7 @@ export const searchProspectsDbTool = new DynamicStructuredTool({
       const result = await pool.query(sql, params);
       return JSON.stringify({ success: true, count: result.rows.length, prospects: result.rows });
     } catch (error) {
-      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Error" });
     }
   },
 });
@@ -512,7 +512,7 @@ export const saveProspectTool = new DynamicStructuredTool({
         message: `Prospect ${name} sauvegardé avec succès (score: ${result.rows[0].score}).`,
       });
     } catch (error) {
-      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Error" });
     }
   },
 });
@@ -563,7 +563,7 @@ export const getCampaignStatsTool = new DynamicStructuredTool({
 
       return JSON.stringify({ success: true, stats: totals.rows[0] });
     } catch (error) {
-      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Error" });
     }
   },
 });
@@ -603,10 +603,10 @@ export const scheduleFollowupTool = new DynamicStructuredTool({
         success: true,
         followup_id: result.rows[0].id,
         scheduled_for: result.rows[0].scheduled_for,
-        message: `Relance planifiée pour J+${delay_days} (${new Date(result.rows[0].scheduled_for).toLocaleDateString('fr-FR')}).`,
+        message: `Follow-up scheduled for D+${delay_days} (${new Date(result.rows[0].scheduled_for).toLocaleDateString('en-US')}).`,
       });
     } catch (error) {
-      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Error" });
     }
   },
 });
@@ -647,7 +647,7 @@ export const createCampaignTool = new DynamicStructuredTool({
         message: `Campagne ${typeLabel} "${name}" créée avec succès. Utilisez update_campaign pour l'activer.`,
       });
     } catch (error) {
-      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Error" });
     }
   },
 });
@@ -684,7 +684,7 @@ export const updateCampaignTool = new DynamicStructuredTool({
       await pool.query(`UPDATE campaigns SET ${updates.join(", ")} WHERE id = $${idx}`, values);
       return JSON.stringify({ success: true, campaign_id, updated_fields: updates.length - 1 });
     } catch (error) {
-      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Error" });
     }
   },
 });
@@ -784,7 +784,7 @@ export const executeCampaignTool = new DynamicStructuredTool({
         message: `Action d'${typeLabel} créée (id=${actionId}) en attente d'approbation. La campagne sera automatiquement activée et la recherche démarrera dès que vous approuverez l'action dans l'onglet Approbations. Limite: ${dailyLimit} connexions/jour, respect des cadences LinkedIn.`,
       });
     } catch (error) {
-      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Error" });
     }
   },
 });
@@ -803,7 +803,7 @@ export const getRateLimitsTool = new DynamicStructuredTool({
         details: status,
       });
     } catch (error) {
-      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Error" });
     }
   },
 });
@@ -886,7 +886,7 @@ export const checkNetworkConnectionsTool = new DynamicStructuredTool({
         message: `✅ Vérification lancée pour ${prospect_names.length} prospect(s). L'extension Chrome visite leurs profils. Attends ~${estimatedSeconds} secondes puis appelle get_connection_results avec check_id="${actionIds.join(",")}" pour voir les résultats.`,
       });
     } catch (error) {
-      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Error" });
     }
   },
 });
@@ -954,7 +954,7 @@ export const getConnectionResultsTool = new DynamicStructuredTool({
         cannot_message: notInNetwork,
       });
     } catch (error) {
-      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Error" });
     }
   },
 });
@@ -1019,7 +1019,7 @@ export const getSearchResultsTool = new DynamicStructuredTool({
         message: `Recherche #${action.id} terminée: ${profiles.length} profils trouvés, ${savedCount} sauvegardés comme prospects.`,
       });
     } catch (error) {
-      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Error" });
     }
   },
 });
@@ -1151,7 +1151,7 @@ export const bulkSendMessagesTool = new DynamicStructuredTool({
         message: `✅ ${createdActions.length} message(s) créé(s) en attente d'approbation pour ${createdActions.length} prospect(s). ${skipped.length > 0 ? `${skipped.length} doublon(s) ignoré(s).` : ""} Allez dans l'onglet "Approbations" pour les approuver.`,
       });
     } catch (error) {
-      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Erreur" });
+      return JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Error" });
     }
   },
 });

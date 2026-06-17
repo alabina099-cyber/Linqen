@@ -2,39 +2,13 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 
-// Patch global de fetch : injecte automatiquement le token JWT (utilisateurs secondaires)
-// sur tous les appels vers /api. Les admins (session LinkedIn par cookie) n'ont pas de token
-// et sont résolus côté serveur. S'exécute une seule fois côté client.
-if (typeof window !== "undefined" && !(window as any).__authFetchPatched) {
-  (window as any).__authFetchPatched = true;
-  const originalFetch = window.fetch.bind(window);
-  window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-    try {
-      const url =
-        typeof input === "string"
-          ? input
-          : input instanceof URL
-          ? input.toString()
-          : (input as Request).url;
-      const isApi =
-        !!url &&
-        (url.startsWith("/api/") || url.startsWith(`${window.location.origin}/api/`));
-      const token = localStorage.getItem("auth_token");
-      if (isApi && token) {
-        const headers = new Headers(
-          init?.headers || (input instanceof Request ? input.headers : undefined)
-        );
-        if (!headers.has("Authorization")) {
-          headers.set("Authorization", `Bearer ${token}`);
-        }
-        init = { ...init, headers };
-      }
-    } catch {
-      // En cas d'erreur, on laisse passer la requête originale sans modification
-    }
-    return originalFetch(input as any, init);
-  };
-}
+// =============================================================
+// AuthContext — JWT stocké en cookie HttpOnly côté serveur
+// -------------------------------------------------------------
+// Plus de localStorage ! Le navigateur envoie automatiquement le
+// cookie HttpOnly sur toutes les requêtes same-origin vers /api.
+// JavaScript ne peut PAS lire ce cookie -> protection XSS.
+// =============================================================
 
 export interface AuthUser {
   id: number;
@@ -62,11 +36,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const resolveUser = useCallback(async () => {
     try {
-      const token = localStorage.getItem("auth_token");
-      const headers: Record<string, string> = {};
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      const res = await fetch("/api/auth/me", { headers });
+      // Le cookie HttpOnly est envoyé automatiquement par le navigateur.
+      const res = await fetch("/api/auth/me", { credentials: "include" });
       const data = await res.json();
 
       if (data.success && data.user) {
@@ -97,12 +68,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // recevoir le cookie HttpOnly Set-Cookie
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
 
-      if (data.success && data.token) {
-        localStorage.setItem("auth_token", data.token);
+      if (res.ok && data.success) {
+        // Le serveur a posé le cookie HttpOnly. On NE stocke PAS le JWT
+        // côté JS pour éviter toute exfiltration via XSS.
+        // (data.token est uniquement renvoyé pour la compat extension Chrome.)
+        // On propage tout de même le token à l'extension via postMessage.
+        if (data.token) {
+          try {
+            window.postMessage({ type: "SET_AUTH_TOKEN", token: data.token }, "*");
+          } catch {
+            // bridge extension absent : non-fatal
+          }
+        }
         setUser({
           id: data.user.id,
           name: data.user.name,
@@ -119,14 +101,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    // Supprimer le token JWT (user secondaire)
-    localStorage.removeItem("auth_token");
-    // Supprimer la session LinkedIn (admin)
+    // 1. Côté serveur : supprime le cookie HttpOnly + déconnecte la session LinkedIn admin
     try {
-      await fetch("/api/linkedin-auth", { method: "DELETE" });
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
     } catch {
-      // ignore
+      // non-fatal
     }
+    try {
+      await fetch("/api/linkedin-auth", { method: "DELETE", credentials: "include" });
+    } catch {
+      // non-fatal
+    }
+    // 2. Propager le logout à l'extension Chrome (clear token in storage)
+    try {
+      window.postMessage({ type: "SET_AUTH_TOKEN", token: null }, "*");
+    } catch {
+      // non-fatal
+    }
+    // 3. Reset state local
     setUser(null);
     window.location.href = "/login";
   };

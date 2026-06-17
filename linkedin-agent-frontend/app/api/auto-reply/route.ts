@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     const userId = requestUser?.userId ?? null;
     const settingsResult = userId
       ? await query('SELECT settings FROM users WHERE id = $1', [userId])
-      : await query("SELECT settings FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
+      : { rows: [] };
     const settings = settingsResult.rows[0]?.settings || {};
     const aiSettings = settings.ai || {};
     const autoReplyEnabled = aiSettings.autoReplyEnabled === true;

@@ -1,0 +1,80 @@
+@startuml
+skinparam node {
+    BackgroundColor #F5F5F5
+    BorderColor     #444444
+    FontStyle bold
+}
+skinparam component {
+    BackgroundColor #FFFFFF
+    BorderColor     #555555
+    FontStyle bold
+}
+skinparam database {
+    BackgroundColor #EDE7F6
+    BorderColor     #512DA8
+    FontStyle bold
+}
+skinparam cloud {
+    BackgroundColor #FFF8E1
+    BorderColor     #F57C00
+    FontStyle bold
+}
+
+title Deployment Diagram - LinkedIn Agent System
+
+left to right direction
+
+node "GitHub" as Git
+node "CI/CD\n(GitHub Actions)" as CICD
+
+node "Client" {
+    component "Web Dashboard" as Frontend
+    component "Chrome Extension" as Extension
+}
+
+node "Application Server" {
+    component "Nginx\n(Load Balancer)" as Nginx
+    component "Next.js App\n(Frontend + API)" as App
+    component "AI Agent\n(LangChain)" as Agent
+    component "Worker Agent\n(Puppeteer)" as Worker
+}
+
+database "PostgreSQL\n(Neon)" as DB
+cloud "OpenAI API" as OpenAI
+cloud "LinkedIn" as LinkedIn
+
+node "Coolify\n(Deployment)" as Coolify
+
+node "Observability Stack" {
+    component "Prometheus" as Prometheus
+    component "Grafana" as Grafana
+    component "Loki" as Loki
+}
+
+Git --> CICD : Build & Deploy
+CICD --> Coolify : Deploy
+Coolify --> App : Orchestrate
+
+Frontend --> Nginx : HTTPS
+Extension --> Nginx : REST API
+
+Nginx --> App : Reverse Proxy
+
+App --> DB : Read / Write
+App --> Agent
+
+Agent --> OpenAI : AI Requests
+
+Worker --> DB : Poll Actions
+Worker --> LinkedIn : Automation
+
+Extension --> LinkedIn : Browser Actions
+
+Prometheus --> App : Scrape Metrics
+Prometheus --> Worker : Scrape Health
+Grafana --> Prometheus : Query Metrics
+Grafana --> Loki : Query Logs
+Loki --> App : Collect Logs
+Loki --> Worker : Collect Logs
+
+@enduml

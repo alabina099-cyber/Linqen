@@ -154,12 +154,12 @@ export default function Forecast({ range }: { range: BIRange }) {
                     axisLine={false}
                     tickLine={false}
                     tick={{ fill: "#64748b", fontSize: 10 }}
-                    tickFormatter={(v) => new Date(v).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
+                    tickFormatter={(v) => new Date(v).toLocaleDateString("en-US", { day: "2-digit", month: "short" })}
                   />
                   <YAxis axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} />
                   <RTooltip
                     contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0" }}
-                    labelFormatter={(v) => new Date(v).toLocaleDateString("fr-FR")}
+                    labelFormatter={(v) => new Date(v).toLocaleDateString("en-US")}
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   <ReferenceLine
@@ -189,7 +189,7 @@ export default function Forecast({ range }: { range: BIRange }) {
             <SlidersHorizontal className="w-4 h-4 text-violet-600" />
             <h4 className="text-sm font-semibold text-violet-900">What-if Simulator</h4>
             <span className="text-xs text-violet-600 ml-auto">
-              Et si vous augmentiez le volume d&apos;envoi ?
+              What if you increased your send volume?
             </span>
           </div>
 

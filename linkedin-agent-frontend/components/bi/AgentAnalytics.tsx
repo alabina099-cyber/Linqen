@@ -136,7 +136,7 @@ export default function AgentAnalytics({ data: apiData, loading, range }: { data
 
           {/* Success radial */}
           <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">Taux de success global</h4>
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">Overall success rate</h4>
             <div style={{ height: 280 }} className="bg-gradient-to-br from-emerald-50/50 to-white rounded-xl border border-emerald-100 p-3 flex flex-col items-center justify-center">
               {summary ? (
                 <ResponsiveContainer width="100%" height="80%">
@@ -234,12 +234,12 @@ export default function AgentAnalytics({ data: apiData, loading, range }: { data
                     axisLine={false}
                     tickLine={false}
                     tick={{ fill: "#64748b", fontSize: 10 }}
-                    tickFormatter={(v) => new Date(v).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
+                    tickFormatter={(v) => new Date(v).toLocaleDateString("en-US", { day: "2-digit", month: "short" })}
                   />
                   <YAxis axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11 }} />
                   <RTooltip
                     contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0" }}
-                    labelFormatter={(v) => new Date(v).toLocaleDateString("fr-FR")}
+                    labelFormatter={(v) => new Date(v).toLocaleDateString("en-US")}
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   <Area type="monotone" dataKey="agentActions" stroke="#a855f7" strokeWidth={2} fill="url(#agentArea)" name="Agent actions" />
@@ -248,7 +248,7 @@ export default function AgentAnalytics({ data: apiData, loading, range }: { data
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center text-sm text-gray-400">
-                Pas d&apos;activité
+                No activity
               </div>
             )}
           </div>

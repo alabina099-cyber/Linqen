@@ -1,4 +1,4 @@
-// Script pour ajouter des messages de longueurs variées (pour "Longueur vs taux de réponse")
+// Script to add messages of various lengths (for "Length vs reply rate")
 const { Pool } = require("pg");
 
 const pool = new Pool({
@@ -6,54 +6,54 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Générateurs de textes de différentes longueurs
+// Text generators of different lengths
 function shortText() {
   const texts = [
-    "Bonjour, intéressé par votre profil.",
-    "Hello, aimerais échanger avec vous.",
-    "Salut, votre expérience m'intéresse.",
-    "Bonjour, parlons opportunités ?",
-    "Hi, votre profil est intéressant.",
-    "Bonjour, discutons rapidement ?",
-    "Hello, un message court pour vous.",
-    "Bonjour, vous recrutez en ce moment ?",
-    "Salut, une question rapide !",
-    "Bonjour, votre poste m'intéresse."
+    "Hello, interested in your profile.",
+    "Hello, would love to connect with you.",
+    "Hi, your experience interests me.",
+    "Hello, let's talk opportunities?",
+    "Hi, your profile looks interesting.",
+    "Hello, let's chat quickly?",
+    "Hello, a short message for you.",
+    "Hello, are you hiring right now?",
+    "Hi, a quick question!",
+    "Hello, your role interests me."
   ];
   return texts[Math.floor(Math.random() * texts.length)];
 }
 
 function mediumText() {
   const texts = [
-    "Bonjour, votre profil sur LinkedIn a attiré mon attention. J'aimerais discuter d'une opportunité qui correspond à vos compétences en développement et leadership technique.",
-    "Hello, je suis impressionné par votre parcours chez votre entreprise actuelle. J'aimerais vous présenter une opportunité dans une scale-up en forte croissance.",
-    "Bonjour, nous recherchons un profil comme le vôtre pour notre équipe engineering. Votre expertise en cloud et DevOps serait un vrai plus pour nous.",
-    "Salut, je suis responsable du recrutement chez TechGrowth. Votre background en IA et data science correspond parfaitement à nos besoins actuels.",
-    "Bonjour, votre entreprise semble très intéressante. J'aimerais comprendre vos défis tech et voir comment notre solution pourrait vous aider.",
-    "Hello, je vous contacte car nous lançons un nouveau produit B2B et votre profil correspond à notre persona cible. Pouvons-nous en discuter ?",
-    "Bonjour, j'ai vu que vous étiez en poste chez votre société. Une opportunité similaire mais avec plus d'autonomie pourrait vous intéresser ?",
-    "Salut, je suis fondateur d'une startup en série A. Votre profil tech + business est exactement ce que nous recherchons pour notre équipe.",
-    "Bonjour, votre expertise en architecture cloud est rare. Nous avons un poste de lead architecte qui pourrait vous convenir parfaitement.",
-    "Hello, je suis consultant en recrutement tech. Un de nos clients recherche un profil senior comme le vôtre. Intéressé pour en parler ?"
+    "Hello, your LinkedIn profile caught my attention. I would like to discuss an opportunity that matches your development and technical leadership skills.",
+    "Hello, I am impressed by your journey at your current company. I would like to present you with an opportunity at a fast-growing scale-up.",
+    "Hello, we are looking for a profile like yours for our engineering team. Your cloud and DevOps expertise would be a real asset for us.",
+    "Hi, I am in charge of recruiting at TechGrowth. Your background in AI and data science perfectly matches our current needs.",
+    "Hello, your company looks very interesting. I would like to understand your tech challenges and see how our solution could help you.",
+    "Hello, I am reaching out because we are launching a new B2B product and your profile matches our target persona. Can we discuss it?",
+    "Hello, I saw you were working at your company. A similar opportunity with more autonomy might interest you?",
+    "Hi, I am the founder of a Series A startup. Your tech + business profile is exactly what we are looking for in our team.",
+    "Hello, your cloud architecture expertise is rare. We have a lead architect position that could suit you perfectly.",
+    "Hello, I am a tech recruitment consultant. One of our clients is looking for a senior profile like yours. Interested in talking about it?"
   ];
   return texts[Math.floor(Math.random() * texts.length)];
 }
 
 function longText() {
   const texts = [
-    "Bonjour Marie, j'espère que vous allez bien. Je me permets de vous contacter car j'ai analysé votre profil LinkedIn en détail et votre expérience chez TechCorp correspond exactement au profil que nous recherchons pour notre nouvelle équipe R&D. Nous sommes une scale-up B2B en forte croissance, actuellement en série B avec 15M€ levés. Notre produit est une plateforme d'automatisation marketing basée sur l'IA générative. Votre double compétence technique et leadership serait un atout majeur pour structurer notre équipe de 8 développeurs. Le poste est en full remote avec un package attractif (80-100k€ + BSPCE). Seriez-vous ouverte à un call de 20 minutes cette semaine pour en discuter ?",
-    "Hello Pierre, je suis le CTO de DataFlow, une startup spécialisée dans l'analyse prédictive pour le retail. Nous avons vu votre profil et votre expérience en data engineering chez votre entreprise actuelle nous impressionne beaucoup. Nous recherchons un VP Engineering pour accompagner notre croissance de 50 à 200 personnes d'ici 2026. Vous seriez en charge de toute la stratégie tech, de l'architecture à la culture d'équipe. Nous offrons un package compétitif (90-120k€, BSPCE, remote flexible) et une vraie autonomie décisionnelle. Seriez-vous intéressé par un premier échange informel ?",
-    "Bonjour Sophie, votre profil est exactement ce que nous recherchons ! Je suis recruteur chez InnovateTech, cabinet de recrutement spécialisé tech. Nous avons un client, scale-up SaaS en série C, qui recherche une CEO technique pour lancer sa nouvelle business unit IA. Le poste implique de gérer une équipe de 30 personnes, définir la roadmap produit et représenter la société auprès des investisseurs. Package : 120-150k€ + BSPCE significatives + remote complet. Votre expérience chez GrowthSaaS et votre réseau dans l'écosystème startup font de vous une candidate idéale. Puis-je vous proposer un call débrief ?",
-    "Salut Thomas, j'ai découvert votre profil via un contact mutualisé et je dois dire que votre parcours est impressionnant. 8 ans d'expérience en devops, certifications AWS et Kubernetes, et surtout cette capacité à structurer des équipes from scratch. Je suis fondateur d'AIStartup, nous développons une solution d'IA conversationnelle pour le service client. Nous passons de 10 à 50 personnes et avons besoin d'un Head of Infrastructure pour garantir la scalabilité de notre plateforme. Poste basé à Paris avec remote 3j/semaine, package 70-90k€ + BSPCE. Votre profil est exactement ce dont nous avons besoin. On en parle ?",
-    "Bonjour Claire, je vous écris car votre profil LinkedIn est ressorti dans ma recherche de candidats pour un poste très spécifique. Je suis HR Director chez CloudScale, entreprise en hyper-croissance (x3 en 18 mois). Nous recherchons un Engineering Manager pour notre équipe Data Platform. Vous auriez 6 data engineers sous votre responsabilité, avec pour mission de construire notre lakehouse sur Databricks et de migrer notre infrastructure on-premise vers le cloud. Remote complet possible, package 75-95k€ + bonus + formation continue. Votre expérience chez DataFlow et votre background technique solide sont un match parfait. Un échange vous tente ?"
+    "Hello Marie, I hope you are doing well. I am reaching out because I have analyzed your LinkedIn profile in detail and your experience at TechCorp exactly matches the profile we are looking for in our new R&D team. We are a fast-growing B2B scale-up, currently at Series B with 15M euros raised. Our product is a generative AI-based marketing automation platform. Your dual technical and leadership skills would be a major asset to structure our team of 8 developers. The position is fully remote with an attractive package (80-100k euros + stock options). Would you be open to a 20-minute call this week to discuss it?",
+    "Hello Pierre, I am the CTO at DataFlow, a startup specialized in predictive analytics for retail. We saw your profile and your data engineering experience at your current company really impresses us. We are looking for a VP of Engineering to support our growth from 50 to 200 people by 2026. You would be in charge of the entire tech strategy, from architecture to team culture. We offer a competitive package (90-120k euros, stock options, flexible remote) and real decision-making autonomy. Would you be interested in an informal first chat?",
+    "Hello Sophie, your profile is exactly what we are looking for! I am a recruiter at InnovateTech, a tech recruitment firm. We have a client, a Series C SaaS scale-up, looking for a technical CEO to launch their new AI business unit. The role involves managing a team of 30 people, defining the product roadmap, and representing the company to investors. Package: 120-150k euros + significant stock options + fully remote. Your experience at GrowthSaaS and your network in the startup ecosystem make you an ideal candidate. Can I offer you a debrief call?",
+    "Hi Thomas, I discovered your profile through a mutual contact and I must say your journey is impressive. 8 years of DevOps experience, AWS and Kubernetes certifications, and especially that ability to structure teams from scratch. I am the founder of AIStartup, we are developing a conversational AI solution for customer service. We are growing from 10 to 50 people and need a Head of Infrastructure to ensure the scalability of our platform. Position based in Paris with 3 days remote per week, package 70-90k euros + stock options. Your profile is exactly what we need. Shall we talk?",
+    "Hello Claire, I am writing because your LinkedIn profile came up in my candidate search for a very specific position. I am the HR Director at CloudScale, a company in hyper-growth (x3 in 18 months). We are looking for an Engineering Manager for our Data Platform team. You would have 6 data engineers under your responsibility, with the mission to build our lakehouse on Databricks and migrate our on-premise infrastructure to the cloud. Fully remote possible, package 75-95k euros + bonus + continuous training. Your experience at DataFlow and your solid technical background are a perfect match. Does a chat interest you?"
   ];
   return texts[Math.floor(Math.random() * texts.length)];
 }
 
 function veryLongText() {
   const texts = [
-    "Bonjour Jean, j'espère que ce message vous trouve bien et que votre semaine se passe agréablement. Je me permets de vous contacter aujourd'hui car j'ai passé un moment considérable à analyser votre parcours professionnel sur LinkedIn, et je dois dire que je suis particulièrement impressionné par la diversité et la richesse de votre expérience. Vos 12 années d'expertise dans l'écosystème startup, en passant par des rôles techniques hands-on à des positions de leadership stratégique, démontrent une capacité d'adaptation et une vision business rares dans notre secteur. Je suis actuellement Head of Talent chez InnovateTech, une scale-up en série C qui développe une plateforme collaborative d'analyse de données pour les équipes produit et growth. Nous avons récemment levé 25 millions d'euros et sommes en phase de recrutement intensif pour accompagner notre expansion européenne. Concrètement, nous recherchons un VP of Engineering qui sera responsable de la définition et de l'exécution de notre stratégie technologique sur les 3 prochaines années. Cela inclut la structuration de nos 4 squads actuelles (32 personnes), le recrutement de 20 nouveaux profils d'ici fin d'année, la migration de notre architecture monolithique vers une architecture microservices, et l'instauration d'une culture d'excellence technique (code reviews, tech talks, hackathons internes). Le package que nous proposons est compétitif : 110-140k€ brut annuel, BSPCE représentant 0.5% du capital, remote hybride (2j Paris / 3j remote), et une enveloppe formation de 5k€ par an. Je serais ravi d'échanger avec vous sur cette opportunité, même si ce n'est que pour discuter de la direction que prend le marché tech actuellement. Seriez-vous disponible pour un call de 30 minutes cette semaine ou la semaine prochaine ?",
-    "Hello Camille, je suis tombée sur votre profil par hasard en parcourant les connections d'un contact mutualisé, et j'ai été immédiatement captivée par la cohérence de votre parcours. Votre transition réussie du développement pur vers le product management, puis vers le leadership d'équipe engineering, est exactement le type de trajectoire que nous valorisons chez DevWorld. Je suis la CEO et cofondatrice de cette startup qui édite une solution no-code d'automatisation des processus métier pour les PME. Après 3 ans de bootstrapping, nous venons de finaliser notre première levée de fonds de 3M€ et nous entamons une phase de croissance ambitieuse. Notre stack technique est moderne (Next.js, Node.js, PostgreSQL, Redis, Kubernetes sur GCP) et notre codebase est relativement jeune et propre. Nous recherchons un CTO co-fondateur (status de partner avec equity significative) qui prendra la direction technique de l'entreprise. Vos responsabilités incluraient : définir la roadmap technique sur 12-18 mois, recruter et structurer l'équipe dev (objectif : 8 personnes d'ici 6 mois), mettre en place les bonnes pratiques de développement (CI/CD, testing, documentation), et représenter la tech auprès de nos clients et investisseurs. En termes de compensation : un salaire de marché (60-75k€) + 15 à 20% d'equity selon votre expérience et votre apport. Le poste est basé à Lyon mais le remote est possible si vous êtes dans un fuseau horaire européen. Je sais que ce type d'opportunité est très spécifique et demande une vraie réflexion, mais je suis convaincue que votre profil correspond parfaitement à ce que nous recherchons. Puis-je vous proposer un café virtuel pour en discuter de manière informelle ?"
+    "Hello Jean, I hope this message finds you well and that your week is going nicely. I am reaching out today because I have spent considerable time analyzing your professional journey on LinkedIn, and I must say I am particularly impressed by the diversity and richness of your experience. Your 12 years of expertise in the startup ecosystem, from hands-on technical roles to strategic leadership positions, demonstrate a rare adaptability and business vision in our sector. I am currently Head of Talent at InnovateTech, a Series C scale-up developing a collaborative data analysis platform for product and growth teams. We recently raised 25 million euros and are in an intensive recruitment phase to support our European expansion. Specifically, we are looking for a VP of Engineering who will be responsible for defining and executing our technology strategy over the next 3 years. This includes structuring our 4 current squads (32 people), recruiting 20 new profiles by year-end, migrating our monolithic architecture to a microservices architecture, and establishing a culture of technical excellence (code reviews, tech talks, internal hackathons). The package we offer is competitive: 110-140k euros gross annual, stock options representing 0.5% of equity, hybrid remote (2 days Paris / 3 days remote), and a training budget of 5k euros per year. I would be delighted to exchange with you on this opportunity, even if only to discuss the direction the tech market is currently taking. Would you be available for a 30-minute call this week or next week?",
+    "Hello Camille, I came across your profile by chance while browsing a mutual contact's connections, and I was immediately captivated by the coherence of your journey. Your successful transition from pure development to product management, and then to engineering team leadership, is exactly the type of trajectory we value at DevWorld. I am the CEO and co-founder of this startup that publishes a no-code business process automation solution for SMBs. After 3 years of bootstrapping, we have just finalized our first fundraising round of 3M euros and are embarking on an ambitious growth phase. Our tech stack is modern (Next.js, Node.js, PostgreSQL, Redis, Kubernetes on GCP) and our codebase is relatively young and clean. We are looking for a co-founder CTO (partner status with significant equity) who will take the technical direction of the company. Your responsibilities would include: defining the technical roadmap over 12-18 months, recruiting and structuring the dev team (goal: 8 people within 6 months), implementing development best practices (CI/CD, testing, documentation), and representing tech to our clients and investors. In terms of compensation: a market salary (60-75k euros) + 15 to 20% equity depending on your experience and contribution. The position is based in Lyon but remote is possible if you are in a European time zone. I know this type of opportunity is very specific and requires real reflection, but I am convinced that your profile perfectly matches what we are looking for. Can I offer you a virtual coffee to discuss it informally?"
   ];
   return texts[Math.floor(Math.random() * texts.length)];
 }
@@ -64,13 +64,13 @@ function randomInt(min, max) {
 
 async function seedMessageLengths() {
   console.log(
-    "📝 Ajout de messages de longueurs variées pour 'Longueur vs taux de réponse'..."
+    "📝 Adding messages of various lengths for 'Length vs reply rate'..."
   );
 
   try {
     const messages = [];
 
-    // Bucket 0-100 caractères : ~40 messages courts
+    // Bucket 0-100 characters: ~40 short messages
     for (let i = 0; i < 40; i++) {
       messages.push({
         campaign_id: randomInt(1, 4),
@@ -80,7 +80,7 @@ async function seedMessageLengths() {
       });
     }
 
-    // Bucket 100-200 caractères : ~50 messages moyens
+    // Bucket 100-200 characters: ~50 medium messages
     for (let i = 0; i < 50; i++) {
       messages.push({
         campaign_id: randomInt(1, 4),
@@ -90,7 +90,7 @@ async function seedMessageLengths() {
       });
     }
 
-    // Bucket 200-300 caractères : ~45 messages moyens-longs
+    // Bucket 200-300 characters: ~45 medium-long messages
     for (let i = 0; i < 45; i++) {
       messages.push({
         campaign_id: randomInt(1, 4),
@@ -100,7 +100,7 @@ async function seedMessageLengths() {
       });
     }
 
-    // Bucket 300-500 caractères : ~40 messages longs
+    // Bucket 300-500 characters: ~40 long messages
     for (let i = 0; i < 40; i++) {
       messages.push({
         campaign_id: randomInt(1, 4),
@@ -110,7 +110,7 @@ async function seedMessageLengths() {
       });
     }
 
-    // Bucket 500-800 caractères : ~30 messages très longs
+    // Bucket 500-800 characters: ~30 very long messages
     for (let i = 0; i < 30; i++) {
       messages.push({
         campaign_id: randomInt(1, 4),
@@ -120,7 +120,7 @@ async function seedMessageLengths() {
       });
     }
 
-    // Bucket 800+ caractères : ~20 messages ultra-longs
+    // Bucket 800+ characters: ~20 ultra-long messages
     for (let i = 0; i < 20; i++) {
       messages.push({
         campaign_id: randomInt(1, 4),
@@ -130,7 +130,7 @@ async function seedMessageLengths() {
       });
     }
 
-    // Insérer par batches
+    // Insert in batches
     const batchSize = 50;
     for (let i = 0; i < messages.length; i += batchSize) {
       const batch = messages.slice(i, i + batchSize);
@@ -147,9 +147,9 @@ async function seedMessageLengths() {
       `);
     }
 
-    console.log(`✅ ${messages.length} messages de longueurs variées insérés`);
+    console.log(`✅ ${messages.length} messages of various lengths inserted`);
 
-    // Vérification des buckets
+    // Bucket verification
     const verifySql = `
       WITH bucketed AS (
         SELECT
@@ -184,9 +184,9 @@ async function seedMessageLengths() {
     `;
 
     const verifyResult = await pool.query(verifySql);
-    console.log("\n📊 Distribution par longueur de message:");
+    console.log("\n📊 Distribution by message length:");
     console.log("┌─────────┬───────┬─────────┬──────┐");
-    console.log("│ Bucket  │ Total │ Répondu │ Taux │");
+    console.log("│ Bucket  │ Total │ Replied │ Rate │");
     console.log("├─────────┼───────┼─────────┼──────┤");
     verifyResult.rows.forEach((row) => {
       console.log(
@@ -198,12 +198,12 @@ async function seedMessageLengths() {
     // Total messages
     const totalResult = await pool.query("SELECT COUNT(*) FROM messages");
     console.log(
-      `\n📨 Total messages dans la base: ${totalResult.rows[0].count}`
+      `\n📨 Total messages in database: ${totalResult.rows[0].count}`
     );
 
-    console.log("\n🎉 Données insérées avec succès !");
+    console.log("\n🎉 Data inserted successfully!");
   } catch (error) {
-    console.error("❌ Erreur:", error);
+    console.error("❌ Error:", error);
     throw error;
   } finally {
     await pool.end();

@@ -1,0 +1,142 @@
+@startuml
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+
+title Diagramme de Séquence Objet - Exécution Automatique d'une Campagne
+
+actor User
+
+boundary "campaignsUI : CampaignsView" as UI
+
+control "campaignController : CampaignController" as CampaignCtrl
+control "actionController : ActionController" as ActionCtrl
+
+entity "campaign : Campaign" as Campaign
+entity "action : LinkedInAction" as Action
+
+participant "chromeExtension : ChromeExtension" as Extension
+participant "linkedIn : LinkedIn" as LinkedIn
+
+== Création de la campagne ==
+
+User -> UI : saisirInformations()
+activate UI
+
+UI -> CampaignCtrl : createCampaign(data)
+activate CampaignCtrl
+
+CampaignCtrl -> Campaign : create()\nstatus = 'draft'
+activate Campaign
+Campaign --> CampaignCtrl : campaign
+deactivate Campaign
+
+CampaignCtrl --> UI : campaignCreated
+deactivate CampaignCtrl
+
+UI --> User : afficherCampagne(draft)
+deactivate UI
+
+== Activation de la campagne ==
+
+User -> UI : activerCampagne()
+activate UI
+
+UI -> CampaignCtrl : activateCampaign(id)
+activate CampaignCtrl
+
+CampaignCtrl -> Campaign : activate()\nstatus = 'active'
+activate Campaign
+Campaign --> CampaignCtrl : status = 'active'
+deactivate Campaign
+
+note right of CampaignCtrl
+  Déclenchement automatique séquentiel :
+  1. executeCampaign()  → crée l'action LinkedIn
+  2. autoApprove()      → approuve les actions en attente
+  3. checkFollowUps()   → planifie les relances J+N
+end note
+
+CampaignCtrl -> Action : createSearchAction()\nbuildLinkedInSearchUrl(target_role, industry, location)\nstatus = 'approved'
+activate Action
+Action --> CampaignCtrl : actionCreated
+deactivate Action
+
+CampaignCtrl -> Action : approveForActiveCampaigns()\npending_approval → approved
+activate Action
+Action --> CampaignCtrl : approvedCount
+deactivate Action
+
+CampaignCtrl -> CampaignCtrl : checkFollowUps()\n(planifie relances J+N)
+
+CampaignCtrl --> UI : activationSuccess
+deactivate CampaignCtrl
+
+UI --> User : afficherStatutActif()
+deactivate UI
+
+== Exécution automatique LinkedIn ==
+
+note over Extension
+  Alarme Chrome : pollActions
+  toutes les 12 secondes
+end note
+
+Extension -> ActionCtrl : getApprovedActions()
+activate Extension
+activate ActionCtrl
+
+ActionCtrl -> Action : findByStatus('approved')
+activate Action
+Action --> ActionCtrl : actions[]
+deactivate Action
+
+ActionCtrl --> Extension : actions[]
+deactivate ActionCtrl
+
+Extension -> Extension : checkLinkedInGuard()\n(limites journalières anti-détection)
+
+Extension -> LinkedIn : executeSearch(searchUrl)
+activate LinkedIn
+
+loop Pour chaque profil trouvé
+  Extension -> LinkedIn : sendConnectionOrMessage(profile)
+  LinkedIn --> Extension : confirmationVisuelle
+end
+
+LinkedIn --> Extension : executionCompleted
+deactivate LinkedIn
+
+Extension -> ActionCtrl : reportCompletion()\n{ id, status:'completed', profiles[] }
+activate ActionCtrl
+
+ActionCtrl -> Action : markCompleted()
+activate Action
+Action --> ActionCtrl : updated
+deactivate Action
+
+ActionCtrl -> CampaignCtrl : upsertProspects(profiles[])\nstatus = 'identified' ou 'contacted'
+
+ActionCtrl --> Extension : success
+deactivate ActionCtrl
+deactivate Extension
+
+== Mise à jour du Pipeline CRM ==
+
+note over UI
+  Polling automatique toutes les 10 secondes
+end note
+
+UI -> CampaignCtrl : getProspects()
+activate UI
+activate CampaignCtrl
+
+CampaignCtrl -> CampaignCtrl : getProspects(scopeFilter)
+deactivate CampaignCtrl
+
+UI --> User : afficherPipeline()\n6 colonnes Kanban mises à jour
+deactivate UI
+
+@enduml

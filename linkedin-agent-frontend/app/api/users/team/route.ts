@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { verifyToken, isAdmin, hashPassword } from "@/lib/auth";
+import { getTokenFromRequest } from "@/lib/auth-cookies";
 
 // Auto-migration : s'assure que les colonnes auth existent
 async function ensureAuthColumns() {
@@ -9,22 +10,13 @@ async function ensureAuthColumns() {
   await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE`);
 }
 
-// Helper : extraire l'admin authentifié
+// Helper : extraire l'admin authentifié (JWT obligatoire, multi-admin SaaS)
 async function getAuthenticatedAdmin(request: NextRequest) {
-  // JWT d'abord
-  const authHeader = request.headers.get("authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    const payload = await verifyToken(authHeader.slice(7));
-    if (payload && isAdmin(payload.role)) {
-      return payload;
-    }
-  }
-  // LinkedIn auth (cookie session)
-  const result = await query(
-    "SELECT id FROM users WHERE role = 'admin' LIMIT 1"
-  );
-  if (result.rows.length > 0) {
-    return { userId: result.rows[0].id, role: "admin" };
+  const token = getTokenFromRequest(request);
+  if (!token) return null;
+  const payload = await verifyToken(token);
+  if (payload && isAdmin(payload.role)) {
+    return payload;
   }
   return null;
 }

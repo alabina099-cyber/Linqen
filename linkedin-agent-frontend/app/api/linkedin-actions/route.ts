@@ -18,9 +18,10 @@ export async function OPTIONS() {
 // Helper: check if current time is within working hours configured by the user
 async function isWithinWorkingHours(userId: number | null): Promise<{ allowed: boolean; reason?: string }> {
   try {
-    const userResult = userId
-      ? await query('SELECT settings FROM users WHERE id = $1', [userId])
-      : await query("SELECT settings FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
+    // Multi-admin SaaS : sans userId on ne peut pas savoir de quel admin
+    // hériter les heures de travail. On autorise par défaut.
+    if (!userId) return { allowed: true };
+    const userResult = await query('SELECT settings FROM users WHERE id = $1', [userId]);
     const automation = userResult.rows[0]?.settings?.automation || {};
 
     const workingDays: string[]   = automation.workingDays        || ['Mon','Tue','Wed','Thu','Fri'];

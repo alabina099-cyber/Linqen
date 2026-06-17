@@ -1,0 +1,305 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Qlinqen Architecture</title>
+  <style>
+    @page { size: A4 landscape; margin: 10mm; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: #f8fafc;
+      padding: 20px;
+      color: #1e293b;
+      font-size: 9pt;
+    }
+    .page {
+      max-width: 270mm;
+      margin: 0 auto;
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 20px 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+    .title {
+      text-align: center;
+      font-size: 14pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      text-align: center;
+      font-size: 9pt;
+      color: #64748b;
+      margin-bottom: 16px;
+    }
+
+    .arch-grid {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .layer {
+      flex: 1;
+      min-width: 0;
+      border: 2px solid;
+      border-radius: 8px;
+      padding: 10px;
+      background: #fff;
+    }
+    .layer-header {
+      font-size: 8.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      text-align: center;
+      padding: 5px 0;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      color: #fff;
+    }
+
+    .layer.ext { border-color: #3b82f6; }
+    .layer.ext .layer-header { background: #3b82f6; }
+    .layer.web { border-color: #8b5cf6; }
+    .layer.web .layer-header { background: #8b5cf6; }
+    .layer.worker { border-color: #f59e0b; }
+    .layer.worker .layer-header { background: #f59e0b; }
+
+    .component {
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      background: #f8fafc;
+    }
+    .component-name {
+      font-weight: 700;
+      font-size: 8pt;
+      color: #1e293b;
+      margin-bottom: 3px;
+    }
+    .component-detail {
+      font-size: 7pt;
+      color: #64748b;
+      line-height: 1.4;
+    }
+
+    .connector-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin: 8px 0;
+      padding: 6px;
+      background: #f1f5f9;
+      border-radius: 4px;
+      font-size: 8pt;
+      color: #475569;
+      font-weight: 600;
+    }
+    .arrow-h {
+      font-size: 14pt;
+      color: #94a3b8;
+    }
+
+    .backend-row {
+      display: flex;
+      gap: 12px;
+    }
+    .layer.backend {
+      flex: 1;
+      border: 2px solid #10b981;
+    }
+    .layer.backend .layer-header { background: #10b981; }
+
+    .infra-section {
+      margin-top: 10px;
+      border-top: 1px dashed #cbd5e1;
+      padding-top: 10px;
+    }
+    .infra-label {
+      font-size: 7.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    .infra-grid {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .infra-box {
+      border: 1px solid #cbd5e1;
+      border-radius: 5px;
+      padding: 6px 10px;
+      text-align: center;
+      background: #f8fafc;
+      min-width: 80px;
+    }
+    .infra-box .name {
+      font-weight: 600;
+      font-size: 7.5pt;
+      color: #334155;
+    }
+    .infra-box .detail {
+      font-size: 6.5pt;
+      color: #94a3b8;
+    }
+
+    .footer {
+      margin-top: 12px;
+      padding-top: 8px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      font-size: 7pt;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="title">Qlinqen — Hybrid Multi-Component Architecture</div>
+    <div class="subtitle">Chrome Extension + Web Dashboard + Headless Worker + Backend Services</div>
+
+    <div class="arch-grid">
+
+      <!-- LAYER 1: Chrome Extension -->
+      <div class="layer ext">
+        <div class="layer-header">Chrome Extension (Manifest V3)</div>
+
+        <div class="component">
+          <div class="component-name">Background Service Worker</div>
+          <div class="component-detail">
+            Polls action queue, enforces daily limits, applies human-like delays, manages authentication, and recovers stale actions.
+          </div>
+        </div>
+
+        <div class="component">
+          <div class="component-name">Content Script</div>
+          <div class="component-detail">
+            Scrapes profiles and search results, performs automated actions (connections, messages), and monitors inbox replies directly on LinkedIn pages.
+          </div>
+        </div>
+
+        <div class="component">
+          <div class="component-name">Bridge Script</div>
+          <div class="component-detail">
+            Relays commands and authentication tokens between the web dashboard and the extension via the browser.
+          </div>
+        </div>
+      </div>
+
+      <!-- LAYER 2: Web Dashboard -->
+      <div class="layer web">
+        <div class="layer-header">Web Dashboard</div>
+
+        <div class="component">
+          <div class="component-name">Next.js + React + TypeScript</div>
+          <div class="component-detail">
+            Full-stack application with server-side rendering, API routes for business logic, middleware for security, and a modern component-based UI.
+          </div>
+        </div>
+
+        <div class="component">
+          <div class="component-name">Core Modules</div>
+          <div class="component-detail">
+            Campaign creation and targeting, AI message approval queue, agent chat interface, automation settings, and real-time analytics dashboard.
+          </div>
+        </div>
+
+        <div class="component">
+          <div class="component-name">Authentication</div>
+          <div class="component-detail">
+            LinkedIn cookie-based login for admins, email and password with JWT for team members, and role-based access control.
+          </div>
+        </div>
+      </div>
+
+      <!-- LAYER 3: Worker -->
+      <div class="layer worker">
+        <div class="layer-header">Headless Worker</div>
+
+        <div class="component">
+          <div class="component-name">Node.js + Puppeteer</div>
+          <div class="component-detail">
+            Headless browser automation that polls the same action queue as the extension, enabling 24/7 server-side execution without a browser.
+          </div>
+        </div>
+
+        <div class="component">
+          <div class="component-name">Containerized Deployment</div>
+          <div class="component-detail">
+            Packaged as a Docker container, deployed independently via Coolify on Oracle Cloud for scalable, always-on automation.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONNECTOR -->
+    <div class="connector-row">
+      <span>Extension</span>
+      <span class="arrow-h">&#8594;</span>
+      <span>HTTPS / REST + JWT</span>
+      <span class="arrow-h">&#8592;</span>
+      <span>Worker</span>
+    </div>
+
+    <!-- BOTTOM ROW: Backend -->
+    <div class="backend-row">
+      <div class="layer backend">
+        <div class="layer-header">Backend &amp; Infrastructure</div>
+        <div class="arch-grid" style="margin-bottom:0;">
+          <div class="component" style="flex:1; margin-bottom:0;">
+            <div class="component-name">PostgreSQL</div>
+            <div class="component-detail">
+              Cloud-hosted relational database for structured data storage including prospects, campaigns, action queues, and audit logs.
+            </div>
+          </div>
+          <div class="component" style="flex:1; margin-bottom:0;">
+            <div class="component-name">AI / LangChain / OpenAI</div>
+            <div class="component-detail">
+              Intelligent message generation and campaign execution using large language models with configurable tone and style.
+            </div>
+          </div>
+          <div class="component" style="flex:1; margin-bottom:0;">
+            <div class="component-name">Nginx Load Balancer</div>
+            <div class="component-detail">
+              Reverse proxy with TLS termination, rate limiting, and static asset caching to handle incoming traffic securely.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INFRA ROW -->
+    <div class="infra-section">
+      <div class="infra-label">DevOps, Observability &amp; External Services</div>
+      <div class="infra-grid">
+        <div class="infra-box"><div class="name">GitHub Actions</div><div class="detail">CI / CD</div></div>
+        <div class="infra-box"><div class="name">GHCR</div><div class="detail">Docker Registry</div></div>
+        <div class="infra-box"><div class="name">Coolify</div><div class="detail">PaaS</div></div>
+        <div class="infra-box"><div class="name">Oracle Cloud</div><div class="detail">Cloud Hosting</div></div>
+        <div class="infra-box"><div class="name">Cloudflare R2</div><div class="detail">Backups</div></div>
+        <div class="infra-box"><div class="name">Prometheus</div><div class="detail">Metrics</div></div>
+        <div class="infra-box"><div class="name">Grafana</div><div class="detail">Dashboards</div></div>
+        <div class="infra-box"><div class="name">Loki</div><div class="detail">Logs</div></div>
+        <div class="infra-box"><div class="name">Uptime Kuma</div><div class="detail">Monitoring</div></div>
+        <div class="infra-box"><div class="name">OpenAI API</div><div class="detail">AI Models</div></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>Qlinqen Architecture Overview</span>
+      <span>2026</span>
+    </div>
+  </div>
+</body>
+</html>

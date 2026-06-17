@@ -1,6 +1,6 @@
--- Schema de base de données pour LinkedIn Agent
--- Exécuter ce script dans Neon DB pour créer les tables
--- Table des campagnes
+-- Database schema for LinkedIn Agent
+-- Run this script in Neon DB to create tables
+-- Campaigns table
 CREATE TABLE IF NOT EXISTS campaigns (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS agent_chat_history (
   conversation_id VARCHAR(36),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
--- Table des étapes d'outils agent (tool calls intermédiaires)
+-- Agent tool steps table (intermediate tool calls)
 CREATE TABLE IF NOT EXISTS agent_tool_steps (
   id SERIAL PRIMARY KEY,
   conversation_id VARCHAR(36) NOT NULL,
@@ -144,7 +144,7 @@ CREATE TABLE IF NOT EXISTS linkedin_actions_queue (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     executed_at TIMESTAMP
 );
--- Table des follow-ups planifiés
+-- Scheduled follow-ups table
 CREATE TABLE IF NOT EXISTS scheduled_followups (
   id SERIAL PRIMARY KEY,
   prospect_id INTEGER REFERENCES prospects(id) ON DELETE CASCADE,
@@ -156,7 +156,7 @@ CREATE TABLE IF NOT EXISTS scheduled_followups (
     -- 'scheduled', 'sent', 'cancelled'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
--- Index pour améliorer les performances
+-- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
 CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status);

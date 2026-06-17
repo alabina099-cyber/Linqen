@@ -1,0 +1,115 @@
+@startuml
+hide circle
+skinparam classAttributeIconSize 0
+
+skinparam package {
+    BorderColor #888888
+    BackgroundColor #FAFAFA
+    FontStyle bold
+}
+
+skinparam class {
+    BackgroundColor<<Action>>     #FFF8E1
+    BorderColor<<Action>>         #E65100
+    HeaderBackgroundColor<<Action>> #FFD54F
+    FontColor<<Action>>           #E65100
+
+    BackgroundColor<<navigator>>     #FFFDE7
+    BorderColor<<navigator>>         #F9A825
+    HeaderBackgroundColor<<navigator>> #FFF59D
+    FontColor<<navigator>>           #827717
+
+    BackgroundColor  #FFFFFF
+    BorderColor      #AAAAAA
+    FontStyle bold
+}
+
+title DCC : Automatic Prospecting by Agent
+
+package "Presentation" {
+    class CampaignsView <<navigator>> {
+        -campaigns : Campaign[]
+        --
+        +displayCampaigns() : void
+        +launchCampaign(id : String) : void
+    }
+    class ProspectsPipelineView <<navigator>> {
+        -prospects : Prospect[]
+        --
+        +displayPipeline() : void
+        +refreshProspects() : void
+    }
+}
+
+package "Application Logic" {
+    class ExecuteCampaign <<Action>> {
+        +execute() : void
+    }
+    class AutoApprove <<Action>> {
+        +execute() : void
+    }
+    class CheckFollowUps <<Action>> {
+        +execute() : void
+    }
+    class GetProspects <<Action>> {
+        +execute() : void
+    }
+}
+
+package "Business Logic" {
+    class Campaign {
+        -id : String
+        -name : String
+        -status : String
+        -target_role : String
+        -campaign_type : String
+        -daily_limit : int
+        -follow_up_days : int
+        +activate() : void
+        +buildSearchUrl() : String
+    }
+    class LinkedInAction {
+        -id : String
+        -action_type : String
+        -target_url : String
+        -status : String
+        -campaign_id : String
+        +approve() : void
+        +markCompleted() : void
+    }
+    class Prospect {
+        -id : String
+        -name : String
+        -linkedin_url : String
+        -status : String
+        +updateStatus(s : String) : void
+    }
+    class ScheduledFollowUp {
+        -id : String
+        -prospect_id : String
+        -scheduled_for : Date
+        -status : String
+        +schedule() : void
+    }
+}
+
+' Presentation → Application Logic
+CampaignsView         --> ExecuteCampaign
+CampaignsView         --> AutoApprove
+CampaignsView         --> CheckFollowUps
+ProspectsPipelineView --> GetProspects
+
+' Application Logic → Business Logic
+ExecuteCampaign --> Campaign
+ExecuteCampaign --> LinkedInAction
+AutoApprove     --> LinkedInAction
+CheckFollowUps  --> Campaign
+CheckFollowUps  --> Prospect
+CheckFollowUps  --> ScheduledFollowUp
+GetProspects    --> Prospect
+
+' Business Logic associations
+Campaign "1" o-- "0..*" LinkedInAction
+Prospect "1" *-- "0..*" ScheduledFollowUp
+
+@enduml

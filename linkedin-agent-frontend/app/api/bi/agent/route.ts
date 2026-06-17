@@ -3,11 +3,11 @@ import { pool } from "@/lib/db";
 
 // GET /api/bi/agent?range=30
 // Module 4: AI Agent Analytics
-//  - Volume actions agent vs humain
+//  - Agent vs human action volume
 //  - Tool usage breakdown
-//  - Auto vs approbation manuelle (linkedin_actions_queue)
-//  - ROI estimé (€ et heures économisées)
-//  - Timeline d'activité agent (par jour)
+//  - Auto vs manual approval (linkedin_actions_queue)
+//  - Estimated ROI (€ and hours saved)
+//  - Agent activity timeline (per day)
 export async function GET(req: NextRequest) {
   try {
     const range = parseInt(req.nextUrl.searchParams.get("range") || "30");
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
       return { action_type, total, completed, pending, failed };
     });
 
-    // ROI: 2min économisées par action agent + 25€/h taux horaire estimé
+    // ROI: 2min saved per agent action + 25€/h estimated hourly rate
     const minutesSaved = totalActions * 2;
     const hoursSaved = Math.round((minutesSaved / 60) * 10) / 10;
     const moneySaved = Math.round(hoursSaved * 25);

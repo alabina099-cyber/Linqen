@@ -55,7 +55,7 @@ import {
   Monitor,
   Type,
   Layers,
-  ChevronDown
+  ChevronDown,
 } from "lucide-react";
 
 interface AIModel {
@@ -71,14 +71,14 @@ export default function Settings() {
   
   // Account Settings
   const [account, setAccount] = useState({
-    name: "Dorra Boucharbia",
-    email: "dorraboucharbia@gmail.com",
-    company: "StackReach",
+    name: "",
+    email: "",
+    company: "",
     role: "Admin",
-    avatar: "DB",
-    linkedInConnected: true,
-    linkedInEmail: "dorraboucharbia@gmail.com",
-    lastSync: "5 min ago",
+    avatar: "",
+    linkedInConnected: false,
+    linkedInEmail: "",
+    lastSync: "",
   });
 
   // Prospection Limits
@@ -259,7 +259,7 @@ export default function Settings() {
   // Integrations
   const [integrations, setIntegrations] = useState({
     crm: { type: "hubspot", connected: false, apiKey: "" },
-    calendar: { type: "google", connected: true, email: "dorraboucharbia@gmail.com" },
+    calendar: { type: "google", connected: false, email: "" },
     zapier: { connected: false },
     slack: { connected: false, webhook: "" },
     googleSheets: { connected: false, sheetId: "" },
@@ -378,17 +378,16 @@ export default function Settings() {
                 <User className="w-7 h-7 text-blue-500" />
                 <div>
                   <span className="text-lg font-bold text-gray-900">LinkedIn Account</span>
-                  <CardDescription className="mt-0.5">Manage your connection and account information</CardDescription>
+                  <CardDescription className="mt-0.5">Manage your connection and Password</CardDescription>
                 </div>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="p-6">
-                <LinkedInAccount />
+                <SecurityPasswordForm />
               </div>
             </CardContent>
           </Card>
-
         </TabsContent>
 
         
@@ -1023,5 +1022,149 @@ export default function Settings() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// =============================================================
+// SecurityPasswordForm — Multi-admin SaaS
+// -------------------------------------------------------------
+// Permet à l'utilisateur connecté (admin ou user secondaire)
+// de définir / modifier son mot de passe. Le backend gère
+// l'ancien mdp (requis seulement s'il existe déjà).
+// =============================================================
+function SecurityPasswordForm() {
+  const [currentPwd, setCurrentPwd] = useState("");
+  const [newPwd, setNewPwd] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (newPwd.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (newPwd !== confirmPwd) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          currentPassword: currentPwd || undefined,
+          newPassword: newPwd,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccess(data.message || "Password updated successfully!");
+        setCurrentPwd("");
+        setNewPwd("");
+        setConfirmPwd("");
+      } else {
+        setError(data.error || "Failed to update password.");
+      }
+    } catch {
+      setError("Network error.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
+      {error && (
+        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+      {success && (
+        <div className="flex items-center gap-2 text-sm text-emerald-600 bg-emerald-50 rounded-lg px-3 py-2">
+          <CheckCircle className="w-4 h-4 shrink-0" />
+          <span>{success}</span>
+        </div>
+      )}
+
+      <div>
+        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Current password</label>
+        <div className="relative">
+          <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type={showCurrent ? "text" : "password"}
+            value={currentPwd}
+            onChange={(e) => setCurrentPwd(e.target.value)}
+            placeholder="Leave blank if you never set one"
+            className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+          />
+          <button type="button" onClick={() => setShowCurrent(!showCurrent)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+        <p className="text-[11px] text-gray-400 mt-1">
+          Optional if you connected via LinkedIn and never set a password before.
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-xs font-semibold text-gray-600 mb-1.5">New password</label>
+        <div className="relative">
+          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type={showNew ? "text" : "password"}
+            value={newPwd}
+            onChange={(e) => setNewPwd(e.target.value)}
+            placeholder="Min. 8 characters"
+            required
+            className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+          />
+          <button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs font-semibold text-gray-600 mb-1.5">Confirm new password</label>
+        <div className="relative">
+          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type={showConfirm ? "text" : "password"}
+            value={confirmPwd}
+            onChange={(e) => setConfirmPwd(e.target.value)}
+            placeholder="Re-enter new password"
+            required
+            className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+          />
+          <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 pt-1">
+        <Button
+          type="submit"
+          disabled={loading || !newPwd || newPwd !== confirmPwd}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/20 disabled:opacity-50"
+        >
+          {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          {loading ? "Saving..." : "Update password"}
+        </Button>
+      </div>
+    </form>
   );
 }

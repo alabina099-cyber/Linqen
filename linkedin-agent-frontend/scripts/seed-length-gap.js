@@ -1,4 +1,4 @@
-// Script pour combler le gap 200-300 et 300-500
+// Script to fill the 200-300 and 300-500 gap
 const { Pool } = require("pg");
 
 const pool = new Pool({
@@ -8,22 +8,22 @@ const pool = new Pool({
 
 function text200to300() {
   const texts = [
-    "Bonjour, j'ai découvert votre profil et je suis impressionné par votre parcours. Votre expertise en développement web et votre expérience en leadership technique seraient parfaites pour notre équipe en pleine croissance. Nous recherchons un profil senior pour structurer notre pôle technique.",
-    "Hello, je suis recruteur chez TechGrowth. Nous avons une opportunité passionnante pour un développeur fullstack avec 5+ ans d'expérience. Notre stack : React, Node.js, PostgreSQL. Remote possible. Salaire compétitif selon profil.",
-    "Salut, je vous contacte car votre profil correspond à une offre de CTO chez une startup en série A. Vous aurez l'occasion de construire l'équipe technique from scratch et de définir la vision produit. Equity significative incluse.",
-    "Bonjour, nous sommes une scale-up SaaS en hyper-croissance et recherchons un VP Engineering. Vous serez en charge de 3 squads et participerez aux décisions stratégiques. Package : 90-110k€ + BSPCE.",
-    "Hello, je suis fondateur d'une startup IA. Nous développons un copilote pour développeurs. Votre background technique et votre réseau nous intéressent beaucoup. On en discute ?"
+    "Hello, I discovered your profile and I am impressed by your journey. Your web development expertise and technical leadership experience would be perfect for our fast-growing team. We are looking for a senior profile to structure our technical division.",
+    "Hello, I am a recruiter at TechGrowth. We have an exciting opportunity for a fullstack developer with 5+ years of experience. Our stack: React, Node.js, PostgreSQL. Remote possible. Competitive salary depending on profile.",
+    "Hi, I am reaching out because your profile matches a CTO position at a Series A startup. You will have the opportunity to build the technical team from scratch and define the product vision. Significant equity included.",
+    "Hello, we are a fast-growing SaaS scale-up looking for a VP of Engineering. You will be in charge of 3 squads and participate in strategic decisions. Package: 90-110k euros + stock options.",
+    "Hello, I am the founder of an AI startup. We are developing a copilot for developers. Your technical background and network interest us a lot. Shall we discuss it?"
   ];
   return texts[Math.floor(Math.random() * texts.length)];
 }
 
 function text300to500() {
   const texts = [
-    "Bonjour Alexandre, j'espère que vous allez bien. Je me permets de vous contacter car votre profil LinkedIn est ressorti dans ma recherche de candidats pour un poste de Lead Developer chez notre client, une fintech en forte croissance basée à Paris. Le poste implique de manager une équipe de 6 développeurs, de participer aux choix d'architecture technique, et de garantir la qualité du code via des code reviews régulières. Notre stack est moderne : React, TypeScript, Node.js, PostgreSQL, Redis, Docker. Le package est attractif : 75-95k€ selon expérience, télétravail hybride (3j/remote), et une enveloppe formation de 3k€ par an. Seriez-vous ouvert à en discuter ?",
-    "Hello Isabelle, je suis Head of Talent chez CloudNative, une entreprise qui édite une solution de monitoring cloud pour les équipes DevOps. Nous avons vu votre profil et votre double compétence développement + infrastructure nous impressionne. Nous recherchons un Senior DevOps Engineer pour rejoindre notre équipe de 4 personnes. Vous serez responsable de l'optimisation de nos pipelines CI/CD, de la migration vers Kubernetes, et de l'accompagnement des équipes de développement dans leurs bonnes pratiques. Poste en full remote, package 70-85k€ + intéressement. Votre profil est exactement ce que nous recherchons.",
-    "Salut François, je suis consultant indépendant spécialisé dans le recrutement tech. Un de mes clients, éditeur de logiciel B2B en série B, recherche un Engineering Manager pour accompagner leur croissance de 20 à 60 personnes d'ici 18 mois. Vous auriez 2 équipes sous votre responsabilité (8 développeurs au total), avec pour mission de structurer les processus de développement, d'instaurer une culture d'excellence technique, et de recruter de nouveaux profils. Le package est compétitif : 80-100k€ + BSPCE + remote flexible. Votre expérience chez ScaleTech fait de vous un candidat idéal.",
-    "Bonjour Catherine, je suis la CTO de DevOpsPro, startup qui développe une plateforme d'automatisation des déploiements pour les PME. Nous venons de lever 4M€ et sommes en phase de recrutement intensif. Nous recherchons un cofondateur technique (CTO) qui prendra la direction de l'équipe engineering (actuellement 3 personnes). Vous serez en charge de la roadmap technique, du recrutement, et de la scalabilité de notre infrastructure. Package : salaire marché + 10-15% d'equity. Poste basé à Bordeaux avec remote possible. Votre profil est très intéressant.",
-    "Hello David, je suis le CEO de DataMinds, cabinet de conseil en data science. Nous accompagnons des grands comptes sur leurs projets d'IA et de machine learning. Nous recherchons un Data Lead pour structurer notre équipe data (actuellement 5 personnes). Vous serez en charge de la qualité des livrables, du recrutement, et de la relation client sur les projets les plus stratégiques. Poste basé à Paris, remote 2j/semaine, package 85-105k€ + bonus sur résultats. Votre background technique et votre expérience client sont un atout majeur."
+    "Hello Alexandre, I hope you are doing well. I am reaching out because your LinkedIn profile came up in my candidate search for a Lead Developer position at our client, a fast-growing fintech based in Paris. The role involves managing a team of 6 developers, participating in technical architecture decisions, and ensuring code quality through regular code reviews. Our stack is modern: React, TypeScript, Node.js, PostgreSQL, Redis, Docker. The package is attractive: 75-95k euros depending on experience, hybrid remote (3 days remote), and a training budget of 3k euros per year. Would you be open to discussing it?",
+    "Hello Isabelle, I am Head of Talent at CloudNative, a company that publishes a cloud monitoring solution for DevOps teams. We saw your profile and your dual development + infrastructure skills impress us. We are looking for a Senior DevOps Engineer to join our team of 4 people. You will be responsible for optimizing our CI/CD pipelines, migrating to Kubernetes, and supporting development teams in their best practices. Full remote position, package 70-85k euros + profit sharing. Your profile is exactly what we are looking for.",
+    "Hi Francois, I am an independent consultant specialized in tech recruitment. One of my clients, a Series B B2B software publisher, is looking for an Engineering Manager to support their growth from 20 to 60 people within 18 months. You would have 2 teams under your responsibility (8 developers in total), with the mission to structure development processes, instill a culture of technical excellence, and recruit new profiles. The package is competitive: 80-100k euros + stock options + flexible remote. Your experience at ScaleTech makes you an ideal candidate.",
+    "Hello Catherine, I am the CTO at DevOpsPro, a startup developing a deployment automation platform for SMBs. We just raised 4M euros and are in an intensive recruitment phase. We are looking for a technical co-founder (CTO) who will lead the engineering team (currently 3 people). You will be in charge of the technical roadmap, recruitment, and scalability of our infrastructure. Package: market salary + 10-15% equity. Position based in Bordeaux with remote possible. Your profile is very interesting.",
+    "Hello David, I am the CEO of DataMinds, a data science consulting firm. We support large enterprises on their AI and machine learning projects. We are looking for a Data Lead to structure our data team (currently 5 people). You will be in charge of deliverable quality, recruitment, and client relationships on the most strategic projects. Position based in Paris, remote 2 days per week, package 85-105k euros + performance bonus. Your technical background and client experience are a major asset."
   ];
   return texts[Math.floor(Math.random() * texts.length)];
 }
@@ -33,14 +33,12 @@ function randomInt(min, max) {
 }
 
 async function seedGap() {
-  console.log(
-    "📝 Ajout de messages pour combler les buckets 200-300 et 300-500..."
-  );
+  console.log("📝 Adding messages to fill the 200-300 and 300-500 buckets...");
 
   try {
     const messages = [];
 
-    // Bucket 200-300 : 35 messages
+    // Bucket 200-300: 35 messages
     for (let i = 0; i < 35; i++) {
       messages.push({
         campaign_id: randomInt(1, 4),
@@ -50,7 +48,7 @@ async function seedGap() {
       });
     }
 
-    // Bucket 300-500 : 40 messages
+    // Bucket 300-500: 40 messages
     for (let i = 0; i < 40; i++) {
       messages.push({
         campaign_id: randomInt(1, 4),
@@ -60,7 +58,7 @@ async function seedGap() {
       });
     }
 
-    // Insérer par batches
+    // Insert in batches
     const batchSize = 50;
     for (let i = 0; i < messages.length; i += batchSize) {
       const batch = messages.slice(i, i + batchSize);
@@ -77,9 +75,9 @@ async function seedGap() {
       `);
     }
 
-    console.log(`✅ ${messages.length} messages insérés pour combler les gaps`);
+    console.log(`✅ ${messages.length} messages inserted to fill the gaps`);
 
-    // Vérification finale
+    // Final verification
     const verifySql = `
       WITH bucketed AS (
         SELECT
@@ -114,9 +112,9 @@ async function seedGap() {
     `;
 
     const verifyResult = await pool.query(verifySql);
-    console.log("\n📊 Distribution finale par longueur:");
+    console.log("\n📊 Final distribution by length:");
     console.log("┌─────────┬───────┬─────────┬──────┐");
-    console.log("│ Bucket  │ Total │ Répondu │ Taux │");
+    console.log("│ Bucket  │ Total │ Replied │ Rate │");
     console.log("├─────────┼───────┼─────────┼──────┤");
     verifyResult.rows.forEach((row) => {
       console.log(
@@ -128,9 +126,9 @@ async function seedGap() {
     const totalResult = await pool.query("SELECT COUNT(*) FROM messages");
     console.log(`\n📨 Total messages: ${totalResult.rows[0].count}`);
 
-    console.log("\n🎉 Tous les buckets sont maintenant remplis !");
+    console.log("\n🎉 All buckets are now filled!");
   } catch (error) {
-    console.error("❌ Erreur:", error);
+    console.error("❌ Error:", error);
     throw error;
   } finally {
     await pool.end();

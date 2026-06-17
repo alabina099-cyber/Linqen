@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Use Case Specification — Settings</title>
+  <style>
+    @page { size: A4; margin: 12mm; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: #fff;
+      color: #1e293b;
+      line-height: 1.35;
+      font-size: 9.5pt;
+      padding: 0;
+    }
+    .page {
+      width: 186mm;
+      max-width: 186mm;
+      margin: 0 auto;
+      background: #fff;
+      border: 1px solid #cbd5e1;
+    }
+    .header {
+      background: #166534;
+      color: #fff;
+      padding: 8px 14px;
+    }
+    .header h1 {
+      font-size: 13pt;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+    .header .subtitle {
+      font-size: 8pt;
+      opacity: 0.9;
+      margin-top: 1px;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    tr { border-bottom: 1px solid #e2e8f0; }
+    tr:last-child { border-bottom: none; }
+    td {
+      padding: 5px 10px;
+      vertical-align: top;
+    }
+    td.label {
+      width: 78px;
+      background: #f0fdf4;
+      font-weight: 700;
+      font-size: 7.5pt;
+      color: #14532d;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      border-right: 1px solid #e2e8f0;
+      white-space: nowrap;
+    }
+    td.content { font-size: 9pt; color: #334155; }
+    .scenario-step {
+      margin-bottom: 4px;
+      padding-left: 6px;
+      border-left: 2px solid #22c55e;
+    }
+    .scenario-step strong {
+      color: #14532d;
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+    }
+    .scenario-step p { margin: 1px 0; }
+    code {
+      background: #f1f5f9;
+      padding: 0 3px;
+      border-radius: 2px;
+      font-family: "SF Mono", Consolas, monospace;
+      font-size: 8pt;
+      color: #475569;
+    }
+    em { font-style: italic; color: #475569; }
+    .tag {
+      display: inline-block;
+      padding: 0 4px;
+      border-radius: 2px;
+      font-size: 7.5pt;
+      font-weight: 700;
+      margin-right: 3px;
+      vertical-align: middle;
+    }
+    .tag-amber { background: #fef3c7; color: #92400e; }
+    .tag-red { background: #fee2e2; color: #991b1b; }
+    .footer {
+      padding: 4px 10px;
+      background: #f8fafc;
+      font-size: 7pt;
+      color: #64748b;
+      text-align: right;
+      border-top: 1px solid #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <h1>Settings — Use Case Specification</h1>
+      <div class="subtitle">Linqen LinkedIn AI Prospecting Agent</div>
+    </div>
+
+    <table>
+      <tr>
+        <td class="label">Use Case</td>
+        <td class="content"><strong>Settings</strong></td>
+      </tr>
+      <tr>
+        <td class="label">Actor</td>
+        <td class="content">User</td>
+      </tr>
+      <tr>
+        <td class="label">Preconditions</td>
+        <td class="content">User authenticated via valid JWT session.</td>
+      </tr>
+      <tr>
+        <td class="label">Postconditions</td>
+        <td class="content">Configuration preferences persisted to user settings.</td>
+      </tr>
+      <tr>
+        <td class="label">Main Scenario</td>
+        <td class="content">
+          <div class="scenario-step">
+            <strong>[S1] Manage Account</strong>
+            <p>1.1 User navigates to Settings, selects Account tab.</p>
+            <p>1.2 System displays profile data and LinkedIn connection status.</p>
+          </div>
+          <div class="scenario-step">
+            <strong>[S2] Configure AI Model</strong>
+            <p>2.1 User selects Agent tab, opens AI Model section.</p>
+            <p>2.2 System lists available models with availability status.</p>
+            <p>2.3 User selects model and message tone (professional, friendly, formal).</p>
+            <p>2.4 User toggles auto-reply, language auto-detection, and human like behaviour.</p>
+          
+            <p>2.5 User sets working hours (start/end), timezone, and active working days.</p>
+            <p>2.6 User configures min/max delay between actions for human-like pacing.</p>
+            <p>2.7 System validates ranges and saves.</p>
+         
+            <p>2.8 User toggles <strong>Simulate Human Behavior</strong>.</p>
+            <p>2.9 User toggles <strong>Randomize Delays</strong> to vary inter-action timing.</p>
+            <p>2.10 System persists flags; Chrome extension reads them during action execution.</p>
+          </div>
+          <div class="scenario-step">
+            <strong>[S3] Manage Notifications</strong>
+            <p>3.1 User opens Notifications tab.</p>
+            <p>3.2 User toggles alert limit, statistic resume, new responce and conversion alert.</p>
+          </div>
+          <div class="scenario-step">
+            <strong>[S4] Manage Appearance</strong>
+            <p>4.1 User selects Appearance tab.</p>
+            <p>4.2 User picks theme (light / dark / auto), language (fr / en), date format (DD/MM/YYYY), and time format (12h / 24h).</p>
+            <p>4.3 System applies theme.</p>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td class="label">Alternatives</td>
+        <td class="content">
+          <span class="tag tag-amber">A1</span> Not authenticated &rarr; Redirect to Login page.<br>
+          <span class="tag tag-amber">S4-4a</span> System theme preference auto-detected via <code>prefers-color-scheme</code> when set to auto.
+        </td>
+      </tr>
+      <tr>
+        <td class="label">Exceptions</td>
+        <td class="content">
+          <span class="tag tag-red">S1-10a</span> DB connection error during save &rarr; <em>"server error"</em>; changes not persisted.<br>
+          <span class="tag tag-red">S4-10a</span> Unexpected error &rarr; Cancel, notify user, log to <code>error_logs</code>.
+        </td>
+      </tr>
+    </table>
+
+    <div class="footer">
+      Qlinqen &mdash; LinkedIn AI Prospecting Agent | Use Case: Settings
+    </div>
+  </div>
+</body>
+</html>

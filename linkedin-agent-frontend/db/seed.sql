@@ -1,7 +1,7 @@
 -- ========================================
--- SEED DATA - Données de test réelles
+-- SEED DATA - Real test data
 -- ========================================
--- Insérer un utilisateur par défaut
+-- Insert default user
 INSERT INTO users (
     name,
     email,
@@ -22,7 +22,7 @@ VALUES (
     NOW(),
     NOW()
   ) ON CONFLICT (email) DO NOTHING;
--- Insérer des prospects réalistes
+-- Insert realistic prospects
 INSERT INTO prospects (
     linkedin_url,
     name,
@@ -64,7 +64,7 @@ VALUES (
     'sarah.dubois@saassol.fr',
     78,
     'contacted',
-    'Intéressée par nos solutions',
+    'Interested in our solutions',
     NOW(),
     NOW()
   ),
@@ -94,7 +94,7 @@ VALUES (
     'marie@ai-innovations.tech',
     90,
     'responded',
-    'Très intéressée - à relancer rapidement',
+    'Very interested - follow up quickly',
     NOW(),
     NOW()
   ),
@@ -109,7 +109,7 @@ VALUES (
     'thomas@startupboost.io',
     75,
     'new',
-    'CEO early stage - opportunité',
+    'CEO early stage - opportunity',
     NOW(),
     NOW()
   ),
@@ -130,7 +130,7 @@ VALUES (
   ),
   (
     'https://linkedin.com/in/celine-robert-rh',
-    'Céline Robert',
+    'Celine Robert',
     'HR Director',
     'TalentPro',
     'HR Tech',
@@ -139,7 +139,7 @@ VALUES (
     'celine@talentpro.com',
     72,
     'contacted',
-    'RH Director - intéressée par l''automatisation',
+    'HR Director - interested in automation',
     NOW(),
     NOW()
   ),
@@ -169,7 +169,7 @@ VALUES (
     'julie@growthmarketing.fr',
     76,
     'responded',
-    'CMO - cherche des leads qualifiés',
+    'CMO - looking for qualified leads',
     NOW(),
     NOW()
   ),
@@ -199,7 +199,7 @@ VALUES (
     'emma@productlab.io',
     74,
     'contacted',
-    'PM - veut améliorer son pipeline',
+    'PM - wants to improve pipeline',
     NOW(),
     NOW()
   ),
@@ -218,7 +218,7 @@ VALUES (
     NOW(),
     NOW()
   ) ON CONFLICT (linkedin_url) DO NOTHING;
--- Insérer des campagnes
+-- Insert campaigns
 INSERT INTO campaigns (
     name,
     description,
@@ -237,14 +237,14 @@ INSERT INTO campaigns (
     updated_at
   )
 VALUES (
-    'Campagne Tech Paris',
-    'Prospection CTO et VP Engineering dans la tech à Paris',
+    'Tech Paris Campaign',
+    'Prospecting CTO and VP Engineering in tech in Paris',
     'Technology',
     'Paris',
     '51-200',
     'CTO,VP Engineering',
-    'Bonjour {{name}},\n\nJ''ai remarqué votre expertise technique chez {{company}}. Je travaille sur une solution d''automatisation LinkedIn qui aide les dirigeants tech à scaler leur prospection B2B.\n\nSeriez-vous ouvert à un échange de 15 minutes pour voir si cela pourrait vous intéresser ?\n\nBonne journée,\nDorra',
-    'Bonjour {{name}},\n\nJe me permets de relancer mon message précédent. J''aimerais vraiment avoir votre retour sur notre solution.\n\nÀ bientôt,\nDorra',
+    'Hello {{name}},\n\nI noticed your technical expertise at {{company}}. I am working on a LinkedIn automation solution that helps tech leaders scale their B2B prospecting.\n\nWould you be open to a 15-minute call to see if this could interest you?\n\nBest,\nDorra',
+    'Hello {{name}},\n\nI am following up on my previous message. I would really appreciate your feedback on our solution.\n\nBest,\nDorra',
     'active',
     45,
     12,
@@ -255,13 +255,13 @@ VALUES (
   ),
   (
     'SaaS Lyon & Bordeaux',
-    'Ciblage Sales Directors et Head of Sales dans le SaaS',
+    'Targeting Sales Directors and Head of Sales in SaaS',
     'SaaS',
     'Lyon,Bordeaux',
     '11-50',
     'Sales Director,Head of Sales',
-    'Hello {{name}},\n\n{{company}} connaît une belle croissance ! Je propose une solution qui aide les équipes commerciales à générer 3x plus de rendez-vous via LinkedIn.\n\nÇa vous dirait d''en parler ?',
-    '{{name}}, juste un petit follow-up sur mon message. Vous avez eu le temps d''y réfléchir ?',
+    'Hello {{name}},\n\n{{company}} is growing nicely! I offer a solution that helps sales teams generate 3x more appointments via LinkedIn.\n\nWould you like to talk about it?',
+    '{{name}}, just a quick follow-up on my message. Have you had a chance to think about it?',
     'active',
     32,
     8,
@@ -272,13 +272,13 @@ VALUES (
   ),
   (
     'Fintech Scale-up',
-    'Prospection fintech en phase de scale',
+    'Fintech prospecting in scale phase',
     'Fintech',
     'Paris',
     '51-200',
     'CEO,Co-Founder',
-    '{{name}},\n\nLes scale-ups fintech comme {{company}} ont besoin d''un pipeline commercial prévisible. Mon agent IA LinkedIn aide à booker 15+ RDV qualifiés par mois.\n\nIntéressé pour voir une démo ?',
-    'Je comprends que vous êtes débordé {{name}}, mais promis, ça vaut le coup de jeter un œil :)',
+    '{{name}},\n\nFintech scale-ups like {{company}} need a predictable sales pipeline. My LinkedIn AI agent helps book 15+ qualified appointments per month.\n\nInterested in a demo?',
+    'I understand you are busy {{name}}, but I promise it is worth taking a look :)',
     'paused',
     28,
     4,
@@ -294,8 +294,8 @@ VALUES (
     'France',
     '1-10',
     'CEO,Founder',
-    'Salut {{name}},\n\nJe sais que le early stage c''est intense. J''ai créé un outil qui fait le prospecting LinkedIn à votre place pour que vous vous concentreriez sur le produit.\n\nTu veux tester ?',
-    'Toujours partant pour automatiser ta prospection {{name}} ? Je peux te montrer comment ça marche en 5 min.',
+    'Hi {{name}},\n\nI know early stage is intense. I created a tool that does LinkedIn prospecting for you so you can focus on the product.\n\nWant to try it?',
+    'Still up for automating your prospecting {{name}}? I can show you how it works in 5 min.',
     'draft',
     0,
     0,
@@ -304,7 +304,7 @@ VALUES (
     NOW() - INTERVAL '5 days',
     NOW()
   ) ON CONFLICT DO NOTHING;
--- Insérer des messages
+-- Insert messages
 INSERT INTO messages (
     prospect_id,
     campaign_id,
@@ -322,7 +322,7 @@ VALUES (
     'Sarah Dubois',
     'Sales Director',
     'SaaS Solutions',
-    'Bonjour Sarah,\n\nJ''ai remarqué votre expertise commerciale chez SaaS Solutions. Je travaille sur une solution d''automatisation LinkedIn qui aide les dirigeants à scaler leur prospection B2B.\n\nSeriez-vous ouvert à un échange de 15 minutes ?',
+    'Hello Sarah,\n\nI noticed your sales expertise at SaaS Solutions. I am working on a LinkedIn automation solution that helps leaders scale their B2B prospecting.\n\nWould you be open to a 15-minute call?',
     'connection',
     'replied',
     NOW() - INTERVAL '3 days'
@@ -333,7 +333,7 @@ VALUES (
     'Pierre Leroy',
     'VP Engineering',
     'FinanceHub',
-    'Hello Pierre,\n\nFinanceHub connaît une belle croissance ! Je propose une solution qui aide les équipes à générer plus de leads via LinkedIn.\n\nÇa vous dirait d''en parler ?',
+    'Hello Pierre,\n\nFinanceHub is growing nicely! I offer a solution that helps teams generate more leads via LinkedIn.\n\nWould you like to talk about it?',
     'connection',
     'sent',
     NOW() - INTERVAL '1 day'
@@ -344,7 +344,7 @@ VALUES (
     'Marie Claire',
     'Head of AI',
     'AI Innovations',
-    'Marie, j''adore ce que vous faites chez AI Innovations ! J''aimerais vous montrer comment mon agent IA peut vous aider à trouver plus de clients.',
+    'Marie, I love what you are doing at AI Innovations! I would like to show you how my AI agent can help you find more clients.',
     'connection',
     'replied',
     NOW() - INTERVAL '5 days'
@@ -352,10 +352,10 @@ VALUES (
   (
     7,
     1,
-    'Céline Robert',
+    'Celine Robert',
     'HR Director',
     'TalentPro',
-    'Bonjour Céline,\n\nJ''ai vu que TalentPro recrute activement. Mon outil peut aussi vous aider à sourcer des candidats sur LinkedIn !',
+    'Hello Celine,\n\nI saw that TalentPro is actively hiring. My tool can also help you source candidates on LinkedIn!',
     'followup',
     'read',
     NOW() - INTERVAL '12 hours'
@@ -366,7 +366,7 @@ VALUES (
     'Julie Bernard',
     'CMO',
     'GrowthMarketing',
-    'Julie, votre stratégie growth chez GrowthMarketing est impressionnante ! Je pense que mon agent IA pourrait vous aider à générer encore plus de leads.',
+    'Julie, your growth strategy at GrowthMarketing is impressive! I think my AI agent could help you generate even more leads.',
     'connection',
     'responded',
     NOW() - INTERVAL '2 days'
@@ -377,12 +377,12 @@ VALUES (
     'Emma Durand',
     'Product Manager',
     'ProductLab',
-    'Salut Emma, je me permets de relancer mon message. Toujours intéressée pour voir comment automatiser votre prospection ?',
+    'Hi Emma, I am following up on my message. Still interested in seeing how to automate your prospecting?',
     'followup',
     'sent',
     NOW() - INTERVAL '4 hours'
   ) ON CONFLICT DO NOTHING;
--- Insérer des templates de messages
+-- Insert message templates
 INSERT INTO templates (
     name,
     tag,
@@ -393,36 +393,36 @@ INSERT INTO templates (
     updated_at
   )
 VALUES (
-    'Premier contact',
+    'First contact',
     'Invitation',
-    'Bonjour {{prénom}}, j''ai remarqué votre profil et votre travail chez {{entreprise}} m''a vraiment impressionné. Je développe {{pitch_court}}. Seriez-vous disponible pour un échange rapide ?',
+    'Hello {{first_name}}, I noticed your profile and your work at {{company}} really impressed me. I am developing {{short_pitch}}. Would you be available for a quick chat?',
     142,
     24,
     NOW(),
     NOW()
   ),
   (
-    'Message de suivi',
+    'Follow-up message',
     'Follow-up',
-    'Bonjour {{prénom}}, je voulais faire suite à mon invitation. Je travaille sur {{solution}} et je pense que ça pourrait vraiment vous aider à {{bénéfice}}. 15 minutes cette semaine ?',
+    'Hello {{first_name}}, I wanted to follow up on my invitation. I am working on {{solution}} and I think it could really help you {{benefit}}. 15 minutes this week?',
     89,
     18,
     NOW(),
     NOW()
   ),
   (
-    'Partage de lien',
+    'Link sharing',
     'Nurturing',
-    'Bonjour {{prénom}}, suite à notre échange, je vous partage ce lien qui explique comment {{entreprise}} similaires ont obtenu {{résultat}}. Curieux d''avoir votre avis !',
+    'Hello {{first_name}}, following our conversation, I am sharing this link that explains how similar {{company}} achieved {{result}}. Curious to hear your thoughts!',
     56,
     31,
     NOW(),
     NOW()
   ),
   (
-    'Relance finale',
+    'Final follow-up',
     'Relance',
-    'Bonjour {{prénom}}, je ne voudrais pas vous déranger davantage. Juste pour vous laisser ce lien au cas où : {{lien}}. N''hésitez pas si le timing change !',
+    'Hello {{first_name}}, I do not want to bother you further. Just leaving this link in case: {{link}}. Feel free to reach out if timing changes!',
     34,
     12,
     NOW(),

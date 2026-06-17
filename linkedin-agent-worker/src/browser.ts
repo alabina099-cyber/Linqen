@@ -62,6 +62,36 @@ export async function getBrowser(config: WorkerConfig): Promise<Browser> {
 }
 
 /**
+ * Multi-admin SaaS — Applique le cookie li_at d'un admin sur une Page.
+ *
+ * Avant d'exécuter une action LinkedIn, on injecte le cookie de session
+ * de l'ADMIN propriétaire de l'action (résolu via admin-session.ts).
+ *
+ * On nettoie d'abord les cookies linkedin.com déjà présents pour éviter
+ * que la session d'un précédent admin "fuite" sur la nouvelle action.
+ */
+export async function applyAdminCookie(page: Page, cookieValue: string): Promise<void> {
+  try {
+    const cookies = await page.cookies('https://www.linkedin.com');
+    if (cookies.length > 0) {
+      await page.deleteCookie(...cookies.map((c) => ({ name: c.name, domain: c.domain })));
+    }
+  } catch {
+    // non-fatal : si on n'arrive pas à nettoyer on continue
+  }
+
+  await page.setCookie({
+    name: 'li_at',
+    value: cookieValue,
+    domain: '.linkedin.com',
+    path: '/',
+    secure: true,
+    httpOnly: true,
+    sameSite: 'None',
+  });
+}
+
+/**
  * Crée une nouvelle Page avec des options de sécurité et d'anti-détection.
  */
 export async function createPage(browser: Browser): Promise<Page> {

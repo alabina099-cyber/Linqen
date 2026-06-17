@@ -1,0 +1,52 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class Diagram Entities — Qlinqen</title>
+  <style>
+    @page { size: A4; margin: 15mm; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; background: #f8fafc; padding: 20px; color: #1e293b; font-size: 10pt; }
+    .page { max-width: 210mm; margin: 0 auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .title { text-align: center; font-size: 14pt; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+    .subtitle { text-align: center; font-size: 9pt; color: #64748b; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+    thead th { background: #1e293b; color: #fff; padding: 8px 10px; text-align: left; font-weight: 600; border: 1px solid #334155; }
+    tbody td { padding: 8px 10px; border: 1px solid #e2e8f0; vertical-align: top; }
+    tbody tr:nth-child(even) { background: #f8fafc; }
+    .entity-name { font-weight: 700; color: #0f172a; white-space: nowrap; }
+    .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 8pt; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="title">Class Diagram Entities</div>
+    <div class="subtitle">Qlinqen Domain Model</div>
+
+    <table>
+      <thead>
+        <tr><th style="width:22%">Entity</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="entity-name">User</td><td>Platform user with identity, role, LinkedIn credentials, and settings.</td></tr>
+        <tr><td class="entity-name">Role</td><td>Application role definition (e.g., admin, user).</td></tr>
+        <tr><td class="entity-name">UserSession</td><td>Active user session tracking token, IP, and expiration.</td></tr>
+        <tr><td class="entity-name">Feature</td><td>Application module or feature (e.g., campaigns, settings).</td></tr>
+        <tr><td class="entity-name">Permission</td><td>CRUD access rights linked to a Role and Feature.</td></tr>
+        <tr><td class="entity-name">Campaign</td><td>Prospecting campaign with targeting rules, message template, and limits.</td></tr>
+        <tr><td class="entity-name">Message</td><td>Generated or sent message with content, type, and recipient info.</td></tr>
+        <tr><td class="entity-name">Prospect</td><td>LinkedIn contact with profile data, qualification score, and pipeline status.</td></tr>
+        <tr><td class="entity-name">ScheduleFollowup</td><td>Scheduled automatic follow-up message after a defined delay.</td></tr>
+        <tr><td class="entity-name">Notification</td><td>In-app alert for events (success, error, warning).</td></tr>
+        <tr><td class="entity-name">AuditLog</td><td>Audit trail of sensitive actions with IP and timestamp.</td></tr>
+        <tr><td class="entity-name">AgentChatHistory</td><td>Conversation history with the AI agent.</td></tr>
+        <tr><td class="entity-name">LinkedInAction</td><td>Automation task queue item (connection, message, search) with status and payload.</td></tr>
+        <tr><td class="entity-name">WorkerHeartbeat</td><td>Health check record for automation workers.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="footer">Qlinqen Class Diagram — Entity Descriptions</div>
+  </div>
+</body>
+</html>

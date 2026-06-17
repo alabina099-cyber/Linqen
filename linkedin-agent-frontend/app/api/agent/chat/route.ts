@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     try {
       const settingsResult = ownerId
         ? await query('SELECT settings FROM users WHERE id = $1', [ownerId])
-        : await query("SELECT settings FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
+        : { rows: [] };
       const settings = settingsResult.rows[0]?.settings || {};
       chosenModel = settings.aiModel || undefined;
       const aiCfg = settings.ai || {};

@@ -34,10 +34,9 @@ interface TeamMember {
   created_at: string;
 }
 
-const authHeaders = (): Record<string, string> => {
-  const token = localStorage.getItem("auth_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
+// Auth via cookie HttpOnly : envoyé automatiquement par le navigateur.
+// On garde un helper vide pour ne pas casser les call-sites.
+const authHeaders = (): Record<string, string> => ({});
 
 export default function UsersManagement() {
   const { isAdmin, loading: authLoading } = useAuth();
@@ -270,7 +269,7 @@ export default function UsersManagement() {
               {members.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="text-center py-12 text-slate-400 text-sm">
-                    {search ? "No results" : "No members — click Add"}
+                    {search ? "No results" : "No members"}
                   </td>
                 </tr>
               ) : (

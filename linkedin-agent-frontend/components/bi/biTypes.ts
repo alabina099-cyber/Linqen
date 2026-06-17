@@ -1,4 +1,4 @@
-// Types partagés et helpers pour les modules BI
+// Shared types and helpers for BI modules
 
 export type BIRange = 7 | 30 | 90 | 180;
 

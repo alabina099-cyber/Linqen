@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LinkedIn Agent — System Architecture</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+    background: #ffffff;
+    color: #0f172a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 24px;
+    min-height: 100vh;
+  }
+
+  .title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #475569;
+    margin-bottom: 6px;
+  }
+
+  .subtitle {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-bottom: 30px;
+    letter-spacing: 0.05em;
+  }
+
+  .diagram {
+    width: 100%;
+    max-width: 1100px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* ── Top row ── */
+  .row-top {
+    display: grid;
+    grid-template-columns: 1fr 1.1fr 1fr;
+    gap: 14px;
+  }
+
+  /* ── Generic layer ── */
+  .layer {
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  }
+
+  .layer-header {
+    padding: 12px 18px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-align: center;
+    color: #fff;
+  }
+
+  .layer-body {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 7px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    font-size: 12px;
+    color: #1e293b;
+    font-weight: 500;
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Colors */
+  .l-ext  .layer-header { background: #2563eb; }
+  .l-dash .layer-header { background: #7c3aed; }
+  .l-work .layer-header { background: #ea580c; }
+  .l-bi   .layer-header { background: #0891b2; }
+  .l-back .layer-header { background: #059669; }
+  .l-ops  .layer-header { background: #475569; }
+
+  .l-ext  .dot { background: #2563eb; }
+  .l-dash .dot { background: #7c3aed; }
+  .l-work .dot { background: #ea580c; }
+  .l-bi   .dot { background: #0891b2; }
+  .l-back .dot { background: #059669; }
+  .l-ops  .dot { background: #475569; }
+
+  /* ── Communication band ── */
+  .comm-band {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 6px 0;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #64748b;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .comm-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #cbd5e1, transparent);
+    max-width: 200px;
+  }
+
+  .comm-pill {
+    padding: 5px 14px;
+    background: #f1f5f9;
+    border-radius: 999px;
+    border: 1px solid #e2e8f0;
+    font-size: 10px;
+    color: #475569;
+  }
+
+  /* ── Wide row: 4 columns for backend ── */
+  .row-wide {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 14px 16px;
+  }
+
+  /* ── Ops row : 3 columns ── */
+  .row-ops {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+
+  .ops-item {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+
+  .ops-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #334155;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ops-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .tag {
+    font-size: 10px;
+    padding: 2px 8px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    color: #475569;
+    font-weight: 500;
+  }
+
+  .figure-caption {
+    margin-top: 24px;
+    font-size: 11.5px;
+    color: #64748b;
+    font-style: italic;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="title">Figure 3.1 — System Architecture Overview</div>
+<div class="subtitle">LinkedIn Agent · Hybrid Multi-Layer Platform</div>
+
+<div class="diagram">
+
+  <!-- ROW 1: 3 client/execution layers -->
+  <div class="row-top">
+
+    <!-- Chrome Extension -->
+    <div class="layer l-ext">
+      <div class="layer-header">Chrome Extension (MV3)</div>
+      <div class="layer-body">
+        <div class="item"><span class="dot"></span>Background Service Worker</div>
+        <div class="item"><span class="dot"></span>Content Script</div>
+        <div class="item"><span class="dot"></span>Bridge Script</div>
+        <div class="item"><span class="dot"></span>Popup UI</div>
+      </div>
+    </div>
+
+    <!-- Web Dashboard -->
+    <div class="layer l-dash">
+      <div class="layer-header">Web Dashboard (Next.js 16 · React 19)</div>
+      <div class="layer-body">
+        <div class="item"><span class="dot"></span>Campaigns &amp; Approval Queue</div>
+        <div class="item"><span class="dot"></span>Prospects Pipeline &amp; Agent Chat</div>
+        <div class="item"><span class="dot"></span>Templates &amp; Follow-ups</div>
+        <div class="item"><span class="dot"></span>Users, Settings &amp; Notifications</div>
+      </div>
+    </div>
+
+    <!-- Headless Worker -->
+    <div class="layer l-work">
+      <div class="layer-header">Headless Worker</div>
+      <div class="layer-body">
+        <div class="item"><span class="dot"></span>Node.js + Puppeteer</div>
+        <div class="item"><span class="dot"></span>Action Queue Executor</div>
+        <div class="item"><span class="dot"></span>Dockerized · Coolify on Oracle Cloud</div>
+        <div class="item"><span class="dot"></span>Horizontally Scalable 24/7</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Communication band -->
+  <div class="comm-band">
+    <div class="comm-line"></div>
+    <span class="comm-pill">HTTPS · REST API · JWT Auth</span>
+    <div class="comm-line"></div>
+  </div>
+
+  <!-- ROW 2: Business Intelligence (full width) -->
+  <div class="layer l-bi">
+    <div class="layer-header">Business Intelligence Layer</div>
+    <div class="row-wide">
+      <div class="item"><span class="dot"></span>KPI &amp; Conversion</div>
+      <div class="item"><span class="dot"></span>AI Insights &amp; Forecast</div>
+      <div class="item"><span class="dot"></span>Template Lab</div>
+      <div class="item"><span class="dot"></span>Agent &amp; Prospect Analytics</div>
+    </div>
+  </div>
+
+  <!-- ROW 3: Backend & AI -->
+  <div class="layer l-back">
+    <div class="layer-header">Backend &amp; AI Layer</div>
+    <div class="row-wide">
+      <div class="item"><span class="dot"></span>Next.js API Routes</div>
+      <div class="item"><span class="dot"></span>LangChain + OpenAI Agent</div>
+      <div class="item"><span class="dot"></span>PostgreSQL (Neon Serverless)</div>
+      <div class="item"><span class="dot"></span>Auth · RBAC · Encryption · Rate Limit</div>
+    </div>
+  </div>
+
+  <!-- ROW 4: Infrastructure & DevOps -->
+  <div class="layer l-ops">
+    <div class="layer-header">Infrastructure &amp; DevOps Layer</div>
+    <div class="row-ops">
+
+      <div class="ops-item">
+        <div class="ops-title"><span class="dot" style="background:#475569"></span>Infrastructure</div>
+        <div class="ops-tags">
+          <span class="tag">Nginx LB</span>
+          <span class="tag">Docker Compose</span>
+          <span class="tag">TLS</span>
+          <span class="tag">Scaling</span>
+        </div>
+      </div>
+
+      <div class="ops-item">
+        <div class="ops-title"><span class="dot" style="background:#475569"></span>Observability</div>
+        <div class="ops-tags">
+          <span class="tag">Prometheus</span>
+          <span class="tag">Grafana</span>
+          <span class="tag">Loki</span>
+          <span class="tag">AlertManager</span>
+          <span class="tag">Uptime Kuma</span>
+        </div>
+      </div>
+
+      <div class="ops-item">
+        <div class="ops-title"><span class="dot" style="background:#475569"></span>CI/CD &amp; Quality</div>
+        <div class="ops-tags">
+          <span class="tag">GitHub Actions</span>
+          <span class="tag">Playwright</span>
+          <span class="tag">Vitest</span>
+          <span class="tag">Lighthouse</span>
+          <span class="tag">Backups</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="figure-caption">Figure 3.1 — Hybrid Multi-Layer Architecture of the LinkedIn Agent Platform</div>
+
+</body>
+</html>

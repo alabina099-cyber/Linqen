@@ -8,8 +8,10 @@ import {
   getQueueStats,
   updateWorkerHeartbeat,
   closePool,
+  pool,
 } from './queue';
-import { getBrowser, createPage, closeBrowser, isLoggedInToLinkedIn, loginToLinkedIn } from './browser';
+import { getBrowser, createPage, closeBrowser, applyAdminCookie } from './browser';
+import { resolveAdminSession } from './admin-session';
 import { executeSendConnection } from './actions/connect';
 import { executeSendMessage } from './actions/message';
 import { executeVisitProfile } from './actions/visit';
@@ -95,11 +97,29 @@ async function processAction() {
 
   console.log(`[${config.workerId}] Action #${action.id} [${action.action_type}] -> ${action.target_name || action.target_url}`);
 
+  // ----------------------------------------------------------
+  // Multi-admin SaaS : résoudre la session LinkedIn de l'admin
+  // propriétaire de cette action AVANT de lancer Puppeteer.
+  // Si aucun cookie n'est disponible -> on échoue proprement.
+  // ----------------------------------------------------------
+  const session = await resolveAdminSession(pool, action);
+  if (!session) {
+    const errorMsg = `Aucun cookie LinkedIn disponible pour user_id=${action.user_id ?? 'null'}. L'admin doit se reconnecter.`;
+    console.warn(`[${config.workerId}] Action #${action.id} ignorée : ${errorMsg}`);
+    await failAction(action.id, errorMsg);
+    healthState.totalFailed++;
+    return;
+  }
+  console.log(`[${config.workerId}] Action #${action.id} -> admin ${session.adminName} (id=${session.adminId})`);
+
   let result;
   const browser = await getBrowser(config);
   const page = await createPage(browser);
 
   try {
+    // Injecter le cookie li_at de l'admin propriétaire de l'action
+    await applyAdminCookie(page, session.cookieValue);
+
     switch (action.action_type) {
       case 'send_connection':
       case 'search_and_connection':
@@ -218,33 +238,13 @@ async function main() {
 
   setupGracefulShutdown();
 
-  // Vérification et connexion LinkedIn au démarrage
-  if (config.linkedinEmail && config.linkedinPassword) {
-    console.log(`[${config.workerId}] Vérification de la session LinkedIn...`);
-    const loginBrowser = await getBrowser(config);
-    const loginPage = await createPage(loginBrowser);
-    try {
-      const loggedIn = await isLoggedInToLinkedIn(loginPage);
-      if (!loggedIn) {
-        console.log(`[${config.workerId}] Session LinkedIn inactive. Tentative de connexion...`);
-        const success = await loginToLinkedIn(loginPage, config.linkedinEmail, config.linkedinPassword);
-        if (success) {
-          console.log(`[${config.workerId}] ✅ Connexion LinkedIn réussie.`);
-        } else {
-          console.error(`[${config.workerId}] ❌ Connexion LinkedIn échouée. Vérifiez LINKEDIN_EMAIL et LINKEDIN_PASSWORD.`);
-          console.error(`[${config.workerId}] Le worker continuera mais les actions échoueront sans session active.`);
-        }
-      } else {
-        console.log(`[${config.workerId}] ✅ Session LinkedIn active.`);
-      }
-    } catch (loginErr) {
-      console.error(`[${config.workerId}] Erreur lors du check de connexion:`, loginErr);
-    } finally {
-      await loginPage.close().catch(() => {});
-    }
-  } else {
-    console.warn(`[${config.workerId}] ⚠️  LINKEDIN_EMAIL / LINKEDIN_PASSWORD non définis. Mode extension Chrome uniquement.`);
-  }
+  // -----------------------------------------------------------
+  // Multi-admin SaaS — Plus de login global LINKEDIN_EMAIL/PASSWORD
+  // au démarrage : chaque action utilise désormais le cookie de
+  // l'admin propriétaire (résolu via resolveAdminSession).
+  // Les variables d'env LINKEDIN_EMAIL/PASSWORD sont ignorées.
+  // -----------------------------------------------------------
+  console.log(`[${config.workerId}] Mode multi-admin actif : cookies LinkedIn par admin (DB).`);
 
   // Lancer les boucles auxiliaires en parallèle
   heartbeatLoop();

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CI/CD Pipeline</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #fff;
+    padding: 18px 14px;
+    min-width: 1300px;
+  }
+  .fig-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #475569;
+    text-align: center;
+    margin-bottom: 14px;
+  }
+
+  /* Container tight */
+  .wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+  }
+
+  /* Row of nodes */
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .row-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    letter-spacing: 0.06em;
+    width: 68px;
+    text-align: right;
+    padding-right: 6px;
+    flex-shrink: 0;
+  }
+
+  /* Node box */
+  .node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 8px;
+    border-radius: 6px;
+    border: 1.5px solid;
+    font-size: 9.5px;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.25;
+    min-width: 74px;
+    min-height: 36px;
+    position: relative;
+    background: #fff;
+  }
+  .node small {
+    font-size: 8px;
+    font-weight: 500;
+    opacity: 0.85;
+  }
+
+  /* Colors */
+  .n-blue   { border-color: #60a5fa; color: #1d4ed8; background: #eff6ff; }
+  .n-green  { border-color: #4ade80; color: #15803d; background: #f0fdf4; }
+  .n-red    { border-color: #f87171; color: #b91c1c; background: #fef2f2; }
+  .n-orange { border-color: #fb923c; color: #c2410c; background: #fff7ed; }
+  .n-purple { border-color: #c084fc; color: #7e22ce; background: #faf5ff; }
+  .n-teal   { border-color: #2dd4bf; color: #0f766e; background: #f0fdfa; }
+  .n-slate  { border-color: #94a3b8; color: #475569; background: #f8fafc; }
+  .n-amber  { border-color: #fbbf24; color: #92400e; background: #fffbeb; }
+  .n-indigo { border-color: #818cf8; color: #4338ca; background: #eef2ff; }
+
+  /* Arrow */
+  .arrow {
+    color: #94a3b8;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0 1px;
+    flex-shrink: 0;
+  }
+
+  /* Branch wrapper */
+  .branch {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+  }
+  .branch-join {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  /* Parallel stack */
+  .parallel {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  /* Vertical arrow */
+  .varr {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #94a3b8;
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  /* Bottom scheduled row */
+  .scheduled-wrap {
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1.5px dashed #cbd5e1;
+    width: 100%;
+    max-width: 1150px;
+  }
+  .scheduled-title {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    letter-spacing: 0.08em;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+
+  .caption {
+    margin-top: 10px;
+    font-size: 10px;
+    color: #94a3b8;
+    font-style: italic;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="fig-title">Figure 3.2 — CI/CD Pipeline · GitHub Actions</div>
+
+<div class="wrap">
+
+  <!-- ========== ROW 1: TRIGGER → CI ========== -->
+  <div class="row">
+    <div class="row-label">Trigger</div>
+
+    <div class="node n-slate">Code Push<br><small>main / develop</small></div>
+    <div class="arrow">→</div>
+
+    <div class="branch">
+      <div class="parallel">
+        <div class="node n-blue">ESLint</div>
+        <div class="node n-blue">TypeScript</div>
+        <div class="node n-blue">Vitest</div>
+        <div class="node n-blue">Build</div>
+      </div>
+      <small style="font-size:8px;color:#64748b;margin-top:2px;">Frontend</small>
+    </div>
+
+    <div class="arrow">→</div>
+
+    <div class="branch">
+      <div class="parallel">
+        <div class="node n-purple">TS Build</div>
+      </div>
+      <small style="font-size:8px;color:#64748b;margin-top:2px;">Worker</small>
+    </div>
+
+    <div class="arrow">→</div>
+
+    <div class="branch">
+      <div class="parallel">
+        <div class="node n-orange">Manifest<br><small>Validation</small></div>
+      </div>
+      <small style="font-size:8px;color:#64748b;margin-top:2px;">Extension</small>
+    </div>
+
+    <div class="arrow">→</div>
+
+    <div class="branch">
+      <div class="parallel">
+        <div class="node n-red">npm Audit</div>
+        <div class="node n-red">Trivy FS</div>
+        <div class="node n-red">Semgrep</div>
+        <div class="node n-red">Gitleaks</div>
+        <div class="node n-red">App Audit</div>
+      </div>
+      <small style="font-size:8px;color:#64748b;margin-top:2px;">Security</small>
+    </div>
+  </div>
+
+  <!-- ========== ROW 2: TESTS → BUILD → REGISTRY → SCAN ========== -->
+  <div class="row">
+    <div class="row-label">Quality</div>
+
+    <div class="node n-indigo">Playwright<br><small>E2E Tests</small></div>
+    <div class="arrow">→</div>
+    <div class="node n-indigo">Lighthouse<br><small>Performance</small></div>
+    <div class="arrow">→</div>
+
+    <div class="node n-green">Docker Build<br><small>Frontend + Worker</small></div>
+    <div class="arrow">→</div>
+    <div class="node n-green">Push GHCR<br><small>ARM64 Images</small></div>
+    <div class="arrow">→</div>
+    <div class="node n-teal">Trivy Scan<br><small>Image Vulns</small></div>
+    <div class="arrow">→</div>
+    <div class="node n-teal">DB Migrations<br><small>PostgreSQL</small></div>
+  </div>
+
+  <!-- ========== ROW 3: DEPLOY ========== -->
+  <div class="row">
+    <div class="row-label">Deploy</div>
+
+    <div class="node n-green">Deploy Prod<br><small>Coolify · Oracle</small></div>
+    <div class="arrow">→</div>
+    <div class="node n-green">Smoke Test<br><small>/api/health</small></div>
+    <div class="arrow">→</div>
+    <div class="node n-amber">Auto-Rollback<br><small>On Failure</small></div>
+    <div class="arrow">→</div>
+    <div class="node n-green">✅ Success</div>
+
+    <div style="width:16px"></div>
+
+    <div class="varr">│<br>│</div>
+
+    <div style="width:16px"></div>
+
+    <div class="node n-slate">Deploy Staging<br><small>develop branch</small></div>
+    <div class="arrow">→</div>
+    <div class="node n-slate">Staging Test<br><small>Health Check</small></div>
+  </div>
+
+  <!-- ========== SCHEDULED AUTOMATION ========== -->
+  <div class="scheduled-wrap">
+    <div class="scheduled-title">Scheduled Automation</div>
+    <div class="row" style="justify-content:center">
+      <div class="node n-slate">Daily 2:00 UTC<br><small>PG Backup</small></div>
+      <div class="arrow">→</div>
+      <div class="node n-slate">GPG Encrypt<br><small>AES-256</small></div>
+      <div class="arrow">→</div>
+      <div class="node n-slate">Upload R2<br><small>Cloudflare</small></div>
+      <div style="width:24px"></div>
+      <div class="node n-slate">Weekly Mon<br><small>Security Audit</small></div>
+      <div style="width:24px"></div>
+      <div class="node n-slate">On Demand<br><small>Restore Test</small></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="caption">Figure 3.2 — CI/CD Pipeline · 10 GitHub Actions Workflows · LinkedIn Agent Platform</div>
+
+</body>
+</html>

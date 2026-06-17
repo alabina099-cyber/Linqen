@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Architecture physique complète — LinkedIn Agent</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f8fafc;padding:20px;color:#1e293b}
+.container{max-width:1400px;margin:0 auto}
+h1{text-align:center;font-size:20px;font-weight:700;margin-bottom:6px}
+.sub{text-align:center;font-size:12px;color:#64748b;margin-bottom:20px}
+svg{display:block;width:100%;height:auto}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Architecture physique complète — LinkedIn Agent</h1>
+<p class="sub">Cloud Oracle + Coolify · Extension Chrome (mode principal) · Docker local (dev)</p>
+
+<svg viewBox="0 0 1400 1050" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<filter id="sh" x="-8%" y="-8%" width="120%" height="120%"><feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#00000018"/></filter>
+<marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#94a3b8"/></marker>
+<marker id="aB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#3b82f6"/></marker>
+<marker id="aG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#10b981"/></marker>
+<marker id="aP" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#8b5cf6"/></marker>
+<marker id="aO" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#f59e0b"/></marker>
+</defs>
+
+<!-- ============ 1. DEVELOPER ============ -->
+<rect x="580" y="8" width="240" height="38" rx="8" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5" filter="url(#sh)"/>
+<text x="700" y="25" text-anchor="middle" font-size="11" font-weight="700" fill="#334155">Developer</text>
+<text x="700" y="38" text-anchor="middle" font-size="9" fill="#64748b">git push origin main</text>
+<line x1="700" y1="46" x2="700" y2="56" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a)"/>
+
+<!-- ============ 2. CI/CD ============ -->
+<rect x="200" y="56" width="1000" height="46" rx="10" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5" filter="url(#sh)"/>
+<text x="700" y="73" text-anchor="middle" font-size="12" font-weight="700" fill="#92400e">GitHub Actions CI/CD</text>
+<text x="700" y="89" text-anchor="middle" font-size="9" fill="#b45309">ci → deploy (GHCR → Coolify webhook) → security → backup (R2) → e2e → lighthouse</text>
+<line x1="450" y1="102" x2="250" y2="125" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#aO)"/>
+<line x1="950" y1="102" x2="1100" y2="125" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#aO)"/>
+
+<!-- ============ 3. GHCR ============ -->
+<rect x="80" y="125" width="200" height="48" rx="8" fill="#f8fafc" stroke="#6366f1" stroke-width="2" filter="url(#sh)"/>
+<text x="180" y="142" text-anchor="middle" font-size="11" font-weight="700" fill="#4338ca">ghcr.io</text>
+<text x="180" y="156" text-anchor="middle" font-size="9" fill="#64748b">linkedin-agent:latest-arm64</text>
+<text x="180" y="168" text-anchor="middle" font-size="9" fill="#64748b">linkedin-agent-worker:latest</text>
+<line x1="280" y1="149" x2="950" y2="215" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#a)"/>
+
+<!-- ============ 4. COOLIFY ============ -->
+<rect x="1050" y="125" width="280" height="150" rx="12" fill="#fff7ed" stroke="#f97316" stroke-width="2" filter="url(#sh)"/>
+<text x="1190" y="150" text-anchor="middle" font-size="12" font-weight="700" fill="#c2410c">Coolify</text>
+<text x="1190" y="166" text-anchor="middle" font-size="9" fill="#ea580c">Self-hosted PaaS · $0</text>
+<text x="1190" y="182" text-anchor="middle" font-size="9" fill="#64748b">Orchestrates App + Worker</text>
+<text x="1190" y="196" text-anchor="middle" font-size="9" fill="#64748b">Webhook deploy (2-5 min)</text>
+<text x="1190" y="210" text-anchor="middle" font-size="9" fill="#64748b">Auto HTTPS Let's Encrypt</text>
+<text x="1190" y="224" text-anchor="middle" font-size="9" fill="#64748b">Rollback via PATCH API</text>
+<text x="1190" y="238" text-anchor="middle" font-size="9" fill="#64748b">Firewall: L1 Oracle · L2 UFW · L3 Fail2ban</text>
+<line x1="1050" y1="200" x2="1010" y2="200" stroke="#f97316" stroke-width="1.5" marker-end="url(#aO)"/>
+
+<!-- ============ 5. ORACLE VM ============ -->
+<rect x="320" y="195" width="700" height="500" rx="14" fill="#ecfdf5" stroke="#10b981" stroke-width="2" filter="url(#sh)"/>
+<text x="340" y="218" font-size="12" font-weight="700" fill="#065f46">Oracle Cloud VM — ARM64 Flex (4 vCPU · 24 GB RAM · 0 €/mois)</text>
+<text x="340" y="234" font-size="9" fill="#059669">Managed by Coolify · Docker network: linkedin-net · uid 1001 (non-root)</text>
+
+<!-- nginx -->
+<rect x="340" y="250" width="120" height="100" rx="8" fill="#fff" stroke="#059669" stroke-width="1.5" filter="url(#sh)"/>
+<text x="400" y="268" text-anchor="middle" font-size="10" font-weight="700" fill="#059669">nginx</text>
+<text x="400" y="282" text-anchor="middle" font-size="8" fill="#64748b">TLS 1.2/1.3 · HTTP/2</text>
+<text x="400" y="294" text-anchor="middle" font-size="8" fill="#64748b">Rate limit · least_conn</text>
+<text x="400" y="306" text-anchor="middle" font-size="8" fill="#64748b">Cache 1 GB · health</text>
+<text x="400" y="318" text-anchor="middle" font-size="8" fill="#64748b">Security headers</text>
+<text x="400" y="330" text-anchor="middle" font-size="8" fill="#64748b">HSTS · X-Frame-Options</text>
+
+<!-- Next.js App -->
+<rect x="480" y="250" width="150" height="170" rx="8" fill="#fff" stroke="#059669" stroke-width="1.5" filter="url(#sh)"/>
+<text x="555" y="268" text-anchor="middle" font-size="10" font-weight="700" fill="#059669">Next.js App</text>
+<text x="555" y="282" text-anchor="middle" font-size="8" fill="#64748b">React · TypeScript · 512 MB</text>
+<text x="555" y="294" text-anchor="middle" font-size="8" fill="#64748b">App Router · API Routes</text>
+<text x="555" y="306" text-anchor="middle" font-size="8" fill="#64748b">/api/bi/* (KPI · Forecast)</text>
+<text x="555" y="318" text-anchor="middle" font-size="8" fill="#64748b">/api/agent/chat (LangChain)</text>
+<text x="555" y="330" text-anchor="middle" font-size="8" fill="#64748b">/api/metrics (Prometheus)</text>
+<text x="555" y="342" text-anchor="middle" font-size="8" fill="#64748b">/api/linkedin-actions</text>
+<text x="555" y="354" text-anchor="middle" font-size="8" fill="#64748b">JWT Auth · 2 rôles</text>
+<text x="555" y="366" text-anchor="middle" font-size="8" fill="#64748b">Admin (LinkedIn cookie)</text>
+<text x="555" y="378" text-anchor="middle" font-size="8" fill="#64748b">User (email/password)</text>
+<text x="555" y="390" text-anchor="middle" font-size="8" fill="#64748b">/api/auto-reply</text>
+<text x="555" y="402" text-anchor="middle" font-size="8" fill="#64748b">/api/campaigns · /api/prospects</text>
+
+<!-- Worker -->
+<rect x="650" y="250" width="140" height="140" rx="8" fill="#fff" stroke="#059669" stroke-width="1.5" filter="url(#sh)"/>
+<text x="720" y="268" text-anchor="middle" font-size="10" font-weight="700" fill="#059669">Worker</text>
+<text x="720" y="282" text-anchor="middle" font-size="8" fill="#64748b">Node.js · TypeScript</text>
+<text x="720" y="294" text-anchor="middle" font-size="8" fill="#64748b">Puppeteer · Chromium</text>
+<text x="720" y="306" text-anchor="middle" font-size="8" fill="#64748b">Headless · 1 GB RAM</text>
+<text x="720" y="318" text-anchor="middle" font-size="8" fill="#64748b">Poll queue 5s</text>
+<text x="720" y="330" text-anchor="middle" font-size="8" fill="#64748b">Claim → Execute → Update</text>
+<text x="720" y="342" text-anchor="middle" font-size="8" fill="#64748b">Health :9090 /metrics</text>
+<text x="720" y="354" text-anchor="middle" font-size="8" fill="#64748b">Heartbeat 30s · Recovery 60s</text>
+<text x="720" y="366" text-anchor="middle" font-size="8" fill="#64748b">Max 20 cycles → restart</text>
+<text x="720" y="378" text-anchor="middle" font-size="8" fill="#64748b">Graceful shutdown (SIGTERM)</text>
+
+<!-- Observability -->
+<rect x="810" y="250" width="190" height="160" rx="8" fill="#fdf4ff" stroke="#c026d3" stroke-width="1.5" filter="url(#sh)"/>
+<text x="905" y="268" text-anchor="middle" font-size="10" font-weight="700" fill="#a21caf">Observability</text>
+<text x="905" y="282" text-anchor="middle" font-size="8" fill="#7e22ce">Prometheus (scrape 15s)</text>
+<text x="905" y="294" text-anchor="middle" font-size="8" fill="#7e22ce">Grafana (dashboards BI + infra)</text>
+<text x="905" y="306" text-anchor="middle" font-size="8" fill="#7e22ce">Loki (logs) + Promtail</text>
+<text x="905" y="318" text-anchor="middle" font-size="8" fill="#7e22ce">Alertmanager (routing)</text>
+<text x="905" y="330" text-anchor="middle" font-size="8" fill="#7e22ce">cAdvisor (containers)</text>
+<text x="905" y="342" text-anchor="middle" font-size="8" fill="#7e22ce">Node Exporter (host)</text>
+<text x="905" y="354" text-anchor="middle" font-size="8" fill="#7e22ce">Uptime Kuma (externe)</text>
+<text x="905" y="366" text-anchor="middle" font-size="8" fill="#7e22ce">10 alert rules (CRITICAL/WARNING)</text>
+<text x="905" y="378" text-anchor="middle" font-size="8" fill="#7e22ce">profile: observability</text>
+<text x="905" y="390" text-anchor="middle" font-size="8" fill="#7e22ce">optionnel — non actif par défaut</text>
+
+<!-- ============ 6. EXTENSION CHROME ============ -->
+<rect x="50" y="380" width="260" height="200" rx="12" fill="#ede9fe" stroke="#8b5cf6" stroke-width="2" filter="url(#sh)"/>
+<text x="70" y="405" font-size="12" font-weight="700" fill="#5b21b6">Chrome Extension (Manifest V3)</text>
+<text x="70" y="422" font-size="9" fill="#7c3aed">Mode d'exécution PRINCIPAL</text>
+<text x="70" y="436" font-size="9" fill="#7c3aed">(background.js · content.js · bridge.js)</text>
+
+<rect x="65" y="448" width="230" height="120" rx="6" fill="#fff" stroke="#a78bfa" stroke-width="1" filter="url(#sh)"/>
+<text x="180" y="464" text-anchor="middle" font-size="9" font-weight="700" fill="#6d28d9">background.js (service worker)</text>
+<text x="180" y="478" text-anchor="middle" font-size="8" fill="#64748b">Poll API /api/linkedin-actions 12s</text>
+<text x="180" y="490" text-anchor="middle" font-size="8" fill="#64748b">Token JWT injecté (auth_token)</text>
+<text x="180" y="502" text-anchor="middle" font-size="8" fill="#64748b">Actions: connect · message · visit · search</text>
+<text x="180" y="514" text-anchor="middle" font-size="8" fill="#64748b">Inbox reply detection (5 min)</text>
+<text x="180" y="526" text-anchor="middle" font-size="8" fill="#64748b">Accepted connections fast (2 min)</text>
+<text x="180" y="538" text-anchor="middle" font-size="8" fill="#64748b">Auto-reply via /api/auto-reply</text>
+<text x="180" y="550" text-anchor="middle" font-size="8" fill="#64748b">Daily limits: 20 conn · 30 msg · 50 visits</text>
+<text x="180" y="562" text-anchor="middle" font-size="8" fill="#64748b">Human-like delays (20s - 3min)</text>
+
+<!-- Extension → App API -->
+<line x1="310" y1="490" x2="480" y2="380" stroke="#8b5cf6" stroke-width="1.5" marker-end="url(#aP)"/>
+<text x="370" y="430" font-size="8" fill="#7c3aed">fetch /api/*</text>
+
+<!-- Extension → LinkedIn -->
+<line x1="150" y1="580" x2="150" y2="660" stroke="#8b5cf6" stroke-width="1.5" marker-end="url(#aP)"/>
+<text x="165" y="625" font-size="8" fill="#7c3aed">content_script.js</text>
+
+<!-- ============ 7. MODE LOCAL DEV ============ -->
+<rect x="50" y="250" width="260" height="110" rx="12" fill="#ffedd5" stroke="#f97316" stroke-width="2" filter="url(#sh)"/>
+<text x="70" y="275" font-size="12" font-weight="700" fill="#c2410c">Docker Compose (Local Dev)</text>
+<text x="70" y="292" font-size="9" fill="#ea580c">Mode développement / test</text>
+<rect x="65" y="305" width="230" height="45" rx="6" fill="#fff" stroke="#fdba74" stroke-width="1" filter="url(#sh)"/>
+<text x="180" y="320" text-anchor="middle" font-size="8" font-weight="700" fill="#ea580c">docker-compose up --scale app=1</text>
+<text x="180" y="334" text-anchor="middle" font-size="8" fill="#64748b">PostgreSQL local (profile: local-db)</text>
+<text x="180" y="346" text-anchor="middle" font-size="8" fill="#64748b">Neon DB utilisé en production</text>
+
+<!-- Local → GHCR (même image) -->
+<line x1="180" y1="125" x2="180" y2="250" stroke="#f97316" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#aO)"/>
+<text x="195" y="190" font-size="8" fill="#ea580c">même image</text>
+
+<!-- ============ 8. LINKEDIN.COM ============ -->
+<rect x="50" y="660" width="280" height="70" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5" filter="url(#sh)"/>
+<text x="190" y="685" text-anchor="middle" font-size="11" font-weight="700" fill="#334155">linkedin.com</text>
+<text x="190" y="701" text-anchor="middle" font-size="8" fill="#64748b">Cible des automatisations</text>
+<text x="190" y="715" text-anchor="middle" font-size="8" fill="#64748b">Connexion · Messagerie · Profils · Réseau · Jobs</text>
+
+<!-- Worker → LinkedIn -->
+<line x1="720" y1="390" x2="330" y2="660" stroke="#10b981" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#aG)"/>
+<text x="500" y="540" font-size="8" fill="#059669">Puppeteer headless</text>
+
+<!-- ============ 9. DONNÉES EXTERNES ============ -->
+<rect x="320" y="750" width="700" height="120" rx="10" fill="#eff6ff" stroke="#3b82f6" stroke-width="2" filter="url(#sh)"/>
+<text x="340" y="772" font-size="12" font-weight="700" fill="#1d4ed8">Données externes</text>
+
+<!-- Neon -->
+<rect x="340" y="784" width="200" height="74" rx="8" fill="#fff" stroke="#3b82f6" stroke-width="1.5" filter="url(#sh)"/>
+<text x="440" y="804" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">Neon PostgreSQL</text>
+<text x="440" y="818" text-anchor="middle" font-size="8" fill="#64748b">Serverless · Cloud</text>
+<text x="440" y="830" text-anchor="middle" font-size="8" fill="#64748b">Free Tier 500 MB · SSL</text>
+<text x="440" y="842" text-anchor="middle" font-size="8" fill="#64748b">node-postgres pool</text>
+
+<!-- R2 -->
+<rect x="560" y="784" width="200" height="74" rx="8" fill="#fff" stroke="#3b82f6" stroke-width="1.5" filter="url(#sh)"/>
+<text x="660" y="804" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">Cloudflare R2</text>
+<text x="660" y="818" text-anchor="middle" font-size="8" fill="#64748b">S3-compatible · 10 GB free</text>
+<text x="660" y="830" text-anchor="middle" font-size="8" fill="#64748b">Backup GPG AES256</text>
+<text x="660" y="842" text-anchor="middle" font-size="8" fill="#64748b">90d retention · €0 egress</text>
+
+<!-- Discord -->
+<rect x="780" y="784" width="220" height="74" rx="8" fill="#fff" stroke="#818cf8" stroke-width="1.5" filter="url(#sh)"/>
+<text x="890" y="804" text-anchor="middle" font-size="10" font-weight="700" fill="#4f46e5">Discord</text>
+<text x="890" y="818" text-anchor="middle" font-size="8" fill="#64748b">Alertmanager routing</text>
+<text x="890" y="830" text-anchor="middle" font-size="8" fill="#64748b">#critical · #warnings</text>
+<text x="890" y="842" text-anchor="middle" font-size="8" fill="#64748b">Notifications &lt; 5 min</text>
+
+<!-- App → Neon -->
+<line x1="555" y1="420" x2="440" y2="784" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#aB)"/>
+<text x="490" y="610" font-size="8" fill="#2563eb">node-postgres</text>
+
+<!-- Worker → Neon -->
+<line x1="720" y1="390" x2="490" y2="784" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#aB)"/>
+
+<!-- App/Worker → R2 -->
+<line x1="555" y1="420" x2="660" y2="784" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#aB)"/>
+
+<!-- Alertmanager → Discord -->
+<line x1="905" y1="410" x2="890" y2="784" stroke="#818cf8" stroke-width="1.5" marker-end="url(#a)"/>
+
+<!-- ============ 10. COST ============ -->
+<rect x="1050" y="750" width="130" height="44" rx="8" fill="#ecfdf5" stroke="#10b981" stroke-width="2" filter="url(#sh)"/>
+<text x="1115" y="770" text-anchor="middle" font-size="11" font-weight="700" fill="#065f46">Coût total</text>
+<text x="1115" y="786" text-anchor="middle" font-size="9" fill="#059669">≈ 0 €/mois</text>
+
+<!-- ============ LÉGENDE ============ -->
+<rect x="320" y="890" width="700" height="140" rx="8" fill="#fff" stroke="#e2e8f0" stroke-width="1" filter="url(#sh)"/>
+<text x="670" y="912" text-anchor="middle" font-size="11" font-weight="700" fill="#334155">Légende des flux</text>
+<line x1="380" y1="930" x2="450" y2="930" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4,2"/><text x="460" y="934" font-size="9" fill="#64748b">Image push / Webhook deploy</text>
+<line x1="380" y1="948" x2="450" y2="948" stroke="#3b82f6" stroke-width="2"/><text x="460" y="952" font-size="9" fill="#64748b">Connexion base de données (node-postgres)</text>
+<line x1="380" y1="966" x2="450" y2="966" stroke="#8b5cf6" stroke-width="2"/><text x="460" y="970" font-size="9" fill="#64748b">API REST (Extension → Backend)</text>
+<line x1="380" y1="984" x2="450" y2="984" stroke="#10b981" stroke-width="2" stroke-dasharray="3,2"/><text x="460" y="988" font-size="9" fill="#64748b">Actions LinkedIn (Puppeteer / content_script)</text>
+<line x1="380" y1="1002" x2="450" y2="1002" stroke="#94a3b8" stroke-width="2"/><text x="460" y="1006" font-size="9" fill="#64748b">Signal interne (heartbeat, metrics, recovery)</text>
+<rect x="600" y="930" width="360" height="72" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+<text x="780" y="948" text-anchor="middle" font-size="9" font-weight="700" fill="#334155">Zones du diagramme</text>
+<text x="610" y="964" font-size="8" fill="#64748b">Vert</text><text x="640" y="964" font-size="8" fill="#059669">= Infrastructure cloud (production)</text>
+<text x="610" y="978" font-size="8" fill="#64748b">Violet</text><text x="640" y="978" font-size="8" fill="#7c3aed">= Extension Chrome (mode principal)</text>
+<text x="610" y="992" font-size="8" fill="#64748b">Orange</text><text x="640" y="992" font-size="8" fill="#ea580c">= Docker local (développement)</text>
+</svg>
+
+</div>
+</body>
+</html>

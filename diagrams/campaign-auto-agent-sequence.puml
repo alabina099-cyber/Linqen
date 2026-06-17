@@ -1,0 +1,492 @@
+@startuml
+!theme plain
+skinparam handwritten false
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+
+skinparam actor {
+  BackgroundColor #FEF3C7
+  BorderColor #D97706
+}
+
+skinparam participant {
+  BackgroundColor #EFF6FF
+  BorderColor #2563EB
+}
+
+skinparam database {
+  BackgroundColor #F3E8FF
+  BorderColor #7C3AED
+}
+
+skinparam sequenceBoxBackgroundColor #F0FDF4
+skinparam noteBackgroundColor #FEF9C3
+skinparam noteBorderColor #CA8A04
+
+title Diagramme de Séquence Objet : Gestion Automatique de Campagne via Agent IA
+
+actor "User" as U
+
+box "Frontend (React / Next.js)"
+  participant "Campaigns\n: React Component" as CAM
+  participant "ProspectsPipeline\n: React Component" as PP
+end box
+
+box "Backend API (Next.js App Router)"
+  participant "API_Campaigns\n: /api/campaigns" as API_CAM
+  participant "API_Execute\n: /api/campaigns/[id]/execute" as API_EXE
+  participant "API_AutoApprove\n: /api/linkedin-actions/auto-approve" as API_AA
+  participant "API_CheckFollowUps\n: /api/campaigns/[id]/check-followups" as API_CFU
+  participant "API_LI_Actions\n: /api/linkedin-actions" as API_LI
+  participant "API_Prospects\n: /api/prospects" as API_PRO
+  participant "API_FollowExec\n: /api/followups/execute" as API_FE
+end box
+
+box "Extension Chrome"
+  participant "ExtensionChrome\n: background.js" as EXT
+  participant "LinkedIn\n: Site Web" as LI
+end box
+
+box "Base de Données PostgreSQL"
+  database "DB_Campaigns\n: campaigns" as DB_CAM
+  database "DB_ActionsQueue\n: linkedin_actions_queue" as DB_ACT
+  database "DB_Prospects\n: prospects" as DB_PRO
+  database "DB_FollowUps\n: scheduled_followups" as DB_FU
+  database "DB_Messages\n: messages" as DB_MSG
+end box
+
+' ============================================================
+' 1. CRÉATION DE LA CAMPAGNE
+' ============================================================
+== 1. Création de la Campagne ==
+
+autonumber 1
+U -> CAM : Clique "New" + remplit le formulaire\n(name, target_role, industry, location,\ncampaign_type, daily_limit, follow_up_days,\ntemplate_invitation, template_followup)
+activate CAM
+
+CAM -> API_CAM : POST /api/campaigns\n{ name, status:'draft', target_role,\n  industry, location, campaign_type,\n  daily_limit, follow_up_days,\n  template_invitation, template_followup }
+activate API_CAM
+
+API_CAM -> API_CAM : getRequestUser(req)\n→ { userId, role }
+
+API_CAM -> DB_CAM : INSERT INTO campaigns\n(name, status='draft', target_role, industry,\n location, campaign_type, daily_limit,\n follow_up_days, template_invitation,\n template_followup, user_id,\n created_at, updated_at)\nRETURNING *
+activate DB_CAM
+DB_CAM --> API_CAM : campaign { id, name, status:'draft', ... }
+deactivate DB_CAM
+
+API_CAM --> CAM : 201 { success: true, campaign }
+deactivate API_CAM
+
+CAM -> CAM : setCampaigns([newCampaign, ...prev])
+CAM --> U : Campagne créée (statut: Draft)\naffichée dans la liste
+deactivate CAM
+
+' ============================================================
+' 2. ACTIVATION DE LA CAMPAGNE
+' ============================================================
+== 2. Activation de la Campagne ==
+
+autonumber 10
+U -> CAM : Clique bouton Play sur la campagne\n(status: draft → active)
+activate CAM
+
+CAM -> API_CAM : PUT /api/campaigns/{id}\n{ status: 'active' }
+activate API_CAM
+
+API_CAM -> DB_CAM : UPDATE campaigns\nSET status='active', updated_at=NOW()\nWHERE id=$1\nRETURNING *
+activate DB_CAM
+DB_CAM --> API_CAM : campaign { id, status:'active', ... }
+deactivate DB_CAM
+
+API_CAM --> CAM : 200 { success: true, campaign }
+deactivate API_CAM
+
+CAM -> CAM : setCampaigns(map → status:'active')
+
+note right of CAM
+  Déclenchement automatique séquentiel
+  après passage en statut 'active' :
+  1. executeCampaign(id)
+  2. POST auto-approve
+  3. POST check-followups
+end note
+
+' ============================================================
+' 3. EXÉCUTION AUTOMATIQUE — CRÉATION DE L'ACTION LINKEDIN
+' ============================================================
+== 3. Exécution Automatique : Création de l'Action LinkedIn ==
+
+autonumber 15
+CAM -> API_EXE : POST /api/campaigns/{id}/execute
+activate API_EXE
+
+API_EXE -> DB_CAM : SELECT * FROM campaigns WHERE id=$1
+activate DB_CAM
+DB_CAM --> API_EXE : campaign { target_role, industry, location,\n  campaign_type, daily_limit,\n  template_invitation, template_followup }
+deactivate DB_CAM
+
+API_EXE -> API_EXE : Vérifie status IN ('draft','active')
+
+API_EXE -> API_EXE : Construit searchUrl LinkedIn\nkeywords = target_role + industry + location\nhttps://linkedin.com/search/results/people/\n?keywords=...&origin=SWITCH_SEARCH_VERTICAL
+
+API_EXE -> API_EXE : Détermine actionType selon campaign_type :\n• connections_only → 'search_and_connection'\n• messages_and_connections → 'search_and_connection'\n• messages (défaut) → 'search_and_message'
+
+API_EXE -> DB_ACT : SELECT id, status\nFROM linkedin_actions_queue\nWHERE campaign_id=$1\n  AND status IN\n  ('pending_approval','approved','processing')\nLIMIT 1
+activate DB_ACT
+DB_ACT --> API_EXE : rows[] (vide = aucune action en cours)
+deactivate DB_ACT
+
+API_EXE -> DB_ACT : SELECT COUNT(*)\nFROM linkedin_actions_queue\nWHERE campaign_id=$1\n  AND status='completed'\n  AND executed_at >= CURRENT_DATE
+activate DB_ACT
+DB_ACT --> API_EXE : todayCount
+deactivate DB_ACT
+
+alt todayCount >= daily_limit
+  API_EXE --> CAM : 429 { message: "Limite journalière atteinte" }
+else todayCount < daily_limit
+  API_EXE -> API_EXE : Normalise messageTemplate\n(remplace {{name}}, {prénom}, {firstName}\n→ format unifié {name}, {company}, {role})
+
+  API_EXE -> DB_ACT : INSERT INTO linkedin_actions_queue\n(action_type, target_url=searchUrl,\n target_name='Campagne: {campaign.name}',\n payload={\n   message_template, campaign_type,\n   campaign_id, campaign_name,\n   target_role, industry, location,\n   company_size, seniority,\n   daily_limit, follow_up_days,\n   template_type, objective },\n status='approved',\n campaign_id, created_at=NOW())\nRETURNING *
+  activate DB_ACT
+  DB_ACT --> API_EXE : action { id, status:'approved', ... }
+  deactivate DB_ACT
+
+  API_EXE --> CAM : 200 { success:true, action,\n  search_url, template_preview }
+end
+deactivate API_EXE
+
+' ============================================================
+' 4. AUTO-APPROBATION DES ACTIONS EN ATTENTE
+' ============================================================
+== 4. Auto-Approbation des Actions en Attente ==
+
+autonumber 28
+CAM -> API_AA : POST /api/linkedin-actions/auto-approve
+activate API_AA
+
+API_AA -> API_AA : getRequestUser(req)\ngetScopeUserIds() → scopeIds[]
+
+API_AA -> DB_ACT : UPDATE linkedin_actions_queue q\nSET status='approved', updated_at=NOW()\nFROM campaigns c\nWHERE q.campaign_id = c.id\n  AND c.status = 'active'\n  AND q.status = 'pending_approval'\n  AND q.created_at >= CURRENT_DATE\n  AND q.user_id = ANY(scopeIds)\nRETURNING q.id, q.campaign_id, q.action_type
+activate DB_ACT
+DB_ACT --> API_AA : rows[] (actions auto-approuvées)
+deactivate DB_ACT
+
+API_AA --> CAM : 200 { success:true,\n  approved_count, actions[] }
+deactivate API_AA
+
+' ============================================================
+' 5. PLANIFICATION DES RELANCES (J+N)
+' ============================================================
+== 5. Planification des Relances (J+N) ==
+
+autonumber 33
+CAM -> API_CFU : POST /api/campaigns/{id}/check-followups
+activate API_CFU
+
+API_CFU -> DB_CAM : SELECT * FROM campaigns\nWHERE id=$1 AND status='active'
+activate DB_CAM
+DB_CAM --> API_CFU : campaign { follow_up_days,\n  daily_limit, template_followup }
+deactivate DB_CAM
+
+API_CFU -> DB_ACT : SELECT COUNT(*)\nFROM linkedin_actions_queue\nWHERE campaign_id=$1\n  AND status='completed'\n  AND executed_at >= CURRENT_DATE
+activate DB_ACT
+DB_ACT --> API_CFU : todayActions
+deactivate DB_ACT
+
+API_CFU -> DB_PRO : SELECT DISTINCT p.id, p.name,\n  p.linkedin_url, p.last_contacted_at\nFROM prospects p\nINNER JOIN linkedin_actions_queue laq\n  ON p.linkedin_url = laq.target_url\nWHERE laq.campaign_id=$1\n  AND laq.action_type='send_message'\n  AND laq.status='completed'\n  AND p.status IN ('messaged','replied')\n  AND p.last_contacted_at\n    < NOW() - INTERVAL 'N days'\n  AND NOT EXISTS (\n    SELECT 1 FROM scheduled_followups sf\n    WHERE sf.prospect_id=p.id\n      AND sf.campaign_id=$1\n      AND sf.status='scheduled')\nORDER BY p.last_contacted_at ASC
+activate DB_PRO
+DB_PRO --> API_CFU : prospects[] (éligibles aux relances)
+deactivate DB_PRO
+
+loop Pour chaque prospect éligible
+  API_CFU -> API_CFU : checkRateLimit('schedule_followup')
+  API_CFU -> API_CFU : Prépare messageText\ndepuis template_followup\navec variables {name} remplacées
+
+  API_CFU -> DB_FU : INSERT INTO scheduled_followups\n(prospect_id, campaign_id,\n message_text,\n scheduled_for = demain 10h00,\n status='scheduled', created_at=NOW())\nRETURNING *
+  activate DB_FU
+  DB_FU --> API_CFU : followup { id, scheduled_for }
+  deactivate DB_FU
+
+  API_CFU -> DB_PRO : UPDATE prospects\nSET status='followup_scheduled',\n  updated_at=NOW()\nWHERE id=$1
+  activate DB_PRO
+  DB_PRO --> API_CFU : OK
+  deactivate DB_PRO
+end
+
+API_CFU --> CAM : 200 { success:true,\n  followups_scheduled: N,\n  remaining_today }
+deactivate API_CFU
+
+CAM --> U : Campagne active\n+ confirmation relances planifiées
+deactivate CAM
+
+' ============================================================
+' 6. EXÉCUTION PAR L'EXTENSION CHROME
+' ============================================================
+== 6. Exécution par l'Extension Chrome ==
+
+note over EXT
+  Alarme Chrome : pollActions
+  periodInMinutes = 0.2 (toutes les 12 secondes)
+end note
+
+autonumber 46
+EXT -> EXT : onAlarm("pollActions") déclenché
+activate EXT
+
+EXT -> API_LI : GET /api/linkedin-actions\n?status=approved&limit=5
+activate API_LI
+
+API_LI -> API_LI : getRequestUser() + getScopeUserIds()
+API_LI -> API_LI : isWithinWorkingHours(userId)
+
+note right of API_LI
+  Si hors plage horaire configurée :
+  { actions:[], paused:true }
+  → extension attend la prochaine alarme
+end note
+
+API_LI -> DB_ACT : SELECT * FROM linkedin_actions_queue\nWHERE status='approved'\n  AND user_id = ANY(scopeIds)\n  AND (campaign_id IS NULL\n    OR campaign NOT IN\n    ('paused','completed'))\nORDER BY created_at ASC
+activate DB_ACT
+DB_ACT --> API_LI : rows[{ id, action_type,\n  target_url=searchUrl,\n  payload={message_template,...} }]
+deactivate DB_ACT
+
+API_LI --> EXT : { actions: [action] }
+deactivate API_LI
+
+EXT -> EXT : Vérifie LinkedIn Guard\n(dailyCounters vs DAILY_LIMITS :\n• search_and_connection : 20/jour\n• search_and_message : 30/jour\n• visit_profile : 50/jour)
+
+EXT -> EXT : isProcessing = true\nupdateBadge(1)
+
+EXT -> LI : Ouvre searchUrl LinkedIn\nInjecte content.js
+activate LI
+
+note over EXT, LI
+  Exécution selon action_type :
+  • search_and_connection :
+    parcourt résultats → clique "Se connecter"
+    → envoie invitation avec note {name}, {company}
+  • search_and_message :
+    parcourt résultats → ouvre messagerie
+    → envoie message depuis template normalisé
+  (délais aléatoires anti-détection entre profils)
+end note
+
+LI --> EXT : Confirmations visuelles\n(pages mises à jour, toasts LinkedIn)
+deactivate LI
+
+EXT -> EXT : getRandomDelay(action_type)\n(~2-3 min entre connexions)
+
+EXT -> API_LI : PATCH /api/linkedin-actions\n{ id, status:'completed',\n  result:{ sent:true,\n    profiles:[{name, url, company}] } }
+activate API_LI
+deactivate EXT
+
+' ============================================================
+' 7. MISE À JOUR DB ET CRÉATION DES PROSPECTS
+' ============================================================
+== 7. Mise à Jour DB et Création des Prospects ==
+
+autonumber 60
+API_LI -> API_LI : Vérifie ownership (scope)\nVérifie action != 'stopped'
+
+API_LI -> DB_ACT : UPDATE linkedin_actions_queue\nSET status='completed',\n  result=$2, executed_at=NOW()\nWHERE id=$1
+activate DB_ACT
+DB_ACT --> API_LI : row updated
+deactivate DB_ACT
+
+note right of API_LI
+  Pour chaque profil dans result.profiles :
+  INSERT INTO prospects (name, role, company,
+    linkedin_url, score, status, user_id)
+  ON CONFLICT (linkedin_url) DO UPDATE SET
+    status = EXCLUDED.status, updated_at = NOW()
+  • action 'send_connection' → status='identified'
+  • action 'send_message'    → status='contacted'
+end note
+
+API_LI -> DB_PRO : INSERT INTO prospects\n(name, role, company, linkedin_url,\n score, status, user_id, created_at)\nON CONFLICT (linkedin_url)\nDO UPDATE SET\n  status=EXCLUDED.status,\n  updated_at=NOW()\nRETURNING *
+activate DB_PRO
+DB_PRO --> API_LI : prospects[] créés / mis à jour
+deactivate DB_PRO
+
+API_LI -> DB_MSG : UPDATE messages SET status='sent'\nWHERE recipient_name = target_name
+activate DB_MSG
+DB_MSG --> API_LI : OK
+deactivate DB_MSG
+
+API_LI -> API_LI : createNotification()\n• connection → "Invitation envoyée"\n• message    → "Message envoyé"\n• failed     → "Action échouée"
+
+API_LI --> EXT : { success:true, action }
+deactivate API_LI
+
+EXT -> EXT : isProcessing = false\nupdateBadge(0)
+
+' ============================================================
+' 8. EXÉCUTION AUTOMATIQUE DES RELANCES PLANIFIÉES
+' ============================================================
+== 8. Exécution Automatique des Relances Planifiées ==
+
+note over EXT
+  L'extension Chrome déclenche périodiquement
+  POST /api/followups/execute (ou cron job)
+end note
+
+autonumber 70
+EXT -> API_FE : POST /api/followups/execute
+activate EXT
+activate API_FE
+
+API_FE -> API_FE : getRequestUser(req)\n→ charge settings (smartFollowUp)
+
+API_FE -> DB_FU : SELECT sf.*, p.name, p.linkedin_url,\n  p.notes, c.name AS campaign_name,\n  c.template_followup\nFROM scheduled_followups sf\nJOIN prospects p ON sf.prospect_id=p.id\nJOIN campaigns c ON sf.campaign_id=c.id\nWHERE sf.status='scheduled'\n  AND sf.scheduled_for <= NOW()\n  AND c.status='active'\nORDER BY sf.scheduled_for ASC LIMIT 50
+activate DB_FU
+DB_FU --> API_FE : followups[]
+deactivate DB_FU
+
+loop Pour chaque relance planifiée
+  API_FE -> DB_PRO : SELECT status, notes\nFROM prospects WHERE id=$1
+  activate DB_PRO
+  DB_PRO --> API_FE : { status, notes }
+  deactivate DB_PRO
+
+  alt Prospect déjà replied / converted / responded
+    API_FE -> DB_FU : UPDATE scheduled_followups\nSET status='cancelled'\nWHERE id=$1
+    activate DB_FU
+    DB_FU --> API_FE : OK
+    deactivate DB_FU
+
+  else Smart Follow-Up activé + sentiment négatif détecté
+    note right of API_FE
+      notes contient '[Sentiment: negative'
+      → annulation automatique IA
+    end note
+    API_FE -> DB_FU : UPDATE scheduled_followups\nSET status='cancelled'\nWHERE id=$1
+    activate DB_FU
+    DB_FU --> API_FE : OK
+    deactivate DB_FU
+
+  else Relance valide à exécuter
+    API_FE -> API_FE : checkRateLimit('send_message')
+
+    API_FE -> DB_ACT : INSERT INTO linkedin_actions_queue\n(action_type='send_message',\n target_url=p.linkedin_url,\n target_name='Relance: {name}',\n payload={ message_text,\n   campaign_id, followup_id,\n   is_followup:true },\n status='approved',\n campaign_id, created_at=NOW())\nRETURNING *
+    activate DB_ACT
+    DB_ACT --> API_FE : action { id, status:'approved' }
+    deactivate DB_ACT
+
+    API_FE -> DB_FU : UPDATE scheduled_followups\nSET status='executed',\n  updated_at=NOW()\nWHERE id=$1
+    activate DB_FU
+    DB_FU --> API_FE : OK
+    deactivate DB_FU
+
+    API_FE -> DB_PRO : UPDATE prospects\nSET status='followup_sent',\n  last_contacted_at=NOW(),\n  updated_at=NOW()\nWHERE id=$1
+    activate DB_PRO
+    DB_PRO --> API_FE : OK
+    deactivate DB_PRO
+  end
+end
+
+API_FE --> EXT : { success:true,\n  executed: N, skipped: M }
+deactivate API_FE
+deactivate EXT
+
+' ============================================================
+' 9. AFFICHAGE EN TEMPS RÉEL DANS LE PIPELINE CRM
+' ============================================================
+== 9. Affichage en Temps Réel dans le Pipeline CRM ==
+
+note over PP
+  Polling automatique toutes les 10 secondes
+  fetchProspects(true) — silent mode
+end note
+
+autonumber 88
+PP -> API_PRO : GET /api/prospects?limit=100
+activate PP
+activate API_PRO
+
+API_PRO -> API_PRO : buildScopeClause(user)
+
+API_PRO -> DB_PRO : SELECT p.*,\n  owner.name AS owner_name,\n  COUNT(m.id) AS message_count,\n  MAX(m.created_at) AS last_contact\nFROM prospects p\nLEFT JOIN messages m ON p.id=m.prospect_id\nLEFT JOIN users owner ON owner.id=p.user_id\nWHERE user_id = ANY(scopeIds)\nGROUP BY p.id, owner.name, owner.id\nORDER BY score DESC, created_at DESC\nLIMIT 100
+activate DB_PRO
+DB_PRO --> API_PRO : rows[]
+deactivate DB_PRO
+
+API_PRO --> PP : 200 { prospects[], pagination }
+deactivate API_PRO
+
+PP -> PP : organizeProspects()\n→ 6 colonnes Kanban :\n  Identifiés | Connectés | Contactés\n  Répondus   | Intéressés | Convertis
+
+PP --> U : Nouveaux prospects créés par la campagne\nappraissent dans la colonne appropriée
+deactivate PP
+
+' ============================================================
+' 10. DÉTECTIONS AUTOMATIQUES EN PARALLÈLE
+' ============================================================
+== 10. Détections Automatiques en Parallèle ==
+
+group checkPendingConnectionsFast [toutes les 2 min]
+  EXT -> LI : Visite profils status='identified'
+  activate EXT
+  activate LI
+  LI --> EXT : Détecte badge 1er degré\nou bouton "Message" → connexion acceptée
+  deactivate LI
+
+  EXT -> API_PRO : PATCH /api/prospects/{id}\n{ status:'connected' }
+  activate API_PRO
+  API_PRO -> DB_PRO : UPDATE prospects\nSET status='connected', updated_at=NOW()\nWHERE id=$1
+  activate DB_PRO
+  DB_PRO --> API_PRO : OK
+  deactivate DB_PRO
+  API_PRO --> EXT : OK
+  deactivate API_PRO
+  deactivate EXT
+end
+
+group checkInboxForReplies [toutes les 5 min]
+  EXT -> LI : Ouvre https://linkedin.com/messaging/\nInjecte content script
+  activate EXT
+  activate LI
+  LI --> EXT : Conversations scrapées
+  deactivate LI
+
+  EXT -> EXT : Match prospect.name ↔ reply détecté
+
+  EXT -> API_PRO : POST /api/prospects/update-status\n{ prospect_id, status:'responded' }
+  activate API_PRO
+  API_PRO -> DB_PRO : UPDATE prospects\nSET status='responded', updated_at=NOW()\nWHERE id=$1
+  activate DB_PRO
+  DB_PRO --> API_PRO : OK
+  deactivate DB_PRO
+  API_PRO --> EXT : OK
+  deactivate API_PRO
+  deactivate EXT
+end
+
+group recoverStaleActions [toutes les 2 min]
+  EXT -> API_LI : GET /api/linkedin-actions\n?status=processing&limit=10
+  activate EXT
+  activate API_LI
+  API_LI -> DB_ACT : SELECT * WHERE status='processing'
+  activate DB_ACT
+  DB_ACT --> API_LI : rows[]
+  deactivate DB_ACT
+  API_LI --> EXT : actions[]
+  deactivate API_LI
+
+  EXT -> EXT : Vérifie age > 5 minutes
+
+  alt Action bloquée > 5 min
+    EXT -> API_LI : PATCH /api/linkedin-actions\n{ id, status:'completed',\n  result:{ recovered:true } }
+    activate API_LI
+    API_LI -> DB_ACT : UPDATE status='completed'\nWHERE id=$1
+    activate DB_ACT
+    DB_ACT --> API_LI : OK
+    deactivate DB_ACT
+    API_LI --> EXT : OK
+    deactivate API_LI
+  end
+  deactivate EXT
+end
+
+@enduml

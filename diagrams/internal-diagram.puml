@@ -1,0 +1,75 @@
+@startuml
+skinparam rectangle {
+    BackgroundColor #FAFAFA
+    BorderColor     #444444
+    FontStyle bold
+}
+skinparam component {
+    BackgroundColor #FFFFFF
+    BorderColor     #555555
+    FontStyle bold
+}
+skinparam database {
+    BackgroundColor #EDE7F6
+    BorderColor     #512DA8
+    FontStyle bold
+}
+skinparam cloud {
+    BackgroundColor #FFF8E1
+    BorderColor     #F57C00
+    FontStyle bold
+}
+skinparam package {
+    BackgroundColor #F5F5F5
+    BorderColor     #777777
+}
+
+title Internal Diagram : LinkedIn Agent System
+
+rectangle "LinkedIn Agent System" {
+
+    component "Web Dashboard\n(Next.js SPA)" as Frontend
+    component "Chrome Extension" as Extension
+
+    component "Nginx\n(Load Balancer)" as Nginx
+
+    component "Next.js App\n(Frontend + API)" as App
+    component "AI Agent\n(LangChain)" as Agent
+    component "Worker Agent\n(Puppeteer)" as Worker
+
+    database "PostgreSQL" as DB
+
+    package "Observability Module" {
+        component "Prometheus" as Prometheus
+        component "Grafana" as Grafana
+        component "Loki" as Loki
+    }
+
+    ' ── Internal Connections ──
+    Frontend --> Nginx : HTTPS
+    Extension --> Nginx : REST API
+
+    Nginx --> App : Reverse Proxy
+
+    App --> DB : Read / Write
+    App --> Agent : AI Calls
+
+    Worker --> DB : Poll Actions
+
+    Prometheus --> App : Scrape Metrics
+    Prometheus --> Worker : Scrape Health
+    Grafana --> Prometheus : Query Metrics
+    Grafana --> Loki : Query Logs
+    Loki --> App : Collect Logs
+    Loki --> Worker : Collect Logs
+}
+
+' ── External Interfaces ──
+cloud "OpenAI API" as OpenAI
+cloud "LinkedIn" as LinkedIn
+
+Agent ..> OpenAI : AI Requests
+Worker ..> LinkedIn : Automation
+Extension ..> LinkedIn : Browser Actions
+
+@enduml

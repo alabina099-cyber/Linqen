@@ -3,7 +3,7 @@ import { LINKEDIN_LIMITS } from "./agent-config";
 
 // =============================================
 // LinkedIn Rate Limiter
-// Vérifie les limites quotidiennes ET horaires avant chaque action
+// Checks daily AND hourly limits before each action
 // =============================================
 
 export type ActionType = "send_connection" | "send_message" | "visit_profile" | "search" | "schedule_followup";
@@ -32,19 +32,19 @@ const RATE_LIMITS: Record<ActionType, RateLimitConfig> = {
     maxPerDay: LINKEDIN_LIMITS.maxProfileVisitsPerDay,
     maxPerHour: LINKEDIN_LIMITS.maxProfileVisitsPerHour,
     delayBetweenMs: LINKEDIN_LIMITS.delayBetweenProfileVisits,
-    label: "visites de profil",
+    label: "profile visits",
   },
   search: {
     maxPerDay: LINKEDIN_LIMITS.maxSearchesPerDay,
     maxPerHour: Math.ceil(LINKEDIN_LIMITS.maxSearchesPerDay / 8),
     delayBetweenMs: LINKEDIN_LIMITS.delayBetweenSearches,
-    label: "recherches",
+    label: "searches",
   },
   schedule_followup: {
     maxPerDay: LINKEDIN_LIMITS.maxFollowupsPerDay,
     maxPerHour: Math.ceil(LINKEDIN_LIMITS.maxFollowupsPerDay / 8),
     delayBetweenMs: LINKEDIN_LIMITS.delayBetweenActions,
-    label: "follow-ups planifiés",
+    label: "scheduled follow-ups",
   },
 };
 
@@ -59,13 +59,13 @@ export interface RateLimitResult {
   remainingToday: number;
 }
 
-// Vérifier si une action est autorisée selon les limites LinkedIn
+// Check if an action is allowed according to LinkedIn limits
 export async function checkRateLimit(actionType: ActionType): Promise<RateLimitResult> {
   const config = RATE_LIMITS[actionType];
 
   try {
-    // Compter uniquement les actions TERMINÉES (completed) avec executed_at aujourd'hui
-    // executed_at = moment réel d'exécution (pas created_at qui est la date de mise en queue)
+    // Count only COMPLETED actions with executed_at today
+    // executed_at = actual execution time (not created_at which is queue time)
     const dailyResult = await pool.query(
       `SELECT COUNT(*) as count
        FROM linkedin_actions_queue
@@ -77,7 +77,7 @@ export async function checkRateLimit(actionType: ActionType): Promise<RateLimitR
     );
     const dailyUsed = parseInt(dailyResult.rows[0].count);
 
-    // Compter les actions terminées de la dernière heure (basé sur executed_at)
+    // Count completed actions in the last hour (based on executed_at)
     const hourlyResult = await pool.query(
       `SELECT COUNT(*) as count
        FROM linkedin_actions_queue
@@ -92,11 +92,11 @@ export async function checkRateLimit(actionType: ActionType): Promise<RateLimitR
     // DEBUG: Log les valeurs du rate limiter
     console.log(`[RATE LIMITER] ${actionType}: daily=${dailyUsed}/${config.maxPerDay}, hourly=${hourlyUsed}/${config.maxPerHour}`);
 
-    // Vérifier la limite quotidienne
+    // Check daily limit
     if (dailyUsed >= config.maxPerDay) {
       return {
         allowed: false,
-        reason: `🚫 Limite quotidienne atteinte pour les ${config.label} (${dailyUsed}/${config.maxPerDay}). Réessayez demain après minuit.`,
+        reason: `🚫 Daily limit reached for ${config.label} (${dailyUsed}/${config.maxPerDay}). Try again tomorrow after midnight.`,
         dailyUsed,
         dailyMax: config.maxPerDay,
         hourlyUsed,
@@ -105,7 +105,7 @@ export async function checkRateLimit(actionType: ActionType): Promise<RateLimitR
       };
     }
 
-    // Vérifier la limite horaire
+    // Check hourly limit
     if (hourlyUsed >= config.maxPerHour) {
       const oldestInWindow = await pool.query(
         `SELECT executed_at FROM linkedin_actions_queue
@@ -117,12 +117,12 @@ export async function checkRateLimit(actionType: ActionType): Promise<RateLimitR
         [actionType]
       );
       const nextAllowed = oldestInWindow.rows.length > 0
-        ? new Date(new Date(oldestInWindow.rows[0].executed_at).getTime() + 3600000).toLocaleTimeString("fr-FR")
-        : "dans ~1 heure";
+        ? new Date(new Date(oldestInWindow.rows[0].executed_at).getTime() + 3600000).toLocaleTimeString("en-US")
+        : "in ~1 hour";
 
       return {
         allowed: false,
-        reason: `⏳ Limite horaire atteinte pour les ${config.label} (${hourlyUsed}/${config.maxPerHour} cette heure). Prochain créneau disponible vers ${nextAllowed}.`,
+        reason: `⏳ Hourly limit reached for ${config.label} (${hourlyUsed}/${config.maxPerHour} this hour). Next available slot: ${nextAllowed}.`,
         dailyUsed,
         dailyMax: config.maxPerDay,
         hourlyUsed,
@@ -132,8 +132,8 @@ export async function checkRateLimit(actionType: ActionType): Promise<RateLimitR
       };
     }
 
-    // Vérifier le délai minimum depuis la dernière action terminée du même type
-    // IMPORTANT: Comparaison entièrement en SQL pour éviter le décalage timezone JS/DB
+    // Check minimum delay since last completed action of same type
+    // IMPORTANT: Entirely SQL-based comparison to avoid JS/DB timezone drift
     const delaySeconds = Math.ceil(config.delayBetweenMs / 1000);
     const recentActionResult = await pool.query(
       `SELECT EXTRACT(EPOCH FROM (NOW() - executed_at)) as elapsed_seconds
@@ -154,7 +154,7 @@ export async function checkRateLimit(actionType: ActionType): Promise<RateLimitR
         const secondsLeft = Math.ceil(waitRemaining);
         return {
           allowed: false,
-          reason: `⏱️ Délai minimum non respecté pour les ${config.label}. Attendez encore ${secondsLeft} seconde(s) pour éviter une détection LinkedIn.`,
+          reason: `⏱️ Minimum delay not respected for ${config.label}. Wait ${secondsLeft} more second(s) to avoid LinkedIn detection.`,
           dailyUsed,
           dailyMax: config.maxPerDay,
           hourlyUsed,
@@ -174,11 +174,11 @@ export async function checkRateLimit(actionType: ActionType): Promise<RateLimitR
       remainingToday: config.maxPerDay - dailyUsed - 1,
     };
   } catch (error) {
-    // En cas d'erreur DB, bloquer par sécurité
+    // In case of DB error, block for safety
     console.error("Rate limiter DB error:", error);
     return {
       allowed: false,
-      reason: "Erreur lors de la vérification des limites. Action bloquée par sécurité.",
+      reason: "Error checking limits. Action blocked for safety.",
       dailyUsed: 0,
       dailyMax: config.maxPerDay,
       hourlyUsed: 0,
@@ -188,7 +188,7 @@ export async function checkRateLimit(actionType: ActionType): Promise<RateLimitR
   }
 }
 
-// Récupérer un résumé complet des limites actuelles
+// Get a full summary of current limits
 export async function getRateLimitStatus(): Promise<Record<ActionType, RateLimitResult>> {
   const types: ActionType[] = ["send_connection", "send_message", "visit_profile", "search", "schedule_followup"];
   const results: Partial<Record<ActionType, RateLimitResult>> = {};

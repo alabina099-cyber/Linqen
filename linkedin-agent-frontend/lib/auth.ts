@@ -6,9 +6,10 @@
 import { SignJWT, jwtVerify, JWTPayload } from "jose";
 import { hash, safeCompare } from "./security";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "linkedin-agent-jwt-secret-key-change-in-prod-32chars"
-);
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable is required but not set.");
+}
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
 export interface AuthPayload {
   userId: number;

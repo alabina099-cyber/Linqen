@@ -23,8 +23,9 @@ export async function GET(request: NextRequest) {
     if (user) {
       result = await query('SELECT settings FROM users WHERE id = $1', [user.userId]);
     } else {
-      // Fallback admin pour l'extension Chrome (qui n'a pas de JWT)
-      result = await query("SELECT settings FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
+      // Multi-admin SaaS : sans JWT on ne peut pas savoir de quel admin
+      // hériter les settings. On retourne les valeurs par défaut.
+      result = { rows: [] };
     }
     const settings = result.rows[0]?.settings || {};
     const automation = settings.automation || {};

@@ -51,7 +51,41 @@ chrome.storage.local
   })
   .catch((err) => console.error("[Auth] Erreur chargement authToken:", err));
 
-// Helper: fetch avec header Authorization si un token est disponible
+// =============================================================
+// Multi-admin SaaS : patch GLOBAL de fetch dans le service worker.
+// -------------------------------------------------------------
+// Toutes les requêtes vers API_BASE_URL doivent transporter le JWT
+// pour que le backend sache à quel admin (ou user secondaire)
+// elles appartiennent. On wrap fetch une seule fois ici plutôt que
+// de modifier les ~30 appels existants.
+// =============================================================
+if (!globalThis.__authFetchPatched) {
+  globalThis.__authFetchPatched = true;
+  const originalFetch = globalThis.fetch.bind(globalThis);
+  globalThis.fetch = (input, init = {}) => {
+    try {
+      const url = typeof input === "string" ? input : input?.url || "";
+      // On n'injecte le token que pour les appels vers NOTRE backend.
+      // Cela évite de leaker le JWT vers linkedin.com ou tout autre site.
+      const targetsOurApi =
+        url.startsWith(API_BASE_URL) ||
+        url.startsWith(DEFAULT_API_BASE_URL) ||
+        url.includes("/api/");
+      if (targetsOurApi && authToken) {
+        const headers = new Headers(init.headers || {});
+        if (!headers.has("Authorization")) {
+          headers.set("Authorization", `Bearer ${authToken}`);
+        }
+        init = { ...init, headers };
+      }
+    } catch {
+      // En cas d'erreur on laisse passer sans modification
+    }
+    return originalFetch(input, init);
+  };
+}
+
+// Helper conservé pour rétro-compat (utilisé dans updateActionStatus)
 async function apiFetch(url, options = {}) {
   const headers = { ...(options.headers || {}) };
   if (authToken) {

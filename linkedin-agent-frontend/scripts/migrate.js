@@ -5,11 +5,27 @@
 // Trace les migrations appliquées dans la table `_migrations`.
 // Usage:
 //   DATABASE_URL=postgres://... node scripts/migrate.js
+//   node scripts/migrate.js  (charge .env.local automatiquement)
 // =============================================
 const { Pool } = require("pg");
 const fs = require("fs");
 const path = require("path");
 
+// Charger .env.local si DATABASE_URL absent (dev local)
+if (!process.env.DATABASE_URL) {
+  const envPath = path.join(__dirname, "..", ".env.local");
+  if (fs.existsSync(envPath)) {
+    fs.readFileSync(envPath, "utf-8")
+      .split(/\r?\n/)
+      .forEach((line) => {
+        const m = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+        if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
+      });
+    console.log("ℹ️  Chargé DATABASE_URL depuis .env.local");
+  }
+}
+
+const SCHEMA_FILE = path.join(__dirname, "..", "db", "schema.sql");
 const MIGRATIONS_DIR =
   process.env.MIGRATIONS_DIR ||
   path.join(__dirname, "..", "..", "db", "migrations");
@@ -77,6 +93,39 @@ async function main() {
     }
 
     await ensureMigrationTable(pool);
+
+    // Appliquer le schéma de base (idempotent — IF NOT EXISTS) avant les migrations
+    if (fs.existsSync(SCHEMA_FILE)) {
+      const schemaContent = fs.readFileSync(SCHEMA_FILE, "utf-8");
+      const schemaKey = "000_schema.sql";
+      const { rows: schemaApplied } = await pool.query(
+        "SELECT 1 FROM _migrations WHERE filename = $1",
+        [schemaKey]
+      );
+      if (schemaApplied.length === 0) {
+        console.log("▶ Application du schéma de base (schema.sql)...");
+        const schemaClient = await pool.connect();
+        try {
+          await schemaClient.query("BEGIN");
+          await schemaClient.query(schemaContent);
+          const sum = checksum(schemaContent);
+          await schemaClient.query(
+            "INSERT INTO _migrations (filename, checksum) VALUES ($1, $2)",
+            [schemaKey, sum]
+          );
+          await schemaClient.query("COMMIT");
+          console.log("  ✅ schema.sql appliqué");
+        } catch (err) {
+          await schemaClient.query("ROLLBACK").catch(() => {});
+          console.error("  ❌ Échec schema.sql:", err.message);
+          throw err;
+        } finally {
+          schemaClient.release();
+        }
+      } else {
+        console.log("✓ schema.sql (déjà appliqué)");
+      }
+    }
 
     const { rows: applied } = await pool.query(
       "SELECT filename, checksum FROM _migrations"

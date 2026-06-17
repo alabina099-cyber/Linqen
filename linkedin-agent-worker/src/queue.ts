@@ -1,7 +1,8 @@
 import { Pool } from 'pg';
 import { LinkedInAction } from './types';
 
-const pool = new Pool({
+// Pool partagé exporté pour les autres modules du worker (admin-session, ...)
+export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false,

@@ -20,7 +20,7 @@ interface AIInsightsProps {
   loading: boolean;
 }
 
-// Génère des insights narratifs à partir des données partagées par BIShell
+// Generates narrative insights from shared data fetched by BIShell
 export default function AIInsights({ kpiResp, convResp, tplResp, agentResp, loading }: AIInsightsProps) {
   const kpi = useMemo(() => kpiResp?.kpis ?? null, [kpiResp]);
   const conv = useMemo(() => convResp ?? null, [convResp]);

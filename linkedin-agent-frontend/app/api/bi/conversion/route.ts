@@ -3,24 +3,24 @@ import { pool } from "@/lib/db";
 
 // GET /api/bi/conversion?range=30
 // Module 1: Conversion Intelligence
-//  - Funnel par étape avec taux de conversion + drop-off
-//  - Cycle time moyen entre étapes (basé sur created_at vs updated_at)
-//  - Cohort hebdo: prospects entrés en semaine N et leur statut actuel
+//  - Funnel by stage with conversion rate + drop-off
+//  - Average cycle time between stages (based on created_at vs updated_at)
+//  - Weekly cohort: prospects entered in week N and their current status
 //  - Sankey data (source → target → value)
 export async function GET(req: NextRequest) {
   try {
     const range = parseInt(req.nextUrl.searchParams.get("range") || "30");
 
     const stages = [
-      { key: "identified", label: "Identifiés", color: "#94a3b8" },
-      { key: "connected", label: "Connectés", color: "#60a5fa" },
-      { key: "contacted", label: "Contactés", color: "#3b82f6" },
-      { key: "responded", label: "Ont répondu", color: "#8b5cf6" },
-      { key: "interested", label: "Intéressés", color: "#a855f7" },
-      { key: "converted", label: "Convertis", color: "#10b981" },
+      { key: "identified", label: "Identified", color: "#94a3b8" },
+      { key: "connected", label: "Connected", color: "#60a5fa" },
+      { key: "contacted", label: "Contacted", color: "#3b82f6" },
+      { key: "responded", label: "Responded", color: "#8b5cf6" },
+      { key: "interested", label: "Interested", color: "#a855f7" },
+      { key: "converted", label: "Converted", color: "#10b981" },
     ];
 
-    // Funnel cumulatif: chaque étape compte les prospects qui ont AU MOINS atteint cette étape
+    // Cumulative funnel: each step counts prospects who have AT LEAST reached this stage
     const order = ["identified", "connected", "contacted", "responded", "interested", "converted"];
     const reachedFilter = (stage: string) => {
       const idx = order.indexOf(stage);
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       WHERE created_at > NOW() - INTERVAL '1 day' * $1
     `;
 
-    // Cycle time moyen (jours entre created_at et updated_at) par statut actuel
+    // Average cycle time (days between created_at and updated_at) by current status
     const cycleSql = `
       SELECT
         status,
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
       GROUP BY status
     `;
 
-    // Cohort hebdo
+    // Weekly cohort
     const cohortSql = `
       WITH cohorts AS (
         SELECT
