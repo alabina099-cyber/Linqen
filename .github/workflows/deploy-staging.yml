@@ -6,12 +6,6 @@ name: Deploy Staging (develop branch)
 on:
   push:
     branches: [main, develop]
-    paths:
-      - 'linkedin-agent-frontend/**'
-      - 'linkedin-agent-worker/**'
-      - 'Dockerfile'
-      - 'db/migrations/**'
-      - '.github/workflows/deploy-staging.yml'
   workflow_dispatch:
 
 env:
