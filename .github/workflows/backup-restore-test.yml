@@ -54,7 +54,7 @@ jobs:
         run: npm run migrate
 
       - name: Download latest backup artifact
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v21
         continue-on-error: true
         with:
           workflow: backup.yml
