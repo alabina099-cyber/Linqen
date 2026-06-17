@@ -62,9 +62,12 @@ async function restore(backupName) {
   console.log("Press Ctrl+C in the next 5 seconds to cancel...");
   await new Promise((r) => setTimeout(r, 5000));
 
+  const isLocalhost =
+    CONNECTION_STRING.includes("localhost") ||
+    CONNECTION_STRING.includes("127.0.0.1");
   const pool = new Pool({
     connectionString: CONNECTION_STRING,
-    ssl: { rejectUnauthorized: false }
+    ssl: isLocalhost ? false : { rejectUnauthorized: false },
   });
 
   try {
