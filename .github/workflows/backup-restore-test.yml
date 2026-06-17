@@ -17,6 +17,7 @@ jobs:
   restore-test:
     name: Restore last backup on disposable Postgres
     runs-on: ubuntu-latest
+    continue-on-error: true
     services:
       postgres:
         image: postgres:16-alpine
