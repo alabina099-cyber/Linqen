@@ -41,6 +41,8 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://dummy:dummy@localhost:5432/dummy' }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'sk-dummy' }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'dummy_jwt_secret_for_build_only_min_32_characters_long_xx' }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY || 'dummy_encryption_key_for_build_only_min_32_chars_xxxxxxxx' }}
           NEXT_TELEMETRY_DISABLED: 1
         run: npm run build
 
@@ -49,6 +51,8 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://dummy:dummy@localhost:5432/dummy' }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'sk-dummy' }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'dummy_jwt_secret_for_build_only_min_32_characters_long_xx' }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY || 'dummy_encryption_key_for_build_only_min_32_chars_xxxxxxxx' }}
         run: npm run test:e2e
 
       - name: Upload Playwright report

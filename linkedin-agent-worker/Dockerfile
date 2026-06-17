@@ -11,6 +11,11 @@ RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
+# Skip Chromium download during npm ci (we use the system Chromium in the runner stage)
+# This is critical for ARM64 builds which run via QEMU emulation in CI
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+
 # Copier les fichiers de dépendances
 COPY package*.json ./
 COPY tsconfig.json ./
