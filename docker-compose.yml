@@ -41,6 +41,9 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - LINKEDIN_CLIENT_ID=${LINKEDIN_CLIENT_ID}
+      - LINKEDIN_CLIENT_SECRET=${LINKEDIN_CLIENT_SECRET}
+      - LINKEDIN_REDIRECT_URI=${LINKEDIN_REDIRECT_URI}
       - PORT=3000
     expose:
       - "3000"
@@ -271,24 +274,11 @@ services:
     networks:
       - linkedin-net
 
-  uptime-kuma:
-    image: louislam/uptime-kuma:1
-    container_name: linkedin-agent-uptime
-    profiles: ["observability"]
-    volumes:
-      - uptime_kuma_data:/app/data
-    ports:
-      - "127.0.0.1:3002:3001"
-    restart: unless-stopped
-    networks:
-      - linkedin-net
-
 volumes:
   postgres_data:
   prometheus_data:
   grafana_data:
   loki_data:
-  uptime_kuma_data:
   alertmanager_data:
 
 networks:

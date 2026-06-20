@@ -19,9 +19,30 @@ import {
 //   6. Redirige vers `/`.
 // =============================================================
 
+/**
+ * Origine publique canonique de l'app, dérivée de LINKEDIN_REDIRECT_URI.
+ * Derrière le proxy Coolify, `request.url` peut valoir `http://0.0.0.0:3000/...`
+ * (adresse interne du container), donc on ne peut pas s'en servir pour rediriger
+ * le navigateur. On reconstruit depuis l'URL de callback connue côté serveur.
+ */
+function getPublicOrigin(request: NextRequest): string {
+  const redirectUri = process.env.LINKEDIN_REDIRECT_URI;
+  if (redirectUri) {
+    try {
+      return new URL(redirectUri).origin;
+    } catch {
+      // fallthrough
+    }
+  }
+  return new URL(request.url).origin;
+}
+
 const loginErrorRedirect = (request: NextRequest, msg: string) =>
   NextResponse.redirect(
-    new URL(`/login?error=${encodeURIComponent(msg)}`, request.url)
+    new URL(
+      `/login?error=${encodeURIComponent(msg)}`,
+      getPublicOrigin(request)
+    )
   );
 
 async function ensureSchema(): Promise<void> {
@@ -102,10 +123,14 @@ export async function GET(request: NextRequest) {
     );
     if (!tokenRes.ok) {
       const detail = await tokenRes.text().catch(() => "");
-      console.error("[linkedin/callback] token exchange failed:", detail);
+      console.error(
+        "[linkedin/callback] token exchange failed:",
+        tokenRes.status,
+        detail
+      );
       return loginErrorRedirect(
         request,
-        "Échec de l'échange du code OAuth avec LinkedIn."
+        `Échec de l'échange du code OAuth (HTTP ${tokenRes.status}).`
       );
     }
     const tokenData = (await tokenRes.json()) as { access_token?: string };
@@ -220,18 +245,27 @@ export async function GET(request: NextRequest) {
 
     // 6. Redirection vers la home (`?welcome=oauth` -> bandeau d'info éventuel)
     const isFirstTime = !existing;
+    const origin = getPublicOrigin(request);
     const redirectTarget = isFirstTime
-      ? new URL("/?welcome=oauth", request.url)
-      : new URL("/", request.url);
+      ? new URL("/?welcome=oauth", origin)
+      : new URL("/", origin);
     const res = NextResponse.redirect(redirectTarget);
     setAuthCookie(res, token);
     clearOAuthStateCookie(res);
     return res;
   } catch (error) {
-    console.error("[linkedin/callback] unexpected error:", error);
+    const detail =
+      error instanceof Error
+        ? `${error.name}: ${error.message}`
+        : String(error);
+    console.error(
+      "[linkedin/callback] unexpected error:",
+      detail,
+      error instanceof Error ? error.stack : undefined
+    );
     const res = loginErrorRedirect(
       request,
-      "Erreur inattendue durant l'authentification LinkedIn."
+      `Erreur inattendue durant l'authentification LinkedIn (${detail}).`
     );
     clearOAuthStateCookie(res);
     return res;
