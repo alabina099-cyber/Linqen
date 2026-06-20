@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { BrainCircuit, ThumbsUp, ThumbsDown, Lightbulb, Info, Trash2 } from "lucide-react";
 import { fmt } from "./biTypes";
@@ -27,7 +27,22 @@ export default function AIInsights({ kpiResp, convResp, tplResp, agentResp, load
   const tpl = useMemo(() => tplResp ?? null, [tplResp]);
   const agent = useMemo(() => agentResp ?? null, [agentResp]);
 
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [dismissed, setDismissed] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem("ai_insights_dismissed");
+      return stored ? new Set<string>(JSON.parse(stored)) : new Set<string>();
+    } catch {
+      return new Set<string>();
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("ai_insights_dismissed", JSON.stringify([...dismissed]));
+    } catch {
+      // localStorage indisponible (mode privé, quota, etc.)
+    }
+  }, [dismissed]);
 
   const insights = useMemo<Insight[]>(() => {
     const out: Insight[] = [];
