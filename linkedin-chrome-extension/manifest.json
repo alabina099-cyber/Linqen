@@ -34,7 +34,9 @@
         "http://localhost:58681/*",
         "http://127.0.0.1:58681/*",
         "http://localhost:*/*",
-        "http://127.0.0.1:*/*"
+        "http://127.0.0.1:*/*",
+        "https://linqen.xyz/*",
+        "https://*.linqen.xyz/*"
       ],
       "js": ["bridge.js"],
       "run_at": "document_start"
