@@ -1,6 +1,30 @@
-const DEFAULT_SERVER_URL = "http://localhost:3000";
+const DEFAULT_SERVER_URL = "https://linqen.xyz";
 let API_BASE_URL = DEFAULT_SERVER_URL + "/api";
 let SERVER_URL = DEFAULT_SERVER_URL;
+
+// Token JWT pour les appels API (multi-admin SaaS)
+let authToken = null;
+
+// Patch global fetch pour injecter le JWT sur les appels vers notre backend
+if (!globalThis.__popupAuthFetchPatched) {
+  globalThis.__popupAuthFetchPatched = true;
+  const originalFetch = globalThis.fetch.bind(globalThis);
+  globalThis.fetch = async (input, init = {}) => {
+    const url = typeof input === "string" ? input : input?.url || "";
+    const targetsOurApi =
+      url.startsWith(SERVER_URL) ||
+      url.startsWith(DEFAULT_SERVER_URL) ||
+      url.includes("/api/");
+    if (targetsOurApi && authToken) {
+      const headers = new Headers(init.headers || {});
+      if (!headers.has("Authorization")) {
+        headers.set("Authorization", `Bearer ${authToken}`);
+      }
+      init = { ...init, headers };
+    }
+    return originalFetch(input, init);
+  };
+}
 
 // Default notification preferences (matches Settings.tsx defaults)
 const DEFAULT_NOTIF_PREFS = {
@@ -21,20 +45,26 @@ let currentPrefs = { ...DEFAULT_NOTIF_PREFS };
 let currentLimits = { ...DEFAULT_LIMITS };
 
 // ============ BOOT ============
-chrome.storage.local.get(["serverUrl"], (result) => {
+chrome.storage.local.get(["serverUrl", "authToken"], (result) => {
   if (result.serverUrl) {
     SERVER_URL = result.serverUrl.replace(/\/$/, "");
     API_BASE_URL = SERVER_URL + "/api";
+  }
+  if (result.authToken) {
+    authToken = result.authToken;
   }
   const input = document.getElementById("serverUrlInput");
   if (input) input.value = SERVER_URL;
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  chrome.storage.local.get(["serverUrl"], (result) => {
+  chrome.storage.local.get(["serverUrl", "authToken"], (result) => {
     if (result.serverUrl) {
       SERVER_URL = result.serverUrl.replace(/\/$/, "");
       API_BASE_URL = SERVER_URL + "/api";
+    }
+    if (result.authToken) {
+      authToken = result.authToken;
     }
     refreshAll();
   });
@@ -262,7 +292,7 @@ async function refreshData() {
     });
 
     const [pendingRes, completedRes] = await Promise.all([
-      fetch(`${API_BASE_URL}/linkedin-actions?status=pending&limit=20`),
+      fetch(`${API_BASE_URL}/linkedin-actions?status=pending_approval&limit=20`),
       fetch(`${API_BASE_URL}/linkedin-actions?status=completed&limit=20`)
     ]);
 
@@ -350,10 +380,20 @@ function updateActionsList(actions) {
   const icons = {
     visit_profile: "👁",
     send_connection: "🤝",
-    send_message: "💬"
+    send_message: "💬",
+    search_and_connection: "🔍🤝",
+    search_and_message: "🔍💬",
+    search: "🔍"
   };
 
-  const allowed = ["visit_profile", "send_connection", "send_message"];
+  const allowed = [
+    "visit_profile",
+    "send_connection",
+    "send_message",
+    "search_and_connection",
+    "search_and_message",
+    "search"
+  ];
 
   list.innerHTML = actions
     .filter((action) => allowed.includes(action.action_type))

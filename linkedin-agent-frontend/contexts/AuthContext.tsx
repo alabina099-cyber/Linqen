@@ -49,6 +49,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           adminId: data.user.adminId || data.user.admin_id || null,
           linkedinConnected: data.user.linkedinConnected || data.user.linkedin_connected,
         });
+        // Propager le token JWT à l'extension Chrome (bridge) pour les actions LinkedIn
+        if (data.token) {
+          try {
+            localStorage.setItem("auth_token", data.token);
+            window.postMessage({ type: "SET_AUTH_TOKEN", token: data.token }, "*");
+          } catch {
+            // bridge extension absent : non-fatal
+          }
+        }
+        // Propager l'URL du dashboard à l'extension
+        try {
+          window.postMessage({ type: "SET_SERVER_URL", serverUrl: window.location.origin }, "*");
+        } catch {
+          // bridge extension absent : non-fatal
+        }
       } else {
         setUser(null);
       }
@@ -84,6 +99,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } catch {
             // bridge extension absent : non-fatal
           }
+        }
+        // Propager aussi l'URL du dashboard à l'extension
+        try {
+          window.postMessage({ type: "SET_SERVER_URL", serverUrl: window.location.origin }, "*");
+        } catch {
+          // bridge extension absent : non-fatal
         }
         setUser({
           id: data.user.id,

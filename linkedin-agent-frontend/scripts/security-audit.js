@@ -4,7 +4,7 @@
 // Usage: node scripts/security-audit.js
 // =============================================
 
-const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
+const BASE_URL = process.env.BASE_URL || "https://linqen.xyz";
 
 const results = { passed: 0, failed: 0, warnings: 0, tests: [] };
 

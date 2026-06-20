@@ -3,7 +3,7 @@
 // Usage: node scripts/load-test.js
 // =============================================
 
-const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
+const BASE_URL = process.env.BASE_URL || "https://linqen.xyz";
 const USERS = parseInt(process.env.USERS || "10");
 const DURATION_SEC = parseInt(process.env.DURATION || "30");
 

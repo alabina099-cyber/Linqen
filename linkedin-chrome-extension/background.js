@@ -2,7 +2,7 @@
 console.log(
   "[Extension] ██████ background.js v3.1 chargé — INBOX REPLY DETECTION ██████"
 );
-const DEFAULT_API_BASE_URL = "http://localhost:3000/api";
+const DEFAULT_API_BASE_URL = "https://linqen.xyz/api";
 let API_BASE_URL = DEFAULT_API_BASE_URL;
 
 // Charger l'URL serveur depuis le storage au démarrage
@@ -1205,6 +1205,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } else {
       chrome.storage.local.remove("authToken");
       console.log("[Auth] Token JWT supprimé");
+    }
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (message.type === "SET_SERVER_URL") {
+    const newUrl = (message.serverUrl || "").replace(/\/$/, "");
+    if (newUrl) {
+      SERVER_URL = newUrl;
+      API_BASE_URL = newUrl + "/api";
+      chrome.storage.local.set({ serverUrl: newUrl });
+      console.log("[Config] URL serveur configurée depuis le dashboard:", newUrl);
     }
     sendResponse({ success: true });
     return true;

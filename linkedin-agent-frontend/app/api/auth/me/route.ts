@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
         linkedinEmail: u.linkedin_email,
         linkedinConnected: u.linkedin_connected,
       },
+      token, // Transmis à l'extension Chrome (bridge) après login OAuth
     });
   } catch (error) {
     console.error("GET /api/auth/me error:", error);
