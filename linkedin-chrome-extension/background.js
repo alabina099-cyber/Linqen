@@ -2717,8 +2717,14 @@ async function executeSearchAndConnection(action) {
         continue;
       }
 
-      // Envoyer demande de connexion sans message
-      const sendResult = await sendConnectionRequest(profileUrl, action.id);
+      // Préparer la note personnalisée pour ce profil (remplacer {name})
+      const baseNote = payload.note_template || "";
+      const note = baseNote
+        ? baseNote.replace(/{name}/gi, profile.name || "")
+        : null;
+
+      // Envoyer demande de connexion (avec note si fournie)
+      const sendResult = await sendConnectionRequest(profileUrl, action.id, note);
 
       if (sendResult.success) {
         connectionsSent++;
@@ -2840,12 +2846,12 @@ async function executeSearchAndConnection(action) {
   }
 }
 
-// Envoyer une demande de connexion sans message
-async function sendConnectionRequest(profileUrl, actionId = null) {
+// Envoyer une demande de connexion (optionnellement avec note personnalisée)
+async function sendConnectionRequest(profileUrl, actionId = null, note = null) {
   let tab;
   try {
     tab = await openLinkedInTab(profileUrl);
-    console.log("[SEND_CONN] Profil ouvert, tab", tab.id);
+    console.log("[SEND_CONN] Profil ouvert, tab", tab.id, note ? "avec note" : "sans note");
 
     if (actionId) {
       const stopped = await checkIfActionStopped(actionId);
@@ -2858,7 +2864,8 @@ async function sendConnectionRequest(profileUrl, actionId = null) {
     // Cliquer sur le bouton "Plus" ou "Connecter"
     const result = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      func: async () => {
+      args: [note],
+      func: async (noteText) => {
         function wait(ms) {
           return new Promise((r) => setTimeout(r, ms));
         }
@@ -2946,7 +2953,37 @@ async function sendConnectionRequest(profileUrl, actionId = null) {
         await wait(2000);
 
         // Vérifier si un modal de connexion s'est ouvert
-        // Chercher le bouton "Envoyer sans note" / "Send without a note" / "Envoyer"
+        // Si une note est fournie, la remplir dans le textarea
+        if (noteText && noteText.trim()) {
+          const noteSelectors = [
+            'textarea#custom-message',
+            'textarea.connect-button-send-invite__custom-message',
+            'textarea[aria-label*="note" i]',
+            'textarea[aria-label*="message" i]',
+            'textarea[name*="message" i]',
+            'textarea[id*="message" i]',
+            'textarea[data-test-message-input]',
+            'textarea'
+          ];
+          let noteArea = null;
+          for (const sel of noteSelectors) {
+            const el = document.querySelector(sel);
+            if (el && isVisible(el)) {
+              noteArea = el;
+              break;
+            }
+          }
+
+          if (noteArea) {
+            noteArea.focus();
+            noteArea.value = noteText.trim();
+            noteArea.dispatchEvent(new Event("input", { bubbles: true }));
+            noteArea.dispatchEvent(new Event("change", { bubbles: true }));
+            await wait(500);
+          }
+        }
+
+        // Chercher le bouton "Envoyer" / "Send" / "Envoyer sans note"
         const modalBtns = document.querySelectorAll(
           "button[aria-label], button"
         );
@@ -2967,11 +3004,11 @@ async function sendConnectionRequest(profileUrl, actionId = null) {
           ) {
             el.click();
             await wait(1000);
-            return { success: true };
+            return { success: true, note_sent: !!noteText };
           }
         }
 
-        return { success: true }; // Connexion peut-être déjà envoyée directement
+        return { success: true, note_sent: !!noteText }; // Connexion peut-être déjà envoyée directement
       }
     });
 

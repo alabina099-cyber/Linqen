@@ -10,18 +10,19 @@ import { checkRateLimit, getRateLimitStatus, formatRateLimitStatus } from "./rat
 // TOOL: Rechercher des profils sur LinkedIn
 export const linkedinSearchTool = new DynamicStructuredTool({
   name: "linkedin_search",
-  description: "Rechercher des profils sur LinkedIn selon des critères et optionnellement préparer un message à envoyer aux profils trouvés. Utiliser network='F' pour chercher dans les connexions 1er degré. Quand l'utilisateur veut aussi envoyer un message, inclure message_template pour que les messages soient automatiquement créés (en pending_approval) dès que la recherche est terminée.",
+  description: "Rechercher des profils sur LinkedIn selon des critères, et optionnellement enchaîner avec l'envoi d'un message OU d'une demande de connexion aux profils trouvés. Utiliser network='F' pour chercher dans les connexions 1er degré. Si l'utilisateur veut envoyer un MESSAGE → fournir message_template. Si l'utilisateur veut envoyer une DEMANDE DE CONNEXION → fournir note_template (max 300 chars). Ne JAMAIS fournir les deux en même temps.",
   schema: z.object({
-    keywords: z.string().describe("Mots-clés de recherche (ex: 'ingénieur intelligence artificielle', 'CEO SaaS Paris')"),
+    keywords: z.string().describe("Mots-clés de recherche (ex: 'ingénieur intelligence artificielle', 'CEO SaaS Paris', ou le nom complet d'une personne si l'utilisateur cible quelqu'un de précis)"),
     role: z.string().optional().describe("Poste ciblé (ex: CEO, CTO, Directeur Commercial, Ingénieur IA)"),
     location: z.string().optional().describe("Localisation (ex: Paris, France)"),
     industry: z.string().optional().describe("Secteur (ex: Technology, Finance)"),
     company_size: z.string().optional().describe("Taille entreprise (ex: 11-50, 51-200)"),
     network: z.enum(["F", "S", "O"]).optional().describe("Filtre réseau: F=1er degré (mes connexions), S=2e degré, O=3e degré+. UTILISER 'F' pour chercher dans mon réseau."),
-    limit: z.number().default(10).describe("Nombre max de profils à récupérer"),
-    message_template: z.string().optional().describe("Message à envoyer aux profils trouvés. Peut contenir {name}, {role}, {company}. Si fourni, des actions send_message seront automatiquement créées en pending_approval dès que la recherche est terminée."),
+    limit: z.number().default(10).describe("Nombre max de profils à récupérer. Pour cibler UNE personne précise par son nom, mettre 1."),
+    message_template: z.string().optional().describe("Message à envoyer aux profils trouvés. Peut contenir {name}, {role}, {company}. Si fourni, des actions send_message seront automatiquement créées en pending_approval dès que la recherche est terminée. EXCLUSIF avec note_template."),
+    note_template: z.string().max(300).optional().describe("Note de demande de CONNEXION (max 300 caractères) à envoyer aux profils trouvés. Peut contenir {name}. Si fourni, l'action devient search_and_connection: la recherche + l'envoi des invitations se fait automatiquement après UNE approbation. EXCLUSIF avec message_template. À UTILISER OBLIGATOIREMENT quand l'utilisateur demande d'envoyer une demande de connexion à quelqu'un dont on n'a pas l'URL."),
   }),
-  func: async ({ keywords, role, location, industry, company_size, network, limit, message_template }) => {
+  func: async ({ keywords, role, location, industry, company_size, network, limit, message_template, note_template }) => {
     try {
       const searchUrl = buildLinkedInSearchUrl({ keywords, role, location, industry, company_size, network });
 
@@ -38,18 +39,38 @@ export const linkedinSearchTool = new DynamicStructuredTool({
           hourly_max: rateLimit.hourlyMax,
         });
       }
-      
-      // Si message_template est fourni → action search_and_message (tout en un)
-      // Sinon → action search classique
-      const actionType = message_template ? 'search_and_message' : 'search';
-      
+
+      // Choix du type d'action:
+      // - note_template → search_and_connection (recherche + envoi d'invitations)
+      // - message_template → search_and_message (recherche + envoi de messages)
+      // - aucun → search (recherche seule)
+      let actionType: 'search' | 'search_and_message' | 'search_and_connection' = 'search';
+      if (note_template) {
+        actionType = 'search_and_connection';
+      } else if (message_template) {
+        actionType = 'search_and_message';
+      }
+
       const actionId = await insertLinkedInAction({
         action_type: actionType,
         target_url: searchUrl,
-        payload: { keywords, role, location, industry, company_size, network, limit, save_as_prospects: true, message_template: message_template || null },
+        payload: {
+          keywords,
+          role,
+          location,
+          industry,
+          company_size,
+          network,
+          limit,
+          save_as_prospects: true,
+          message_template: message_template || null,
+          note_template: note_template || null,
+        },
       });
 
-      const actionLabel = message_template 
+      const actionLabel = note_template
+        ? `Rechercher "${keywords}" et envoyer une demande de connexion aux profils trouvés`
+        : message_template
         ? `Rechercher "${keywords}" et envoyer un message aux profils trouvés`
         : `Rechercher "${keywords}"`;
 
