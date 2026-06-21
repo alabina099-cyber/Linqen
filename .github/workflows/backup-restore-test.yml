@@ -1,3 +1,4 @@
+# fix: SSL local DB support (migrate.js patch applied)
 name: Backup Restore Test (Weekly)
 
 # Vérifie hebdomadairement que le dernier backup est restaurable
