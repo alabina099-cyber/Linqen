@@ -21,7 +21,7 @@ jobs:
         working-directory: linkedin-chrome-extension
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Validate manifest.json syntax
         run: |
@@ -95,7 +95,7 @@ jobs:
     needs: validate
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Get version from manifest
         id: version
