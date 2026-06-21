@@ -227,7 +227,7 @@ export async function loginToLinkedIn(
       console.error('[Login] Champ email introuvable (#username)');
       return false;
     }
-    await emailInput.click({ clickCount: 3 });
+    await emailInput.click({ count: 3 });
     await page.keyboard.type(email, { delay: 40 });
     await sleep(600);
 
@@ -237,7 +237,7 @@ export async function loginToLinkedIn(
       console.error('[Login] Champ mot de passe introuvable (#password)');
       return false;
     }
-    await passwordInput.click({ clickCount: 3 });
+    await passwordInput.click({ count: 3 });
     await page.keyboard.type(password, { delay: 40 });
     await sleep(600);
 
