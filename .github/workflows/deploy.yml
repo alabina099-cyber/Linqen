@@ -42,7 +42,7 @@ jobs:
         run: echo "short=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU (multi-arch)
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: linux/amd64,linux/arm64
 
@@ -103,7 +103,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up QEMU (multi-arch)
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: linux/amd64,linux/arm64
 
