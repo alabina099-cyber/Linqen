@@ -67,15 +67,15 @@ jobs:
             type=sha,prefix=sha-
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Frontend Docker image (ARM64 — Oracle Cloud target)
+      - name: Build and push Frontend Docker image (ARM64 — Hostinger VPS target)
         id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
-          # Oracle Cloud Always Free = ARM A1.Flex uniquement.
-          # On ne build que arm64 pour éviter l'émulation QEMU amd64 (très lente).
+          # Hostinger VPS runs ARM64 architecture.
+          # Building arm64 only to avoid slow QEMU amd64 emulation.
           platforms: linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -128,15 +128,15 @@ jobs:
             type=sha,prefix=sha-
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Worker image (ARM64 — Oracle Cloud target)
+      - name: Build and push Worker image (ARM64 — Hostinger VPS target)
         id: build
         uses: docker/build-push-action@v6
         with:
           context: ./linkedin-agent-worker
           file: ./linkedin-agent-worker/Dockerfile
           push: true
-          # Oracle Cloud Always Free = ARM A1.Flex uniquement.
-          # On ne build que arm64 pour éviter l'émulation QEMU amd64 (très lente avec Puppeteer + pg natifs).
+          # Hostinger VPS runs ARM64 architecture.
+          # Building arm64 only to avoid slow QEMU amd64 emulation (especially with Puppeteer + pg natives).
           platforms: linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -234,7 +234,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: linkedin-agent-frontend/package-lock.json
 

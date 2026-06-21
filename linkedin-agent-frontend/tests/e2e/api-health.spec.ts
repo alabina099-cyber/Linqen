@@ -28,7 +28,7 @@ test.describe("API & Sécurité (E2E)", () => {
   });
 
   test("le rate limiting renvoie les headers X-RateLimit", async ({ request }) => {
-    const res = await request.get("/api/health");
+    const res = await request.get("/api/auth/me");
     const headers = res.headers();
     expect(headers["x-ratelimit-limit"]).toBe("100");
   });
