@@ -71,6 +71,10 @@ async function restore(backupName) {
   });
 
   try {
+    // Temporarily disable foreign-key checks so rows can be restored in any order
+    // (self-referencing users.admin_id, queue references, etc.).
+    await pool.query("SET session_replication_role = 'replica'");
+
     for (const [table, meta] of Object.entries(manifest.tables)) {
       if (meta.error) {
         console.log(`Skipping ${table} (was not backed up)`);
@@ -128,9 +132,11 @@ async function restore(backupName) {
     console.log("✅ Restore completed successfully");
     console.log("=".repeat(70));
   } catch (e) {
+    await pool.query("SET session_replication_role = DEFAULT").catch(() => {});
     console.error("\n❌ Restore failed:", e.message);
     process.exit(1);
   } finally {
+    await pool.query("SET session_replication_role = DEFAULT").catch(() => {});
     await pool.end();
   }
 }
