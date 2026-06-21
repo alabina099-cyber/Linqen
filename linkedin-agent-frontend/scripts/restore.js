@@ -89,7 +89,19 @@ async function restore(backupName) {
       // Truncate existing data and re-insert
       await pool.query(`TRUNCATE TABLE ${table} RESTART IDENTITY CASCADE`);
 
-      const columns = Object.keys(rows[0]);
+      // Ignore backup columns removed in newer migrations
+      const allColumns = Object.keys(rows[0]);
+      const tableInfo = await pool.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = $1`,
+        [table]
+      );
+      const existingColumns = new Set(tableInfo.rows.map((r) => r.column_name));
+      const columns = allColumns.filter((c) => existingColumns.has(c));
+      const ignoredColumns = allColumns.filter((c) => !existingColumns.has(c));
+      if (ignoredColumns.length > 0) {
+        console.log(`ignored obsolete columns: ${ignoredColumns.join(", ")}`);
+      }
+
       const insertSQL = `
         INSERT INTO ${table} (${columns.join(", ")})
         VALUES (${columns.map((_, i) => `$${i + 1}`).join(", ")})
