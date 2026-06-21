@@ -68,9 +68,13 @@ async function main() {
     return;
   }
 
+  // SSL requis pour les DB cloud (Neon, etc.), désactivé pour Postgres local
+  // (test en CI sur services: postgres, ou dev local) qui ne supporte pas SSL.
+  const dbUrl = process.env.DATABASE_URL;
+  const isLocalDb = /@(localhost|127\.0\.0\.1|postgres)[:/]/.test(dbUrl);
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    connectionString: dbUrl,
+    ssl: isLocalDb ? false : { rejectUnauthorized: false }
   });
 
   // Verrou applicatif Postgres pour empêcher 2 runs concurrents
