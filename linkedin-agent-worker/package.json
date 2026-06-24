@@ -10,7 +10,7 @@
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
-    "pg": "^8.20.0",
+    "pg": "^8.22.0",
     "puppeteer": "^25.1.0",
     "dotenv": "^16.4.5"
   },
